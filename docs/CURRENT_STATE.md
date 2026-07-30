@@ -129,7 +129,6 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 ## Henüz tamamlanmayanlar
 
 - Java/Spring Boot seçiminin backend lead veya kurum standardıyla doğrulanması
-- GitHub Actions pipeline'ının gerçek hosted CI ortamındaki ilk çalışması
 - Aşama 1 kimlik ve erişim davranışları
 
 ## Mevcut teknoloji temeli
@@ -239,6 +238,9 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
 - PDF ve DOCX dosyaları mevcut halleriyle GitHub'a gönderildi; bu görevde
   yeniden üretilmedi, görsele dönüştürülmedi ve görsel kalite incelemesi
   yapılmadı.
+- GitHub Actions `Backend CI` çalışması `30543010143`, `main` dalındaki
+  `ef3ae6f` commit'i için başarıyla tamamlandı. Ubuntu ortamında repository
+  checkout, Java 21 kurulumu ve `mvnw verify` adımlarının tamamı geçti.
 
 ## Öğrenme odağı
 
@@ -267,7 +269,9 @@ Kullanıcı açıkça onaylamadan Aşama 1'e geçme.
 
 - RabbitMQ gereksinimi öğrenildi; dil, framework ve diğer kurum teknoloji
   standartları henüz bütünüyle bilinmiyor.
-- GitHub Actions dosyası yerelde hazır olsa da uzak depoda henüz çalıştırılmadı.
+- GitHub Actions başarılı çalışıyor; kullanılan `actions/checkout@v4` ve
+  `actions/setup-java@v4` sürümleri Node.js 20 deprecation uyarısı veriyor ve
+  ayrı bir bakım görevinde güncel major sürümleri değerlendirilmeli.
 - Kapsamın canlı TV, eğitim ve sosyal özelliklerle erken büyüme riski var.
 - Message broker ve Redis'in çalışan çekirdek sistemden önce eklenme riski var.
 - Gerçek TRT/tabii sistemlerine entegrasyon yetkisi veya sözleşmesi henüz yok.
