@@ -1,0 +1,324 @@
+@startuml runtime_architecture
+title 1/3 - Çalışma Zamanı ve Teknoloji Mimarisi
+
+!pragma layout smetana
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam nodesep 25
+skinparam ranksep 45
+
+actor "Kullanıcı" as EndUser
+actor "Yönetici" as Administrator
+
+rectangle "Frontend istemcileri" as Frontends {
+  component "Web / Mobil Arayüz" as UserFrontend
+  component "Yönetim Paneli" as AdminFrontend
+}
+
+node "Spring Boot Backend\nJava 21\nTek deploy edilen modüler monolith" as Backend {
+  component "REST API\nController + Request/Response DTO" as RestApi
+  component "Backend Modülleri\nidentity, content, quiz, gameplay,\ngamification, leaderboard, admin" as BackendModules
+  component "Infrastructure Adapter'ları\nJPA, PostgreSQL ve dış sistem erişimi" as InfrastructureAdapters
+  component "Flyway\nSürümlü SQL migration" as Flyway
+}
+
+database "PostgreSQL 17\nKalıcı doğru kaynak\nŞu anda mevcut" as PostgreSQL
+queue "RabbitMQ\nAsenkron mesaj broker'ı\nGelecek aşama" as RabbitMQ
+database "Redis\nLeaderboard read model / cache\nGelecek ve ölçüme bağlı aşama" as Redis
+
+EndUser --> UserFrontend
+Administrator --> AdminFrontend
+UserFrontend --> RestApi : HTTPS + REST + JSON
+AdminFrontend --> RestApi : HTTPS + REST + JSON
+RestApi --> BackendModules : Use case çağrısı
+BackendModules --> InfrastructureAdapters : Port sözleşmesi
+InfrastructureAdapters --> PostgreSQL : JPA / SQL
+Flyway --> PostgreSQL : Şemayı migration ile değiştirir
+
+BackendModules ..> RabbitMQ : QuizCompleted / XpChanged\nileride yayınlanabilir
+RabbitMQ ..> BackendModules : Consumer mesajı işler
+InfrastructureAdapters ..> Redis : İleride sıralama okur / yazar
+Redis ..> PostgreSQL : Kaybolursa buradan\nyeniden oluşturulur
+
+' Görünmez bağlantılar yalnız yerleşimi yukarıdan aşağı yönlendirir.
+Frontends -[hidden]down-> Backend
+Backend -[hidden]down-> PostgreSQL
+PostgreSQL -[hidden]down-> RabbitMQ
+RabbitMQ -[hidden]down-> Redis
+
+note bottom of PostgreSQL
+Kullanıcı, quiz, attempt, cevap ve XP gibi
+kalıcı iş verilerinin güvenilir kaynağıdır.
+end note
+
+note bottom of RabbitMQ
+Şu anda compose ortamına eklenmemiştir.
+İş kuralı uygulamaz; mesajı üretenden
+mesajı işleyecek koda taşır.
+end note
+
+note bottom of Redis
+Şu anda compose ortamına eklenmemiştir.
+İçindeki veri kalıcı iş verisi sayılmaz.
+end note
+
+legend bottom
+  Düz ok  = çekirdek / mevcut başlangıç bağlantısı
+  Kesik ok = sonraki aşamada değerlendirilecek bağlantı
+endlegend
+@enduml
+
+
+@startuml backend_code_structure
+title 2/3 - Backend Kod Yapısı, Modüller ve Katmanlar
+
+!pragma layout smetana
+top to bottom direction
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam nodesep 20
+skinparam ranksep 40
+
+component "API Giriş Yüzeyi\n\nTraceIdFilter\n↓\nController\n↓\nRequest / Response DTO\n\nHatalar → GlobalExceptionHandler" as ApiEntry
+
+component "BACKEND İŞ MODÜLLERİ\n\nidentity — kullanıcı, profil, rol ve izin\ncontent — dizi, sezon, bölüm ve yayın durumu\nquiz — quiz, sürüm, soru, seçenek ve yayınlama\ngameplay — attempt, cevap, süre ve puanlama\ngamification — XP ledger ve XP özeti\nleaderboard — global ve içerik sıralaması\nadmin — yetkili use case koordinasyonu ve audit\nshared — küçük, domain dışı teknik bileşenler" as ModuleCatalog
+
+package "Bir modülün iç katmanları\nÖrnek: gameplay" as GameplayLayers {
+  component "api\nController + request/response" as GameplayApi
+  component "application\nUse case koordinasyonu\nTransaction sınırı" as GameplayApplication
+  component "domain\nEntity, value object,\ndurum geçişi ve iş kuralları" as GameplayDomain
+  interface "ports\nRepository ve dış sistem sözleşmeleri" as GameplayPorts
+  component "infrastructure\nJPA entity, repository adapter,\nPostgreSQL/framework ayrıntıları" as GameplayInfrastructure
+
+  GameplayApi -down-> GameplayApplication : Use case çağırır
+  GameplayApplication -down-> GameplayDomain : İş kuralını çalıştırır
+  GameplayApplication -down-> GameplayPorts : Dış dünya ihtiyacını ister
+  GameplayInfrastructure -up-|> GameplayPorts : Portu gerçekleştirir
+}
+
+component "MODÜLLER ARASI İLETİŞİM ÖRNEKLERİ\n\ngameplay → quiz: yayımlanmış quiz bilgisini ister\ngameplay → identity: kullanıcıyı ve sahipliği doğrular\nquiz → content: bölüm bilgisini ister\nadmin → identity/content/quiz: yetkili use case çağırır\ngameplay ⇢ gamification: QuizCompleted olayı\ngamification ⇢ leaderboard: XP değişikliği" as ModuleCommunication
+
+note as BoundaryRule
+Bir modül başka modülün repository sınıfına veya tablosuna doğrudan erişmez.
+İş yaptırmak için yayınlanmış application API kullanılır.
+Gerçekleşmiş bir olayı duyurmak için ilgili aşamada event kullanılabilir.
+Her modül bütün katman klasörlerini ilk günden açmak zorunda değildir.
+end note
+
+ApiEntry -down-> ModuleCatalog : REST isteği uygun modüle gider
+ModuleCatalog -down-> GameplayApi : Seçilen modülde katman akışı başlar
+GameplayLayers -down-> ModuleCommunication
+ModuleCommunication -down-> BoundaryRule
+@enduml
+
+
+@startuml planned_database_model
+title 3/3 - Planlanan PostgreSQL Veri Modeli
+
+!pragma layout smetana
+top to bottom direction
+hide methods
+hide stereotypes
+skinparam shadowing false
+skinparam linetype ortho
+skinparam defaultFontName Arial
+skinparam nodesep 20
+skinparam ranksep 45
+
+note as PlanningWarning
+Bu şema hedef taslak modeldir; şu anda yalnız Flyway V1 baseline vardır.
+Tablolar ilgili roadmap aşamasında iş kuralı, constraint ve testlerle kesinleşir.
+end note
+
+package "identity şeması" as IdentitySchema {
+  entity "users" as Users {
+    * id : UUID <<PK>>
+    --
+    username : VARCHAR <<UNIQUE>>
+    email : VARCHAR <<UNIQUE>>
+    password_hash : VARCHAR
+    status : VARCHAR
+    created_at : TIMESTAMPTZ
+  }
+
+  entity "roles" as Roles {
+    * id : UUID <<PK>>
+    --
+    name : VARCHAR <<UNIQUE>>
+  }
+
+  entity "user_roles" as UserRoles {
+    * user_id : UUID <<PK, FK>>
+    * role_id : UUID <<PK, FK>>
+  }
+}
+
+package "content şeması" as ContentSchema {
+  entity "series" as Series {
+    * id : UUID <<PK>>
+    --
+    title : VARCHAR
+    description : TEXT
+    publication_status : VARCHAR
+  }
+
+  entity "seasons" as Seasons {
+    * id : UUID <<PK>>
+    --
+    series_id : UUID <<FK>>
+    season_number : INTEGER
+  }
+
+  entity "episodes" as Episodes {
+    * id : UUID <<PK>>
+    --
+    season_id : UUID <<FK>>
+    title : VARCHAR
+    episode_number : INTEGER
+    publication_status : VARCHAR
+  }
+}
+
+package "quiz şeması" as QuizSchema {
+  entity "quizzes" as Quizzes {
+    * id : UUID <<PK>>
+    --
+    episode_id : UUID
+    title : VARCHAR
+    publication_status : VARCHAR
+  }
+
+  entity "quiz_versions" as QuizVersions {
+    * id : UUID <<PK>>
+    --
+    quiz_id : UUID <<FK>>
+    version_number : INTEGER
+    time_limit_seconds : INTEGER
+    published_at : TIMESTAMPTZ
+  }
+
+  entity "questions" as Questions {
+    * id : UUID <<PK>>
+    --
+    quiz_version_id : UUID <<FK>>
+    question_text : TEXT
+    order_number : INTEGER
+    score_value : INTEGER
+  }
+
+  entity "answer_options" as AnswerOptions {
+    * id : UUID <<PK>>
+    --
+    question_id : UUID <<FK>>
+    option_text : TEXT
+    is_correct : BOOLEAN
+    order_number : INTEGER
+  }
+}
+
+package "gameplay şeması" as GameplaySchema {
+  entity "attempts" as Attempts {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID
+    quiz_version_id : UUID
+    status : VARCHAR
+    started_at : TIMESTAMPTZ
+    deadline_at : TIMESTAMPTZ
+    completed_at : TIMESTAMPTZ
+    total_score : INTEGER
+  }
+
+  entity "attempt_answers" as AttemptAnswers {
+    * id : UUID <<PK>>
+    --
+    attempt_id : UUID <<FK>>
+    question_id : UUID
+    selected_option_id : UUID
+    is_correct : BOOLEAN
+    earned_score : INTEGER
+    answered_at : TIMESTAMPTZ
+  }
+}
+
+package "gamification şeması" as GamificationSchema {
+  entity "xp_transactions" as XpTransactions {
+    * id : UUID <<PK>>
+    --
+    user_id : UUID
+    source_type : VARCHAR
+    source_id : UUID
+    xp_amount : INTEGER
+    created_at : TIMESTAMPTZ
+  }
+
+  entity "user_xp_summaries" as UserXpSummaries {
+    * user_id : UUID <<PK>>
+    --
+    total_xp : BIGINT
+    updated_at : TIMESTAMPTZ
+  }
+}
+
+package "admin şeması" as AdminSchema {
+  entity "audit_logs" as AuditLogs {
+    * id : UUID <<PK>>
+    --
+    actor_user_id : UUID
+    action : VARCHAR
+    target_type : VARCHAR
+    target_id : UUID
+    trace_id : VARCHAR
+    created_at : TIMESTAMPTZ
+  }
+}
+
+entity "flyway_schema_history\nFlyway tarafından yönetilir" as FlywaySchemaHistory {
+  * installed_rank : INTEGER
+  --
+  version : VARCHAR
+  description : VARCHAR
+  script : VARCHAR
+  success : BOOLEAN
+}
+
+Users ||--o{ UserRoles
+Roles ||--o{ UserRoles
+Series ||--o{ Seasons
+Seasons ||--o{ Episodes
+Quizzes ||--o{ QuizVersions
+QuizVersions ||--o{ Questions
+Questions ||--o{ AnswerOptions
+Attempts ||--o{ AttemptAnswers
+
+Users ..> Attempts : kimlik referansı
+Episodes ..> Quizzes : içerik referansı
+QuizVersions ..> Attempts : kullanılan sabit sürüm
+Users ..> XpTransactions : XP sahibi
+Users ..> UserXpSummaries : XP özeti
+Users ..> AuditLogs : işlemi yapan
+
+PlanningWarning .. Users
+
+' Şema gruplarını sağa doğru değil, aşağı doğru büyütür.
+IdentitySchema -[hidden]down-> ContentSchema
+ContentSchema -[hidden]down-> QuizSchema
+QuizSchema -[hidden]down-> GameplaySchema
+GameplaySchema -[hidden]down-> GamificationSchema
+GamificationSchema -[hidden]down-> AdminSchema
+AdminSchema -[hidden]down-> FlywaySchemaHistory
+
+legend bottom
+  |= İşaret |= Anlam |
+  | PK | Primary Key - satırın benzersiz kimliği |
+  | FK | Foreign Key - başka tabloya referans |
+  | UNIQUE | Aynı değerin tekrarını engelleyen constraint |
+  | Düz ilişki | Aynı modül içindeki fiziksel tablo ilişkisi |
+  | Kesik ilişki | Modüller arası mantıksal kimlik referansı |
+endlegend
+@enduml
