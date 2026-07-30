@@ -113,11 +113,22 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 - Üç diyagram da geniş yatay akış yerine yukarıdan aşağı okunacak biçimde
   düzenlendi; backend diyagramındaki çapraz modül okları, bilgi kaybetmeden dikey
   modül kataloğu ve iletişim örnekleri olarak sadeleştirildi.
+- Stajdan sorumlu mühendis RabbitMQ kullanımını proje gereksinimi olarak
+  bildirdi. RabbitMQ'nun Aşama 6'da uygulanacağı ve çekirdek iş davranışından
+  önce eklenmeyeceği `ADR-0004-rabbitmq-kurum-gereksinimi.md` ile kaydedildi.
+- `docs/README.md`, temel Markdown belgeleri ile PlantUML/SVG diyagramlarının
+  GitHub üzerindeki giriş dizini olarak oluşturuldu.
+- GitHub CLI 2.94.0 kullanıcı hesabına kuruldu ve `Gardantua` hesabıyla giriş
+  doğrulandı.
+- Yerel Git deposu
+  `https://github.com/Gardantua/trt_staj_content_management_app` adresine
+  `origin` olarak bağlandı.
+- Kaynak kodu, proje belgeleri ve `docs/diagrams/rendered/` altındaki üç SVG
+  diyagram ilk commit ile public GitHub reposunun `main` dalına gönderildi.
 
 ## Henüz tamamlanmayanlar
 
 - Java/Spring Boot seçiminin backend lead veya kurum standardıyla doğrulanması
-- Git deposunun bir uzak GitHub/GitLab deposuna bağlanması
 - GitHub Actions pipeline'ının gerçek hosted CI ortamındaki ilk çalışması
 - Aşama 1 kimlik ve erişim davranışları
 
@@ -219,6 +230,15 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
   gerçekleştirildi; ayrıca bir görsel kalite incelemesi yapılmadı.
 - Son yerleşim ölçümleri sırasıyla `854x1036`, `831x1034` ve `1407x2078`
   pikseldir; üç SVG'nin de yüksekliği genişliğinden fazladır.
+- GitHub'a gönderim öncesi `.\mvnw.cmd --batch-mode verify` Java 21 ve Docker
+  Desktop üzerinde yeniden çalıştırıldı: 3 test geçti, 0 failure, 0 error ve
+  0 skipped.
+- `docs/README.md` içindeki yerel doküman ve diyagram bağlantılarının hedefleri
+  kontrol edildi; çalışma alanında bulunmayan `docs/bwl.md` yeniden
+  oluşturulmadı ve bozuk bağlantı dizine eklenmedi.
+- PDF ve DOCX dosyaları mevcut halleriyle GitHub'a gönderildi; bu görevde
+  yeniden üretilmedi, görsele dönüştürülmedi ve görsel kalite incelemesi
+  yapılmadı.
 
 ## Öğrenme odağı
 
@@ -245,7 +265,8 @@ Kullanıcı açıkça onaylamadan Aşama 1'e geçme.
 
 ## Bilinen riskler
 
-- Kurumun mevcut teknoloji standardı henüz bilinmiyor.
+- RabbitMQ gereksinimi öğrenildi; dil, framework ve diğer kurum teknoloji
+  standartları henüz bütünüyle bilinmiyor.
 - GitHub Actions dosyası yerelde hazır olsa da uzak depoda henüz çalıştırılmadı.
 - Kapsamın canlı TV, eğitim ve sosyal özelliklerle erken büyüme riski var.
 - Message broker ve Redis'in çalışan çekirdek sistemden önce eklenme riski var.
