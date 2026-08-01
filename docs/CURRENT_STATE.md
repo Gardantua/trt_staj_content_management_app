@@ -1,14 +1,15 @@
 # Güncel Proje Durumu
 
-Son güncelleme: 30.07.2026
+Son güncelleme: 31.07.2026
 
 ## Genel durum
 
 Projenin ürün fikri, önerilen mimarisi ve aşamalı geliştirme planı hazırdır.
-Aşama 0 yerel ortamda tamamlandı: minimal Spring Boot uygulaması, PostgreSQL,
-Flyway, health endpoint, temel hata zarfı, Testcontainers smoke testi ve
-başlangıç CI dosyası çalışır durumdadır. Henüz identity, content, quiz veya
-gameplay iş davranışı yazılmadı.
+Aşama 0 ve Aşama 1 yerel ortamda tamamlandı. Spring Security tabanlı stateless
+erişim sınırı, `USER`/`EDITOR`/`ADMIN` rolleri, framework'ten bağımsız
+`CurrentActorProvider` portu ve yalnız local/test profillerinde çalışan geçici
+kimlik adapter'ı hazırdır. Henüz kalıcı kullanıcı tablosu, production kimlik
+sağlayıcısı, content, quiz veya gameplay iş davranışı yazılmadı.
 
 Hedef klasörde bulunan uzun mimari rapor teknik referans olarak korunmaktadır.
 Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
@@ -125,11 +126,36 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
   `origin` olarak bağlandı.
 - Kaynak kodu, proje belgeleri ve `docs/diagrams/rendered/` altındaki üç SVG
   diyagram ilk commit ile public GitHub reposunun `main` dalına gönderildi.
+- Spring Security bağımlılığı ve stateless API güvenlik zinciri eklendi.
+- Health ve info endpoint'leri açık bırakılırken `/api/**` yolları kimlik
+  doğrulaması gerektirecek biçimde kapatıldı.
+- Identity domain dilinde `USER`, `EDITOR` ve `ADMIN` rolleri modellendi.
+- `CurrentActor`, `CurrentActorProvider` ve `GetCurrentActorUseCase` ile
+  application katmanının HTTP header'larından ve Spring Security ayrıntısından
+  bağımsız aktör sözleşmesi oluşturuldu.
+- Yalnız `local` ve `test` profillerinde çalışan geçici test-header
+  authentication adapter'ı eklendi; varsayılan profil fail-closed kaldı.
+- Kimlik ve yetki hataları `AUTHENTICATION_REQUIRED`,
+  `AUTHENTICATION_INVALID` ve `ACCESS_DENIED` kodlarıyla mevcut trace ID'li hata
+  zarfına bağlandı.
+- `GET /api/v1/identity/me` endpoint'i doğrulanmış aktör kimliğini ve rollerini
+  göstermek için eklendi.
+- Yerel parola deposu oluşturulmadı ve Spring'in rastgele geliştirme parolasını
+  loglaması engellendi.
+- Windows Maven Wrapper'ın normal `.m2` klasöründe null junction hedefi nedeniyle
+  çökmesine yol açan kontrol düzeltildi.
+- Aşama 1'in geçici kimlik sınırı `ADR-0005-asama-1-gecici-kimlik.md` ile
+  kaydedildi.
+- Redis'in Aşama 8'de zorunlu öğrenme bileşeni olması
+  `ADR-0006-redis-ogrenme-gereksinimi.md` ile kaydedildi; RabbitMQ'nun Aşama
+  6'daki zorunluluğu ADR-0004 ile korunuyor.
 
 ## Henüz tamamlanmayanlar
 
 - Java/Spring Boot seçiminin backend lead veya kurum standardıyla doğrulanması
-- Aşama 1 kimlik ve erişim davranışları
+- Kurumun production kimlik sağlayıcısının ve OIDC/JWT claim sözleşmesinin
+  öğrenilmesi
+- Aşama 2 içerik kataloğu
 
 ## Mevcut teknoloji temeli
 
@@ -139,6 +165,7 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 - Flyway
 - Docker Compose
 - Testcontainers
+- Spring Security
 
 Bu seçimler `ADR-0003` ile gerekçelendirilmiştir; kurum standardı farklıysa
 yeniden değerlendirilir.
@@ -163,7 +190,8 @@ yeniden değerlendirilir.
   kullanılacak.
 - Windows PostgreSQL: PostgreSQL, Docker Compose ile container olarak
   çalıştırılacak.
-- RabbitMQ ve Redis: Çekirdek quiz aşamalarına gelmeden kurulmayacak.
+- RabbitMQ ve Redis: Kullanımları zorunludur; sırasıyla Aşama 6 ve Aşama 8'e
+  gelmeden çalışma ortamına eklenmeyecek.
 
 ### Terminal notu
 
@@ -241,33 +269,63 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
 - GitHub Actions `Backend CI` çalışması `30543010143`, `main` dalındaki
   `ef3ae6f` commit'i için başarıyla tamamlandı. Ubuntu ortamında repository
   checkout, Java 21 kurulumu ve `mvnw verify` adımlarının tamamı geçti.
+- Aşama 1 için `.\mvnw.cmd --batch-mode clean test` Java 21 ve çalışan Docker
+  Engine ile başarıyla tamamlandı: 8 test geçti, 0 failure, 0 error, 0 skipped.
+- Son teslim doğrulamasında `.\mvnw.cmd --batch-mode verify` başarıyla
+  tamamlandı; aynı 8 test yeniden geçti ve çalıştırılabilir Spring Boot JAR'ı
+  üretildi.
+- Testcontainers gerçek PostgreSQL 17.5 container'ını başlattı ve Flyway
+  baseline migration'ı temiz veritabanına uygulandı.
+- Aşama 0 health, migration ve trace ID/hata zarfı testlerinin güvenlik
+  değişikliğinden sonra da geçtiği doğrulandı.
+- Kimliksiz korunan isteğin `401 AUTHENTICATION_REQUIRED` döndürdüğü test edildi.
+- `USER`, `EDITOR` ve `ADMIN` test kimliklerinin farklı aktör ve rol olarak
+  çözüldüğü test edildi.
+- Geçersiz test kimliğinin `401 AUTHENTICATION_INVALID` döndürdüğü; hassas header
+  değerinin response veya güvenlik loguna taşınmadığı doğrulandı.
+- `USER` aktörünün editor korumalı use case'e erişiminin
+  `403 ACCESS_DENIED` ile reddedildiği doğrulandı.
+- Request body içinde gönderilen farklı aktör kimliğinin yok sayıldığı ve
+  application use case'inin yalnız doğrulanmış security actor'ünü kullandığı
+  doğrulandı.
+- Spring Boot 4.1'in Jackson 3 `tools.jackson` paketini kullandığı bağımlılık
+  ağacıyla doğrulandı; eski Jackson 2 bağımlılığı eklenmedi.
+- İlk artımlı derleme çıktısındaki eksik-tip bytecode kalıntısı `clean` build ile
+  giderildi; temiz build başarıyla sonuçlandı.
 
 ## Öğrenme odağı
 
-Aşama 0; Maven build lifecycle, dependency injection başlangıcı, environment
-tabanlı configuration, Flyway migration, health endpoint, trace ID ve gerçek
-PostgreSQL ile integration test kavramlarını gösterir. Kullanıcı Aşama 1'den
-önce bu akışı çalıştırıp temel dosyaların görevini açıklayabilmelidir.
+Aşama 1; authentication'ın aktörün kim olduğunu kanıtladığını,
+authorization'ın o aktörün ne yapabileceğine karar verdiğini, RBAC'in rol
+tabanlı bir authorization yöntemi olduğunu ve kaynak sahipliğinin aynı role
+sahip iki kullanıcıyı ayıran nesne-seviyesi kontrol olduğunu gösterir.
+
+Kullanıcıyla doğrulanması gereken nokta: geçici header adapter'ı yalnız öğrenme
+ve yerel geliştirme içindir; header'ı gönderebilmek production kimliği
+kanıtlamaz. Production'da güvenilir kimlik, kurumun imzaladığı token veya
+eşdeğer sağlayıcı kanıtından üretilmelidir.
 
 ## Sıradaki tek iş
 
-Yeni terminalde README'deki Aşama 0 komutları kullanıcı tarafından tekrar
-çalıştırılmalı ve temel dosyaların görevi birlikte gözden geçirilmelidir.
+Aşama 1 kod akışı ve test eşlemeleri kullanıcıyla gözden geçirilmelidir.
+Kullanıcı authentication/authorization/RBAC/sahiplik ayrımını ve local/test
+profil sınırını doğruladıktan sonra açık onayla Aşama 2 içerik kataloğuna
+geçilebilir.
 
-Bu öğrenme kontrolü ve kullanıcı onayı olmadan Aşama 1'e geçilmemelidir.
+Kullanıcı istemeden Aşama 2 uygulanmamalıdır.
 
 ## Yeni Codex görevi için kısa komut
 
 ```text
 Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku.
-Aşama 0 iskeletini ve testlerini kullanıcıya öğretici biçimde açıkla.
-Kullanıcının README'deki komutları tekrar çalıştırmasına yardım et.
-Kullanıcı açıkça onaylamadan Aşama 1'e geçme.
+Aşama 1 identity/security akışını ve sekiz integration testinin koruduğu
+riskleri kullanıcıya öğretici biçimde açıkla.
+Kullanıcı açıkça onaylamadan Aşama 2'ye geçme.
 ```
 
 ## Bilinen riskler
 
-- RabbitMQ gereksinimi öğrenildi; dil, framework ve diğer kurum teknoloji
+- RabbitMQ ve Redis kullanımı zorunlu; dil, framework ve diğer kurum teknoloji
   standartları henüz bütünüyle bilinmiyor.
 - GitHub Actions başarılı çalışıyor; kullanılan `actions/checkout@v4` ve
   `actions/setup-java@v4` sürümleri Node.js 20 deprecation uyarısı veriyor ve
@@ -275,7 +333,13 @@ Kullanıcı açıkça onaylamadan Aşama 1'e geçme.
 - Kapsamın canlı TV, eğitim ve sosyal özelliklerle erken büyüme riski var.
 - Message broker ve Redis'in çalışan çekirdek sistemden önce eklenme riski var.
 - Gerçek TRT/tabii sistemlerine entegrasyon yetkisi veya sözleşmesi henüz yok.
-- Authentication yöntemi ve kurum kimlik sağlayıcısı henüz belli değil.
+- Production authentication yöntemi, kurum kimlik sağlayıcısı, issuer/audience
+  ve rol claim eşlemesi henüz belli değil. Geçici header adapter'ı production'da
+  etkin değildir.
+- Mockito/Byte Buddy, Java 21 test koşusunda gelecekte varsayılan olarak
+  engellenecek dinamik agent yükleme uyarısı veriyor; testler bugün geçiyor,
+  ayrı bir test-tooling bakım görevinde explicit agent yapılandırması
+  değerlendirilmeli.
 - Attempt süre/expire, tekrar çözme, puanlama sürümü ve leaderboard tie-break
   ürün kararları ilgili aşamalarda kesinleştirilmelidir.
 - Gerçek trafik hedefi bilinmediği için kapasite değerleri henüz varsayım olarak

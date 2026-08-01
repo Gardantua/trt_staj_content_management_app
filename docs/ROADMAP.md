@@ -18,7 +18,7 @@ yine çekirdek gameplay ve PostgreSQL XP davranışı kanıtlandıktan sonra ekl
 
 ## Aşama 0 - Proje temeli
 
-Durum: Yerel ortamda tamamlandı; hosted CI ilk GitHub push'ını bekliyor
+Durum: Tamamlandı; yerel doğrulama ve hosted CI başarılı
 
 ### İşler
 
@@ -57,7 +57,7 @@ migration ve gerçek veritabanıyla integration test farkını açıklayabilir.
 
 ## Aşama 1 - Kimlik ve erişim temeli
 
-Durum: Bekliyor
+Durum: Tamamlandı; geçici kimlik yalnız local/test profillerinde
 
 Bu aşama content ve gameplay kaynaklarının gerçek bir kullanıcıya ait
 olabilmesi için öne alınmıştır. Kurum kimlik sağlayıcısı bilinmiyorsa geçici test
@@ -324,11 +324,12 @@ sıralamayı, index ve query plan temelini açıklayabilir.
 
 ## Aşama 8 - Redis leaderboard read model
 
-Durum: Bekliyor ve ölçüme bağlı
+Durum: Bekliyor; öğrenme hedefi nedeniyle uygulanması zorunlu
 
-PostgreSQL ölçümü kabul kriterini karşılıyorsa Redis teknik olarak zorunlu
-değildir. Öğrenme hedefi veya ölçülmüş gecikme/okuma yükü varsa bu aşama
-uygulanır ve gerekçe ADR'a yazılır.
+PostgreSQL ölçümü kabul kriterini karşılasa bile Redis bu projede öğrenme hedefi
+nedeniyle uygulanır. Redis kalıcı doğru kaynak olmaz; PostgreSQL sonucundan
+yeniden kurulabilen leaderboard read model olarak eklenir. Önce/sonra ölçümü,
+Redis'in sağladığı değeri ve eklediği tutarlılık maliyetini görünür kılar.
 
 ### İşler
 

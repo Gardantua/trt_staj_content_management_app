@@ -30,3 +30,5 @@ Mevcut kayıtlar:
 - [ADR-0002: İş davranışını altyapıdan önce kanıtlama](ADR-0002-davranis-once-altyapi-sonra.md)
 - [ADR-0003: Aşama 0 teknoloji temeli](ADR-0003-asama-0-teknoloji-temeli.md)
 - [ADR-0004: RabbitMQ'nun hedef mimaride kullanılması](ADR-0004-rabbitmq-kurum-gereksinimi.md)
+- [ADR-0005: Aşama 1 geçici kimlik yaklaşımı](ADR-0005-asama-1-gecici-kimlik.md)
+- [ADR-0006: Redis'in öğrenme gereksinimi olarak kullanılması](ADR-0006-redis-ogrenme-gereksinimi.md)

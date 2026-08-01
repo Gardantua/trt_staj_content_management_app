@@ -66,15 +66,15 @@ Teknoloji seçimi kurum standardı öğrenilene kadar tavsiye niteliğindedir:
 
 RabbitMQ, stajdan sorumlu mühendisin bildirdiği kurum/proje gereksinimi olarak
 kullanılacaktır. Ancak çekirdek quiz sistemi PostgreSQL üzerinde güvenilir
-biçimde tamamlanmadan eklenmeyecektir. Redis ise ölçülmüş ihtiyaç oluştuğunda
-değerlendirilecektir:
+biçimde tamamlanmadan eklenmeyecektir. Redis de öğrenme hedefi nedeniyle
+leaderboard aşamasında kullanılacaktır:
 
 - XP önce PostgreSQL üzerinde idempotent bir işlem defteri olarak doğru
   çalıştırılır. RabbitMQ daha sonra Outbox ile quiz tamamlama yan etkilerini
   asenkronlaştırmak için eklenir.
 - Leaderboard kuralları ve doğru sonuç önce PostgreSQL üzerinde kanıtlanır.
-  Redis ancak ölçülmüş okuma/gecikme ihtiyacı varsa yeniden oluşturulabilir bir
-  read model olarak eklenir.
+  Redis daha sonra PostgreSQL'den yeniden oluşturulabilir bir read model olarak
+  eklenir ve iki yaklaşımın sonucu ile performansı karşılaştırılır.
 
 ## Sadeleştirilmiş çekirdek akış
 
@@ -209,8 +209,37 @@ Yerel varsayılanlar `application.yml` içindedir. Gerçek ortamlarda bağlantı
 bilgileri `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` environment
 değişkenleriyle dışarıdan verilmelidir.
 
+### Geçici yerel kimlikle çalıştırma
+
+Kurum kimlik sağlayıcısı henüz belli olmadığı için Aşama 1, yalnız `local` ve
+`test` profillerinde etkin olan geçici header kimliği içerir. Bu mekanizma
+production authentication değildir. Varsayılan profilde test header'ları
+kimlik oluşturmaz ve korunan API yolları güvenli biçimde `401` döner.
+
+Yerel profili aç:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+Başka bir PowerShell terminalinde doğrulanmış aktör bağlamını oku:
+
+```powershell
+$headers = @{
+    "X-Test-Actor-Id" = "11111111-1111-1111-1111-111111111111"
+    "X-Test-Actor-Roles" = "USER"
+}
+Invoke-RestMethod -Uri "http://localhost:8081/api/v1/identity/me" -Headers $headers
+```
+
+Desteklenen geçici roller `USER`, `EDITOR` ve `ADMIN` değerleridir. Header
+değerleri loglanmaz. Gerçek kimlik sağlayıcısı belirlendiğinde bu adapter
+OIDC/JWT adapter'ıyla değiştirilecek; application use case'leri
+`CurrentActorProvider` sözleşmesini kullanmaya devam edecektir.
+
 ## Sıradaki çalışma
 
-Aşama 0 yerel ortamda tamamlandı. Kullanıcı çalıştırma ve test akışını tekrar
-edip temel parçaları anladıktan sonra, ayrı kullanıcı onayıyla Aşama 1 olan
-kimlik ve erişim temeline geçilebilir.
+Aşama 1 yerel ortamda tamamlandı. Kullanıcı authentication, authorization,
+RBAC ve kaynak sahipliği ayrımını; test kimliğinin neden production çözümü
+olmadığını gözden geçirdikten sonra ayrı onayla Aşama 2 içerik kataloğuna
+geçilebilir.

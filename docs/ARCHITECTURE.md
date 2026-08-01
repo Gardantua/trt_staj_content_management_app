@@ -131,16 +131,18 @@ için kalıcı doğru kaynaktır.
 
 ### Redis
 
-Leaderboard kuralları ve PostgreSQL tabanlı doğru sonuç kanıtlandıktan sonra:
+Redis, öğrenme hedefi nedeniyle Aşama 8'de kullanılacaktır. Ancak leaderboard
+kuralları ve PostgreSQL tabanlı doğru sonuç önce kanıtlanacaktır. Redis'in ilk
+uygulaması:
 
 - Leaderboard sorted set
-- Sık okunan yayınlanmış quiz cache'i
-- Rate limiting
+- PostgreSQL'den yeniden oluşturulabilir leaderboard read model
+- PostgreSQL ve Redis sonucunu karşılaştıran tutarlılık kontrolü
 
-için adaydır. İlk gerçek kullanım, ölçüm gerektiriyorsa leaderboard read model
-olacaktır. Cache ve rate limiting ancak ölçülmüş okuma yükü veya abuse ihtiyacı
-varsa eklenir. Redis kaybı kalıcı iş verisi kaybına neden olmamalı; leaderboard
-PostgreSQL'den yeniden kurulabilmelidir.
+ile sınırlıdır. Sık okunan quiz cache'i ve rate limiting, Redis öğrenme
+kapsamını büyütmek için otomatik olarak eklenmez; bunlar ayrıca ölçülmüş okuma
+yükü veya abuse ihtiyacı gerektirir. Redis kaybı kalıcı iş verisi kaybına neden
+olmamalı; leaderboard PostgreSQL'den yeniden kurulabilmelidir.
 
 ### RabbitMQ
 

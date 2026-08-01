@@ -4,6 +4,10 @@
 
 Accepted
 
+Redis'in opsiyonel olup olmadığına ilişkin bölüm
+`ADR-0006-redis-ogrenme-gereksinimi.md` ile değiştirilmiştir. Davranışı önce
+PostgreSQL üzerinde kanıtlama ve Redis'i daha sonra ekleme sırası geçerlidir.
+
 ## Bağlam
 
 MVP; attempt tamamlama, XP üretme ve leaderboard gösterme davranışlarını
