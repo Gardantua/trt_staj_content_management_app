@@ -32,3 +32,4 @@ Mevcut kayıtlar:
 - [ADR-0004: RabbitMQ'nun hedef mimaride kullanılması](ADR-0004-rabbitmq-kurum-gereksinimi.md)
 - [ADR-0005: Aşama 1 geçici kimlik yaklaşımı](ADR-0005-asama-1-gecici-kimlik.md)
 - [ADR-0006: Redis'in öğrenme gereksinimi olarak kullanılması](ADR-0006-redis-ogrenme-gereksinimi.md)
+- [ADR-0007: Aşama 2 content aggregate ve yayınlama sınırı](ADR-0007-asama-2-content-aggregate.md)

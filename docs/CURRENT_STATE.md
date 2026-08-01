@@ -1,15 +1,15 @@
 # Güncel Proje Durumu
 
-Son güncelleme: 31.07.2026
+Son güncelleme: 01.08.2026
 
 ## Genel durum
 
-Projenin ürün fikri, önerilen mimarisi ve aşamalı geliştirme planı hazırdır.
-Aşama 0 ve Aşama 1 yerel ortamda tamamlandı. Spring Security tabanlı stateless
-erişim sınırı, `USER`/`EDITOR`/`ADMIN` rolleri, framework'ten bağımsız
-`CurrentActorProvider` portu ve yalnız local/test profillerinde çalışan geçici
-kimlik adapter'ı hazırdır. Henüz kalıcı kullanıcı tablosu, production kimlik
-sağlayıcısı, content, quiz veya gameplay iş davranışı yazılmadı.
+Projenin Aşama 0 proje temeli, Aşama 1 kimlik/erişim sınırı ve Aşama 2 içerik
+kataloğu tamamlandı. `Content` aggregate'i; sezon/bölüm hiyerarşisi, Flyway V2
+migration'ı, PostgreSQL constraint'leri, EDITOR/ADMIN CRUD ve publish API'leri,
+yayın filtresi, standart pagination, kalıcı admin audit ve ArchUnit modül
+kuralları hazırdır. Henüz kalıcı kullanıcı tablosu, production kimlik
+sağlayıcısı, quiz veya gameplay iş davranışı yazılmadı.
 
 Hedef klasörde bulunan uzun mimari rapor teknik referans olarak korunmaktadır.
 Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
@@ -149,13 +149,28 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 - Redis'in Aşama 8'de zorunlu öğrenme bileşeni olması
   `ADR-0006-redis-ogrenme-gereksinimi.md` ile kaydedildi; RabbitMQ'nun Aşama
   6'daki zorunluluğu ADR-0004 ile korunuyor.
+- Aşama 2 `Content`, `Season` ve `Episode` saf domain modeli ile tamamlandı.
+- İçerik hiyerarşisi `Content` aggregate root'u üzerinden değiştiriliyor.
+- Flyway `V2__content_catalog.sql`; içerik, sezon, bölüm ve admin audit tabloları
+  ile unique, foreign key, check constraint ve listeleme index'lerini ekledi.
+- EDITOR/ADMIN için içerik, sezon ve bölüm CRUD API'leri ile publish use case'i
+  eklendi; normal USER yönetim yollarında `403 ACCESS_DENIED` alır.
+- Normal kullanıcı API'si yalnız `PUBLISHED` içeriği, `page`/`size` pagination ve
+  en fazla 100 kayıt sınırıyla döndürür.
+- İçerik değişikliği ve admin audit kaydı aynı transaction'da yazılır; audit
+  aktörü request body'den değil doğrulanmış `CurrentActorProvider` bağlamından
+  alınır.
+- Domain'in Spring/JPA'dan ve content modülünün identity infrastructure'dan
+  bağımsızlığı iki ArchUnit testiyle korunur.
+- Aggregate, yayınlama, audit ve pagination kararları
+  `ADR-0007-asama-2-content-aggregate.md` ile kaydedildi.
 
 ## Henüz tamamlanmayanlar
 
 - Java/Spring Boot seçiminin backend lead veya kurum standardıyla doğrulanması
 - Kurumun production kimlik sağlayıcısının ve OIDC/JWT claim sözleşmesinin
   öğrenilmesi
-- Aşama 2 içerik kataloğu
+- Aşama 3 quiz authoring ve sürümleme
 
 ## Mevcut teknoloji temeli
 
@@ -292,35 +307,55 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
   ağacıyla doğrulandı; eski Jackson 2 bağımlılığı eklenmedi.
 - İlk artımlı derleme çıktısındaki eksik-tip bytecode kalıntısı `clean` build ile
   giderildi; temiz build başarıyla sonuçlandı.
+- Docker Desktop 4.84.0 ve Engine 29.6.2 yeniden başlatıldı; Compose PostgreSQL
+  `5433 -> 5432` eşlemesiyle healthy duruma geldi.
+- Aşama 1 teslim noktası `clean verify` ile yeniden doğrulandı: 8 test geçti,
+  0 failure, 0 error, 0 skipped ve çalıştırılabilir JAR üretildi.
+- Aşama 2 test çalışmasında toplam 21 test geçti: 8 temel/identity integration,
+  6 content PostgreSQL/API integration, 5 saf domain unit ve 2 ArchUnit testi.
+- Flyway V1 ve V2 migration'ları iki ayrı geçici PostgreSQL 17.5 container'ında
+  temiz şemaya uygulandı; Hibernate `ddl-auto=validate` ile şemayı doğruladı.
+- PostgreSQL unique constraint testi aynı içerikte sezon ve aynı sezonda bölüm
+  numarası tekrarını veri katmanında reddetti.
+- Uçtan uca API testi create → season → episode → publish → USER read akışını ve
+  aynı transaction sınırındaki editör audit kayıtlarını doğruladı.
+- Draft yayın filtresi, USER yönetim yasağı, validation/pagination sınırları ve
+  update/delete davranışları API testleriyle doğrulandı.
+- Paketlenen JAR Compose PostgreSQL'e bağlanarak `8081` portunda başlatıldı;
+  health `UP`, yerel Flyway V2 kaydı `2:true` ve varsayılan profilde test
+  header'larıyla content erişimi `401` olarak doğrulandı. Uygulama kontrolden
+  sonra kapatıldı; PostgreSQL container'ı healthy durumda bırakıldı.
 
 ## Öğrenme odağı
 
-Aşama 1; authentication'ın aktörün kim olduğunu kanıtladığını,
-authorization'ın o aktörün ne yapabileceğine karar verdiğini, RBAC'in rol
-tabanlı bir authorization yöntemi olduğunu ve kaynak sahipliğinin aynı role
-sahip iki kullanıcıyı ayıran nesne-seviyesi kontrol olduğunu gösterir.
+Aşama 2; modülün iş alanını, katmanların teknik sorumlulukları ayırdığını;
+aggregate'in birlikte tutarlı değişmesi gereken nesnelerin sınırı olduğunu ve
+domain ön kontrolü ile PostgreSQL constraint'inin farklı yarış/hata noktalarını
+koruduğunu gösterir. Application service transaction'ı domain değişikliği ile
+audit kaydını birlikte kesinleştirir; controller yalnız HTTP sözleşmesi ve
+girdi doğrulamasını taşır.
 
-Kullanıcıyla doğrulanması gereken nokta: geçici header adapter'ı yalnız öğrenme
-ve yerel geliştirme içindir; header'ı gönderebilmek production kimliği
-kanıtlamaz. Production'da güvenilir kimlik, kurumun imzaladığı token veya
-eşdeğer sağlayıcı kanıtından üretilmelidir.
+Kullanıcıyla doğrulanması gereken nokta: domain kuralı hızlı ve anlamlı hata
+üretir, unique constraint ise paralel istek veya uygulama dışı yazma halinde
+kalıcı veri bütünlüğünün son savunmasıdır. İkisi birbirinin alternatifi değildir.
 
 ## Sıradaki tek iş
 
-Aşama 1 kod akışı ve test eşlemeleri kullanıcıyla gözden geçirilmelidir.
-Kullanıcı authentication/authorization/RBAC/sahiplik ayrımını ve local/test
-profil sınırını doğruladıktan sonra açık onayla Aşama 2 içerik kataloğuna
+Aşama 2 controller → application transaction → domain aggregate → repository
+adapter → PostgreSQL akışı ve test eşlemeleri kullanıcıyla gözden geçirilmelidir.
+Kullanıcı aggregate, transaction, audit ve çift katmanlı veri bütünlüğü
+korumasını doğruladıktan sonra açık onayla Aşama 3 quiz authoring ve sürümlemeye
 geçilebilir.
 
-Kullanıcı istemeden Aşama 2 uygulanmamalıdır.
+Kullanıcı istemeden Aşama 3 uygulanmamalıdır.
 
 ## Yeni Codex görevi için kısa komut
 
 ```text
 Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku.
-Aşama 1 identity/security akışını ve sekiz integration testinin koruduğu
-riskleri kullanıcıya öğretici biçimde açıkla.
-Kullanıcı açıkça onaylamadan Aşama 2'ye geçme.
+Aşama 2 content aggregate, transaction/audit ve PostgreSQL constraint akışını;
+21 testin koruduğu riskleri kullanıcıya öğretici biçimde açıkla.
+Kullanıcı açıkça onaylamadan Aşama 3'e geçme.
 ```
 
 ## Bilinen riskler

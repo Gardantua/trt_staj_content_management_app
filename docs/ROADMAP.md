@@ -94,7 +94,7 @@ farkı açıklayabilir.
 
 ## Aşama 2 - İçerik kataloğu
 
-Durum: Bekliyor
+Durum: Tamamlandı; 21 test başarılı
 
 ### İşler
 

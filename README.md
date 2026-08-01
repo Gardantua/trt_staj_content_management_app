@@ -237,9 +237,40 @@ değerleri loglanmaz. Gerçek kimlik sağlayıcısı belirlendiğinde bu adapter
 OIDC/JWT adapter'ıyla değiştirilecek; application use case'leri
 `CurrentActorProvider` sözleşmesini kullanmaya devam edecektir.
 
+### İçerik kataloğu API'leri
+
+Aşama 2 ile içerik, sezon ve bölüm yönetimi eklendi. Yönetim yolları `EDITOR`
+veya `ADMIN` rolü ister:
+
+```text
+POST   /api/v1/admin/contents
+GET    /api/v1/admin/contents/{contentId}
+PUT    /api/v1/admin/contents/{contentId}
+DELETE /api/v1/admin/contents/{contentId}
+POST   /api/v1/admin/contents/{contentId}/publish
+POST   /api/v1/admin/contents/{contentId}/seasons
+PUT    /api/v1/admin/contents/{contentId}/seasons/{seasonId}
+DELETE /api/v1/admin/contents/{contentId}/seasons/{seasonId}
+POST   /api/v1/admin/contents/{contentId}/seasons/{seasonId}/episodes
+PUT    /api/v1/admin/contents/{contentId}/seasons/{seasonId}/episodes/{episodeId}
+DELETE /api/v1/admin/contents/{contentId}/seasons/{seasonId}/episodes/{episodeId}
+```
+
+Kimliği doğrulanmış normal kullanıcı yalnız yayınlanmış kataloğu okuyabilir:
+
+```text
+GET /api/v1/contents?page=0&size=20
+GET /api/v1/contents/{contentId}
+```
+
+`size` değeri 1–100 arasındadır. Sezon numarası içerik içinde, bölüm numarası
+sezon içinde tektir. Bu kurallar hem domain modelinde hem PostgreSQL
+constraint'lerinde korunur. Bir dizi, en az bir sezon ve her sezonda en az bir
+bölüm bulunmadan yayınlanamaz. Yayınlanan içerik yerinde değiştirilemez.
+
 ## Sıradaki çalışma
 
-Aşama 1 yerel ortamda tamamlandı. Kullanıcı authentication, authorization,
-RBAC ve kaynak sahipliği ayrımını; test kimliğinin neden production çözümü
-olmadığını gözden geçirdikten sonra ayrı onayla Aşama 2 içerik kataloğuna
-geçilebilir.
+Aşama 2 içerik kataloğu tamamlandı. Kod akışı, transaction/audit sınırı,
+aggregate ve veritabanı constraint'lerinin birlikte koruduğu kurallar
+kullanıcıyla gözden geçirildikten sonra ayrı onayla Aşama 3 quiz authoring ve
+sürümlemeye geçilebilir.

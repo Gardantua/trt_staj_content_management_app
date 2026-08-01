@@ -52,6 +52,12 @@ Kullanıcı, profil, rol ve izinleri yönetir.
 
 Dizi, film, sezon, bölüm ve içerik durumunu yönetir.
 
+Aşama 2'de `Content`, sezon ve bölüm hiyerarşisinin aggregate root'u olarak
+uygulandı. Domain sınıfları saf Java'dır; JPA entity'leri infrastructure
+katmanında kalır. `DRAFT` içerik yalnız EDITOR/ADMIN yönetim yüzeyinden okunur,
+normal kullanıcı sorguları yalnız `PUBLISHED` içeriği döndürür. İçerik
+değişikliği ile kalıcı admin audit kaydı aynı transaction'da kesinleşir.
+
 ### quiz
 
 Quiz, quiz sürümü, soru, seçenek ve yayınlama sürecini yönetir.
