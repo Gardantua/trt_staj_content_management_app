@@ -325,6 +325,9 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
   health `UP`, yerel Flyway V2 kaydı `2:true` ve varsayılan profilde test
   header'larıyla content erişimi `401` olarak doğrulandı. Uygulama kontrolden
   sonra kapatıldı; PostgreSQL container'ı healthy durumda bırakıldı.
+- GitHub Actions `Backend CI` çalışması `30705476787`, pull request dalındaki
+  Aşama 1 ve Aşama 2 commit'leri için başarıyla tamamlandı. Ubuntu ortamında
+  checkout, Java 21 kurulumu ve build/integration test adımlarının tamamı geçti.
 
 ## Öğrenme odağı
 
