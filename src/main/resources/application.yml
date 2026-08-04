@@ -11,6 +11,14 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+
+app:
+  media:
+    storage-directory: ${MEDIA_STORAGE_DIRECTORY:${java.io.tmpdir}/content-engagement-media}
 
 management:
   endpoints:

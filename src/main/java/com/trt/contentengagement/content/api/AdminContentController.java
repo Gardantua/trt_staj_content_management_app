@@ -78,6 +78,16 @@ public class AdminContentController {
         return ContentResponse.from(contentManagementService.publish(contentId));
     }
 
+    @PutMapping("/{contentId}/cover")
+    public ContentResponse setCover(
+            @PathVariable UUID contentId,
+            @Valid @RequestBody CoverRequest request
+    ) {
+        return ContentResponse.from(contentManagementService.setCover(
+                contentId, request.mediaAssetId(), request.alternativeText()
+        ));
+    }
+
     @DeleteMapping("/{contentId}")
     public ResponseEntity<Void> deleteContent(@PathVariable UUID contentId) {
         contentManagementService.delete(contentId);
@@ -182,6 +192,12 @@ public class AdminContentController {
     public record UpdateContentRequest(
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
+    ) {
+    }
+
+    public record CoverRequest(
+            @NotNull UUID mediaAssetId,
+            @NotBlank @Size(max = 500) String alternativeText
     ) {
     }
 

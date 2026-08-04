@@ -3,6 +3,7 @@ package com.trt.contentengagement.content.domain;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
@@ -49,6 +50,7 @@ class ContentTest {
     void incompleteSeriesCannotBePublished() {
         Content series = Content.create("Seksenler", null, ContentType.SERIES, INITIAL_TIME);
         series.addSeason(1, "Birinci Sezon", INITIAL_TIME);
+        series.setCover(UUID.randomUUID(), "Seksenler dizisi kapak gorseli", INITIAL_TIME);
 
         assertThatThrownBy(() -> series.publish(INITIAL_TIME))
                 .isInstanceOf(ContentRuleViolationException.class)
@@ -58,6 +60,7 @@ class ContentTest {
     @Test
     void publishedContentCannotBeModifiedInPlace() {
         Content film = Content.create("Kesişme", null, ContentType.FILM, INITIAL_TIME);
+        film.setCover(UUID.randomUUID(), "Film kapak gorseli", INITIAL_TIME);
         film.publish(INITIAL_TIME);
 
         assertThatThrownBy(() -> film.updateDetails("Yeni Başlık", null, INITIAL_TIME))

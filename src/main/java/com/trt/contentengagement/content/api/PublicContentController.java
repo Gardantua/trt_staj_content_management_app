@@ -62,7 +62,9 @@ public class PublicContentController {
             String id,
             String title,
             String description,
-            String contentType
+            String contentType,
+            String coverImageUrl,
+            String coverAlternativeText
     ) {
 
         static ContentSummaryResponse from(ContentSummary contentSummary) {
@@ -70,7 +72,9 @@ public class PublicContentController {
                     contentSummary.id().toString(),
                     contentSummary.title(),
                     contentSummary.description(),
-                    contentSummary.contentType().name()
+                    contentSummary.contentType().name(),
+                    "/api/v1/media/" + contentSummary.coverMediaId() + "/content",
+                    contentSummary.coverAlternativeText()
             );
         }
     }

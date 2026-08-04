@@ -30,6 +30,12 @@ class JpaContentEntity {
     @Column(length = 2000)
     private String description;
 
+    @Column(name = "cover_media_id")
+    private UUID coverMediaId;
+
+    @Column(name = "cover_alternative_text", length = 500)
+    private String coverAlternativeText;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "content_type", nullable = false, length = 20)
     private ContentType contentType;
@@ -55,6 +61,8 @@ class JpaContentEntity {
             UUID id,
             String title,
             String description,
+            UUID coverMediaId,
+            String coverAlternativeText,
             ContentType contentType,
             PublicationStatus publicationStatus,
             Instant createdAt,
@@ -63,6 +71,8 @@ class JpaContentEntity {
         this.id = id;
         this.title = title;
         this.description = description;
+        this.coverMediaId = coverMediaId;
+        this.coverAlternativeText = coverAlternativeText;
         this.contentType = contentType;
         this.publicationStatus = publicationStatus;
         this.createdAt = createdAt;
@@ -85,6 +95,10 @@ class JpaContentEntity {
     String description() {
         return description;
     }
+
+    UUID coverMediaId() { return coverMediaId; }
+
+    String coverAlternativeText() { return coverAlternativeText; }
 
     ContentType contentType() {
         return contentType;

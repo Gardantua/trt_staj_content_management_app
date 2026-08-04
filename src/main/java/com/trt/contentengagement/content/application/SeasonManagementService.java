@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.trt.contentengagement.admin.application.AdminAuditLog;
 import com.trt.contentengagement.content.domain.Content;
 import com.trt.contentengagement.content.domain.Season;
 import com.trt.contentengagement.identity.application.CurrentActorProvider;

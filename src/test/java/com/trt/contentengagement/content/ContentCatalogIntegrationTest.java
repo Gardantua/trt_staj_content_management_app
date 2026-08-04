@@ -66,6 +66,7 @@ class ContentCatalogIntegrationTest {
         jdbcTemplate.update("DELETE FROM catalog_episodes");
         jdbcTemplate.update("DELETE FROM catalog_seasons");
         jdbcTemplate.update("DELETE FROM catalog_contents");
+        jdbcTemplate.update("DELETE FROM media_assets");
     }
 
     @Test
@@ -103,6 +104,8 @@ class ContentCatalogIntegrationTest {
         );
         assertThat(createdEpisode.statusCode()).isEqualTo(201);
 
+        attachCover(contentId);
+
         HttpResponse<String> publishedContent = sendJson(
                 "POST",
                 "/api/v1/admin/contents/" + contentId + "/publish",
@@ -139,7 +142,7 @@ class ContentCatalogIntegrationTest {
                 Integer.class,
                 EDITOR_ACTOR_ID
         );
-        assertThat(auditCount).isEqualTo(4);
+        assertThat(auditCount).isEqualTo(5);
     }
 
     @Test
@@ -341,6 +344,36 @@ class ContentCatalogIntegrationTest {
                 EDITOR_ACTOR_ID,
                 "EDITOR"
         );
+    }
+
+    private void attachCover(String contentId) throws Exception {
+        UUID mediaAssetId = insertMediaAsset();
+        HttpResponse<String> response = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/cover",
+                "{\"mediaAssetId\":\"" + mediaAssetId
+                        + "\",\"alternativeText\":\"Icerik kapak gorseli\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        assertThat(response.statusCode()).isEqualTo(200);
+    }
+
+    private UUID insertMediaAsset() {
+        UUID mediaAssetId = UUID.randomUUID();
+        jdbcTemplate.update(
+                """
+                INSERT INTO media_assets
+                    (id, storage_key, media_type, mime_type, byte_size, checksum_sha256,
+                     width, height, created_by, created_at)
+                VALUES (?, ?, 'IMAGE', 'image/png', 1, ?, 1, 1, ?, now())
+                """,
+                mediaAssetId,
+                mediaAssetId + ".png",
+                "0".repeat(64),
+                EDITOR_ACTOR_ID
+        );
+        return mediaAssetId;
     }
 
     private HttpResponse<String> sendGet(String path, UUID actorId, String role)

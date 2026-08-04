@@ -56,7 +56,9 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
                                 entity.id(),
                                 entity.title(),
                                 entity.description(),
-                                entity.contentType()
+                                entity.contentType(),
+                                entity.coverMediaId(),
+                                entity.coverAlternativeText()
                         ))
                         .toList(),
                 contentPage.getNumber(),
@@ -76,6 +78,8 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
                 content.id(),
                 content.title(),
                 content.description(),
+                content.coverMediaId(),
+                content.coverAlternativeText(),
                 content.contentType(),
                 content.publicationStatus(),
                 content.createdAt(),
@@ -105,6 +109,8 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
                 contentEntity.id(),
                 contentEntity.title(),
                 contentEntity.description(),
+                contentEntity.coverMediaId(),
+                contentEntity.coverAlternativeText(),
                 contentEntity.contentType(),
                 contentEntity.publicationStatus(),
                 contentEntity.createdAt(),

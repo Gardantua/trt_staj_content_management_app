@@ -12,6 +12,8 @@ public class Content {
     private final UUID id;
     private String title;
     private String description;
+    private UUID coverMediaId;
+    private String coverAlternativeText;
     private final ContentType contentType;
     private PublicationStatus publicationStatus;
     private final Instant createdAt;
@@ -22,6 +24,8 @@ public class Content {
             UUID id,
             String title,
             String description,
+            UUID coverMediaId,
+            String coverAlternativeText,
             ContentType contentType,
             PublicationStatus publicationStatus,
             Instant createdAt,
@@ -39,6 +43,10 @@ public class Content {
         this.seasons = new ArrayList<>(Objects.requireNonNull(seasons, "seasons must not be null"));
         this.title = ContentText.requireTitle(title);
         this.description = ContentText.normalizeDescription(description);
+        this.coverMediaId = coverMediaId;
+        this.coverAlternativeText = normalizeCoverAlternativeText(
+                coverMediaId, coverAlternativeText
+        );
         ensureUniqueSeasonNumbers();
     }
 
@@ -52,6 +60,8 @@ public class Content {
                 UUID.randomUUID(),
                 title,
                 description,
+                null,
+                null,
                 contentType,
                 PublicationStatus.DRAFT,
                 createdAt,
@@ -64,6 +74,8 @@ public class Content {
             UUID id,
             String title,
             String description,
+            UUID coverMediaId,
+            String coverAlternativeText,
             ContentType contentType,
             PublicationStatus publicationStatus,
             Instant createdAt,
@@ -74,6 +86,8 @@ public class Content {
                 id,
                 title,
                 description,
+                coverMediaId,
+                coverAlternativeText,
                 contentType,
                 publicationStatus,
                 createdAt,
@@ -86,6 +100,13 @@ public class Content {
         ensureDraft();
         this.title = ContentText.requireTitle(title);
         this.description = ContentText.normalizeDescription(description);
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
+    public void setCover(UUID mediaAssetId, String alternativeText, Instant changedAt) {
+        ensureDraft();
+        this.coverMediaId = Objects.requireNonNull(mediaAssetId, "mediaAssetId must not be null");
+        this.coverAlternativeText = normalizeCoverAlternativeText(mediaAssetId, alternativeText);
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
@@ -170,6 +191,12 @@ public class Content {
 
     public void publish(Instant changedAt) {
         ensureDraft();
+        if (coverMediaId == null) {
+            throw new ContentRuleViolationException(
+                    "CONTENT_COVER_REQUIRED",
+                    "Published content requires an accessible cover image."
+            );
+        }
         if (contentType == ContentType.SERIES
                 && (seasons.isEmpty() || seasons.stream().anyMatch(season -> season.episodes().isEmpty()))) {
             throw new ContentRuleViolationException(
@@ -192,6 +219,10 @@ public class Content {
     public String description() {
         return description;
     }
+
+    public UUID coverMediaId() { return coverMediaId; }
+
+    public String coverAlternativeText() { return coverAlternativeText; }
 
     public ContentType contentType() {
         return contentType;
@@ -242,5 +273,28 @@ public class Content {
                     "Season number must be unique within content."
             );
         }
+    }
+
+    private String normalizeCoverAlternativeText(UUID mediaAssetId, String alternativeText) {
+        if (mediaAssetId == null) {
+            if (alternativeText != null) {
+                throw new ContentRuleViolationException(
+                        "CONTENT_COVER_INVALID", "Cover text cannot exist without a cover image."
+                );
+            }
+            return null;
+        }
+        if (alternativeText == null || alternativeText.isBlank()) {
+            throw new ContentRuleViolationException(
+                    "CONTENT_COVER_ALT_REQUIRED", "Cover image requires alternative text."
+            );
+        }
+        String normalized = alternativeText.trim();
+        if (normalized.length() > 500) {
+            throw new ContentRuleViolationException(
+                    "CONTENT_COVER_ALT_TOO_LONG", "Cover alternative text cannot exceed 500 characters."
+            );
+        }
+        return normalized;
     }
 }
