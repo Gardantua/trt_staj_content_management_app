@@ -17,9 +17,11 @@ anlamına gelmez. Yol haritasındaki ilgili aşamaya gelmeden altyapı eklenmez.
 Backend Application
 ├── identity
 ├── content
+├── media
 ├── quiz
 ├── gameplay
 ├── gamification
+├── messaging
 ├── leaderboard
 ├── admin
 └── shared
@@ -62,22 +64,104 @@ değişikliği ile kalıcı admin audit kaydı aynı transaction'da kesinleşir.
 
 Quiz, quiz sürümü, soru, seçenek ve yayınlama sürecini yönetir.
 
+Aşama 3'te `Quiz`, sürüm/soru/seçenek hiyerarşisinin aggregate root'u olarak
+uygulandı. İlk sürüm draft'tır; yayınlanan sürümün içeriği yerinde değişmez ve
+yeni düzenleme yeni kimliklere sahip draft sürümü üretir. Yeni sürüm
+yayımlandığında önceki aktif sürüm arşivlenir. Puanlama uygulaması gameplay
+aşamasına ait olsa da `STANDARD_V1` politika kimliği sürümde sabitlenmiştir.
+Kullanıcı quiz DTO'su doğru cevap alanını yapısal olarak içermez.
+
+### media ve erişilebilirlik sınırı
+
+`media`, değişmez medya varlığı kimliğini, güvenilir storage referansını,
+MIME/boyut/bütünlük bilgisini ve erişilebilirlik metadatasını yönetir. Gerçek
+dosya PostgreSQL'e iş verisi olarak gömülmez; storage sağlayıcısı bir port
+arkasında kalır. Aşama 4.1'de geliştirme ve test için yerel dosya sistemi
+adapter'ı eklendi. Kurumun production object storage/CDN standardı öğrenildiğinde
+domain ve application sözleşmeleri değişmeden yeni adapter yazılır.
+
+Content bir kapak medya kimliğine, quiz sorusu ise isteğe bağlı özel medya
+kimliğine application portu üzerinden referans verir; modüller media tablolarını
+doğrudan sorgulamaz. Soruya özel görsel yoksa yayın anındaki içerik kapağı quiz
+sürümüne sabitlenir. Aynı medya kimliğinin dosyası yerinde değiştirilmez.
+
+Erişilebilirlik tek bir modül değil, API ve domain sınırlarını etkileyen
+yatay bir kalite niteliğidir. Backend; görsel rolü, alternatif metin, eşdeğer
+erişilebilir soru metni, semantik geri bildirim kodu ve ayarlanabilir süre
+politikasını sağlar. Frontend daha sonra bunları semantik HTML, klavye erişimi,
+odak yönetimi, ekran okuyucu durum duyurusu, yeterli kontrast, yeniden akış ve
+yeterli hedef boyutuyla sunar.
+
+Kullanıcının engel veya sağlık türü saklanmaz. Standart ve en az on kat
+uzun süre seçenekleri herkese açık bir gameplay tercihi olur; seçilen politika
+attempt'te sabitlenir ve skor bonusu üretmez.
+
 ### gameplay
 
 Attempt, cevap, süre, durum geçişi ve puanlamayı yönetir.
 
+Aşama 4'te `QuizAttempt` aggregate'i ACTIVE, COMPLETED ve EXPIRED durumlarını;
+sunucu `Clock` deadline'ını, sıralı tek cevap kuralını ve `STANDARD_V1`
+puanlamasını uygular. Attempt belirli quiz/politika sürümünü sabitler. Cevap
+kalıcılaştırıldıktan sonra doğru seçenek açıklanır ve sonraki soru açılır.
+PostgreSQL aynı soru, idempotency key ve aktif attempt yarışlarını unique
+constraint'lerle korur. `QuizAttemptCompleted` process-içi domain event'tir;
+güvenilir broker teslimatı değildir.
+
 ### gamification
 
-XP işlem defteri, XP özeti ve gelecekte rozetleri yönetir.
+XP işlem defteri ve kullanıcı XP özetini yönetir. `SCORE_MATCH_V1`, tamamlanan
+attempt'in sunucu skorunu XP'ye birebir çevirir. `QUIZ_COMPLETED` kaydı kaynak
+attempt ve deterministik referansla tekildir; sıfır skor da işlenmiş kaynak
+olarak kaydedilir. Düzeltmeler geçmiş satırı değiştirmez, özgün kazanca bağlı
+imzalı yeni `ADMIN_ADJUSTMENT` kayıtlarıdır.
+
+Gameplay tamamlama ve XP ekleme Aşama 5'te aynı PostgreSQL transaction'ında
+kanıtlandı. Aşama 6'da bu senkron çağrı kaldırıldı: gameplay attempt ile Outbox
+olayını birlikte kesinleştirir, gamification ise olayı idempotent consumer
+üzerinden işler. Modüller birbirlerinin tablolarına doğrudan erişmez.
+
+### messaging
+
+Sürümlü integration event sözleşmesini, Transactional Outbox publisher'ını,
+Inbox deduplication'ı ve RabbitMQ adapter'larını yönetir. `quiz.completed` v1
+olayı attempt kimliğinden deterministik event ID üretir. Publisher confirm
+alınmadan Outbox satırı yayımlandı sayılmaz; consumer Inbox claim'i ile XP
+yazımını aynı PostgreSQL transaction'ında gerçekleştirir.
 
 ### leaderboard
 
 Global, içerik ve dönem bazlı sıralamayı yönetir.
 
+Aşama 7'de ilk dönem `ALL_TIME`, kalıcı doğru kaynak XP ledger olarak
+uygulandı. Global sonuç bütün ledger toplamını, içerik sonucu XP satırına
+sabitlenmiş `contentId` toplamını kullanır. `LeaderboardQueryService` current
+actor ve yayınlanmış içerik sınırını koordine eder; ledger SQL'i gamification
+modülünün yayınlanmış `XpLeaderboardQuery` sözleşmesinin arkasında kalır.
+
+PostgreSQL toplamı kullanıcı bazında gruplar ve `ROW_NUMBER` ile toplam XP
+azalan, ilk XP zamanı artan, UUID artan sırasını üretir. Tek sorgu Top N ile
+mevcut kullanıcı satırını döndürür. Aşama 8 Redis adapter'ı bu davranışı
+değiştirmeden yeniden üretilebilir read model olarak uygulandı. PostgreSQL
+snapshot'ı kısa bir read-only transaction içinde alınır; Redis yazımı bu
+transaction kapandıktan sonra yapılır.
+
+Redis sorted set skoru XP değil, PostgreSQL `ROW_NUMBER` sonucundaki benzersiz
+pozisyondur. Böylece Redis'in eşit skorlu üyeleri sözlüksel sıralama davranışı
+ürün tie-break kuralını değiştiremez. Top N sıra aralığından, mevcut kullanıcı
+rank sorgusundan, katılımcı sayısı sorted set boyutundan; XP/zaman metadata'sı
+ise toplu hash okumasından alınır. Yeni neslin bütün anahtarları hazırlandıktan
+sonra tek `active` işaretçisi değiştirilir. Okuma eksik nesil veya bağlantı
+hatası görürse PostgreSQL'e döner.
+
 ### admin
 
 Editör işlemlerini, yayınlama yetkilerini ve audit kayıtlarını koordine eder;
 content ve quiz iş kurallarını kendi içinde tekrar etmez.
+
+Aşama 3'te audit portu ve JPA adapter'ı content paketinden `admin` modülüne
+taşındı. Content ve quiz application servisleri aynı kalıcı audit sözleşmesini
+kullanır; domain kuralları admin modülüne taşınmaz.
 
 ## Katmanlar
 
@@ -137,26 +221,32 @@ için kalıcı doğru kaynaktır.
 
 ### Redis
 
-Redis, öğrenme hedefi nedeniyle Aşama 8'de kullanılacaktır. Ancak leaderboard
-kuralları ve PostgreSQL tabanlı doğru sonuç önce kanıtlanacaktır. Redis'in ilk
-uygulaması:
+Redis, öğrenme hedefi nedeniyle Aşama 8'de eklendi. Leaderboard kuralları ve
+PostgreSQL tabanlı doğru sonuç önce kanıtlandı. Redis'in ilk uygulaması:
 
 - Leaderboard sorted set
 - PostgreSQL'den yeniden oluşturulabilir leaderboard read model
-- PostgreSQL ve Redis sonucunu karşılaştıran tutarlılık kontrolü
+- PostgreSQL ve Redis sonucunu karşılaştıran tutarlılık testi
+- Beş saniyelik kontrollü yenileme ve ADMIN rebuild yolu
+- Atomik nesil işaretçisi, PostgreSQL fallback ve kaynak metrikleri
 
 ile sınırlıdır. Sık okunan quiz cache'i ve rate limiting, Redis öğrenme
 kapsamını büyütmek için otomatik olarak eklenmez; bunlar ayrıca ölçülmüş okuma
 yükü veya abuse ihtiyacı gerektirir. Redis kaybı kalıcı iş verisi kaybına neden
 olmamalı; leaderboard PostgreSQL'den yeniden kurulabilmelidir.
 
+`leaderboard.redis.hit` ve `leaderboard.postgresql.fallback` sayaçları okuma
+kaynağını izler. API ayrıca `dataSource` ve Redis üretim zamanını döndürür.
+Projeksiyon yenilemeleri snapshot tabanlıdır; bu nedenle duplicate olay Redis'te
+ikinci kez artırma yapmaz. Bedeli, varsayılan yenileme aralığı boyunca stale
+sonuç görülebilmesidir.
+
 ### RabbitMQ
 
-Çekirdek gameplay ve PostgreSQL tabanlı idempotent XP ledger senkron ve
-güvenilir biçimde tamamlandıktan sonra `QuizCompleted` integration event'inin
-aşağıdaki yan etkilerini ayırmak için kullanılacaktır. RabbitMQ kullanımı
-stajdan sorumlu mühendis tarafından proje gereksinimi olarak bildirilmiştir;
-uygulama sırası yine iş davranışını altyapıdan önce kanıtlama kararını korur:
+Çekirdek gameplay ve PostgreSQL tabanlı idempotent XP ledger senkron olarak
+kanıtlandıktan sonra Aşama 6'da `quiz.completed` v1 integration event'inin XP
+yan etkisini ayırmak için RabbitMQ eklendi. İleride leaderboard veya başka
+tüketiciler aynı sürümlü olaydan bağımsız kuyruklarla beslenebilir:
 
 ```text
 QuizCompleted
@@ -166,12 +256,15 @@ QuizCompleted
 ```
 
 Gameplay sonucu ve Outbox kaydı aynı PostgreSQL transaction'ında oluşturulur.
-Consumer'lar Inbox/idempotency yaklaşımıyla tekrar teslimata dayanıklı olur.
+Publisher `FOR UPDATE SKIP LOCKED`, kalıcı mesaj ve publisher confirm kullanır.
+XP consumer'ı Inbox claim'i ile ledger kaydını aynı transaction'da yazar;
+at-least-once tekrar teslimatı ikinci XP üretmez. Üç deneme sonrasında kalıcı
+hatalar dead-letter queue'ya taşınır.
 
-RabbitMQ hedef mimarinin gerekli bir bileşenidir fakat XP iş kuralının doğruluk
-şartı değildir. Önce aynı davranış PostgreSQL üzerinde doğru çalışır; broker
-aşamasında işlem sınırı değiştirilirken sonuçların değişmediği testlerle
-kanıtlanır.
+RabbitMQ taşıma mekanizmasıdır, kalıcı doğru kaynak değildir. Broker kapalıyken
+attempt tamamlanır ve Outbox olayı PostgreSQL'de bekler. Son-answer/complete
+yanıtındaki `earnedXp` kesin skorla hemen hesaplanır; XP özeti consumer çalışana
+kadar kısa süreli eski değer döndürebilir.
 
 ## Attempt zamanı ve yaşam döngüsü
 
@@ -196,22 +289,34 @@ kanıtlanır.
 - Yayınlanmış quiz sürümü immutable kabul edilir.
 - `user_answers` üzerinde attempt ve question için unique constraint bulunur.
 - Puanlama ve süre sunucu tarafından hesaplanır.
+- Bilgi taşıyan medya metin alternatifsiz; görsele dayalı soru cevabı
+  sızdırmayan eşdeğer sunum olmadan yayınlanamaz.
+- Her yayınlanmış soru için kullanılan medya quiz sürümüne sabitlenir.
+- Doğru/yanlış geri bildirimi yalnız renge bağlı bir sözleşme olmaz.
 - XP append-only işlem defteri olarak saklanır.
 - Aynı kaynak için iki XP işlemi unique constraint ile engellenir.
+- `SCORE_MATCH_V1` XP tutarı kesinleşmiş sunucu skoruna eşittir.
+- Düzeltme, özgün kazancı değiştirmek yerine yalnız ADMIN'in oluşturabildiği
+  imzalı yeni kayıtla yapılır.
 - Redis leaderboard PostgreSQL verilerinden yeniden kurulabilir.
 
 ## Leaderboard iş kuralları
 
-Redis tasarımından önce aşağıdaki ürün kararları verilir:
+- İlk sürüm yalnız `ALL_TIME` dönemidir; sıfırlama yoktur.
+- En iyi attempt seçilmez; ledger'a giren bütün completion XP'leri ve onların
+  yönetici düzeltmeleri toplamı belirler.
+- Global kapsam bütün XP'yi, içerik kapsamı yalnız ilgili içerik aidiyetini
+  toplar.
+- Tie-break toplam XP azalan, ilk XP zamanı artan, kullanıcı UUID'si artandır.
+- Sıfır XP'li completion katılım sayılır; adjustment nedeniyle negatif toplam
+  mümkündür.
+- Top N yanında mevcut kullanıcının sırası ayrıca döner.
+- Yüzdelik, sezon, hile/diskalifiye, profil adı ve arkadaş kapsamı ilk sürümde
+  yoktur.
 
-- Kullanıcının en iyi, ilk veya son attempt'lerinden hangisinin sayıldığı
-- Tekrar çözme sınırı
-- Eşit puanda deterministik tie-break sırası
-- Global ve içerik bazlı skorun hangi veriden üretildiği
-- Dönem/sıfırlama davranışı
-- İptal edilmiş veya hileli attempt'in sıralamadan çıkarılma yöntemi
-
-Bu kurallar PostgreSQL üzerinde test edilmeden Redis veri yapısı seçilmez.
+XP içeriği yalnız uygulama koduna güvenmez. Flyway V8 migration'ı eski satırları
+geri doldurur; PostgreSQL trigger'ı completion satırını kaynak attempt, adjustment
+satırını özgün completion ile kullanıcı ve içerik bakımından doğrular.
 
 ## Migration ve kapasite yaklaşımı
 
@@ -233,7 +338,8 @@ GET  /api/v1/episodes/{episodeId}/quizzes
 POST /api/v1/attempts
 POST /api/v1/attempts/{attemptId}/answers
 POST /api/v1/attempts/{attemptId}/complete
-GET  /api/v1/me/stats
+GET  /api/v1/me/xp
+POST /api/v1/admin/xp-transactions/{transactionId}/adjustments
 GET  /api/v1/leaderboards/{scope}
 ```
 
@@ -266,9 +372,9 @@ süreleri de izlenir.
 - Maven veya Gradle
 - Kimlik doğrulama yöntemi
 - Medya dosyalarının gerçek saklama/erişim yaklaşımı
-- İlk leaderboard kapsamı ve sıfırlama dönemi
-- Attempt süre modeli, otomatik expire ve tekrar çözme politikası
-- Puanlama ve XP politikalarının sürümleme yöntemi
+- Leaderboard dönem/sıfırlama ve hile/diskalifiye operasyon politikası
+- Attempt otomatik expire ve tekrar çözme politikası
+- Gelecekte XP bonusu/çarpanı gerekip gerekmediği
 - Öğrenme/demo ve hedef ortam için kapasite varsayımları
 
 Bu kararlar uygulamaya başlamadan veya ilgili aşamaya gelindiğinde ADR olarak

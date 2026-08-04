@@ -45,6 +45,8 @@ public class LeaderboardController {
             String scope,
             UUID contentId,
             String period,
+            String dataSource,
+            Instant projectionGeneratedAt,
             long participantCount,
             List<LeaderboardEntryResponse> leaders,
             LeaderboardEntryResponse currentUser
@@ -56,6 +58,8 @@ public class LeaderboardController {
                     snapshot.scope().name(),
                     snapshot.contentId(),
                     snapshot.period().name(),
+                    snapshot.dataSource().name(),
+                    snapshot.projectionGeneratedAt(),
                     snapshot.participantCount(),
                     snapshot.leaders().stream()
                             .map(entry -> LeaderboardEntryResponse.from(entry, currentUserId))

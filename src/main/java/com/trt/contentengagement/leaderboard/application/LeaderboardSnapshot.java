@@ -1,5 +1,6 @@
 package com.trt.contentengagement.leaderboard.application;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,6 +11,8 @@ public record LeaderboardSnapshot(
         LeaderboardScope scope,
         UUID contentId,
         LeaderboardPeriod period,
+        LeaderboardDataSource dataSource,
+        Instant projectionGeneratedAt,
         long participantCount,
         List<LeaderboardEntry> leaders,
         LeaderboardEntry currentUser

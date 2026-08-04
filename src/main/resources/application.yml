@@ -27,6 +27,14 @@ spring:
           initial-interval: 200ms
           multiplier: 2
           max-interval: 1s
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
+      connect-timeout: 500ms
+      timeout: 500ms
+      repositories:
+        enabled: false
   servlet:
     multipart:
       max-file-size: 5MB
@@ -39,6 +47,10 @@ app:
     rabbit-enabled: ${RABBITMQ_ENABLED:true}
     publisher-delay: ${OUTBOX_PUBLISHER_DELAY:1000}
     publisher-batch-size: ${OUTBOX_PUBLISHER_BATCH_SIZE:25}
+  leaderboard:
+    redis-enabled: ${LEADERBOARD_REDIS_ENABLED:true}
+    refresh-enabled: ${LEADERBOARD_REFRESH_ENABLED:true}
+    refresh-delay: ${LEADERBOARD_REFRESH_DELAY:5s}
 
 management:
   endpoints:
@@ -64,8 +76,12 @@ spring:
 app:
   messaging:
     rabbit-enabled: false
+  leaderboard:
+    redis-enabled: false
 
 management:
   health:
     rabbit:
+      enabled: false
+    redis:
       enabled: false

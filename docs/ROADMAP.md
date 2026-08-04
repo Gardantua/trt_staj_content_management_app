@@ -131,7 +131,7 @@ akışını açıklayabilir.
 
 ## Aşama 3 - Quiz authoring ve sürümleme
 
-Durum: Bekliyor
+Durum: Tamamlandı; 37 testlik tam doğrulama başarılı
 
 ### İşler
 
@@ -166,7 +166,7 @@ açıklayabilir.
 
 ## Aşama 4 - Gameplay
 
-Durum: Bekliyor
+Durum: Tamamlandı; 47 testlik tam doğrulama başarılı
 
 ### İşler
 
@@ -210,9 +210,71 @@ Kullanıcı transaction, race condition, unique constraint, idempotency,
 optimistic locking ve server-authoritative time/scoring kavramlarını örnek akış
 üzerinden açıklayabilir.
 
+## Aşama 4.1 - Erişilebilir medya ve kapsayıcı gameplay sözleşmesi
+
+Durum: Tamamlandı; 57 testlik tam doğrulama başarılı
+
+Bu aşama görselli soru ihtiyacını, sonradan frontend'e bırakılamayacak
+erişilebilirlik verilerini ve süre davranışını birlikte ele alır. Mühendislik
+hedefi WCAG 2.2 AA'dır; bu hedef tek başına hukukî uygunluk veya sertifika
+iddiası değildir.
+
+### İşler
+
+- Değişmez medya varlığı kimliği ve storage adapter portu
+- İçerik için kapak görseli ve erişilebilir açıklama
+- Soru için isteğe bağlı özel görsel, görsel rolü ve alternatif metin
+- Görsel bilgiye dayanan soru için cevabı açığa çıkarmayan eşdeğer
+  erişilebilir soru metni
+- Soruya özel görsel yoksa quiz yayınında içerik kapağını quiz sürümüne
+  sabitleyen fallback
+- Gameplay API'sinde çözümlenmiş görsel, metin alternatifi, semantik
+  doğru/yanlış durumu ve ilerleme bilgisi
+- Her kullanıcının engel/sağlık verisi bildirmeden seçebildiği standart veya
+  en az on kat uzun ayarlanabilir süre modu
+- Gelecekte ses/video eklenirse caption, transcript ve audio-description
+  referanslarını zorunlu kılacak medya sözleşmesi sınırı
+- Admin publish doğrulaması ve erişilebilirlik audit kaydı
+
+### Kabul kriterleri
+
+- Her yayınlanmış soru, soruya özel görseli veya quiz sürümüne sabitlenmiş
+  kapak fallback'ini döndürür.
+- Görsele dayalı soru, cevabı sızdırmayan eşdeğer erişilebilir metin olmadan
+  yayınlanamaz.
+- Dekoratif ve bilgi taşıyan görsel API sözleşmesinde ayırt edilir; bilgi
+  taşıyan görsel alternatif metinsiz yayınlanamaz.
+- Kapak veya soru görselinin yeni sürümü eski quiz ve attempt görünümünü
+  değiştirmez.
+- Doğru/yanlış bilgisi yalnız renkle ifade edilmez; API semantik durum kodu
+  ve doğru seçenek kimliği sağlar.
+- Kullanıcı attempt başlamadan standart veya en az on kat uzun süreyi seçebilir;
+  seçim attempt'te sürümlü olarak sabitlenir ve skor bonusu üretmez.
+- Kullanıcının engel türü veya sağlık bilgisi saklanmaz.
+- Medya URL'si istemci girdisiyle keyfî bir dış kaynağa yönlendirilemez;
+  MIME türü, boyut ve bütünlük kontrolleri storage sınırında yapılır.
+
+### Test yaklaşımı
+
+- Medya fallback'i, değişmezlik ve publish kuralları için domain unit testleri
+- Flyway ve medya/quiz referansları için PostgreSQL integration testleri
+- Doğru cevabın alternatif metin veya erişilebilir prompt ile sızmadığını
+  doğrulayan contract testleri
+- Standart ve uzatılmış süreyi sabit `Clock` ile doğrulayan gameplay testleri
+- Yetkisiz medya yazma, geçersiz MIME/boyut ve başka kaynağa ait medya
+  bağlama API testleri
+- Erişilebilirlik alanlarının admin ve gameplay response'larında korunduğunu
+  doğrulayan sözleşme testleri
+
+### Öğrenme çıktısı
+
+Kullanıcı alternatif metin ile eşdeğer soru sunumunun farkını, medya
+değişmezliğini, ayarlanabilir süreyi ve backend/frontend erişilebilirlik
+sorumluluk sınırını açıklayabilir.
+
 ## Aşama 5 - PostgreSQL üzerinde XP
 
-Durum: Bekliyor
+Durum: Tamamlandı; 66 testlik tam doğrulama başarılı
 
 Bu aşamada RabbitMQ kullanılmaz. Amaç önce XP iş kuralını ve veri bütünlüğünü
 öğrenip kanıtlamaktır.
@@ -246,7 +308,7 @@ transaction sınırını açıklayabilir.
 
 ## Aşama 6 - Güvenilir mesajlaşma ve RabbitMQ
 
-Durum: Bekliyor
+Durum: Tamamlandı. 74 testlik tam doğrulama başarıyla geçti.
 
 Bu aşama çalışan gameplay ve XP davranışını asenkronlaştırmayı öğretir.
 RabbitMQ proje gereksinimi olarak bu aşamada eklenecektir. Eklenmesi XP sonucunu
@@ -287,7 +349,7 @@ açıklayabilir.
 
 ## Aşama 7 - PostgreSQL üzerinde leaderboard doğruluğu
 
-Durum: Bekliyor
+Durum: Tamamlandı. 83 testlik tam doğrulama başarıyla geçti.
 
 Bu aşamada Redis kullanılmaz. Önce sıralamanın ürün kuralları ve doğru sonucu
 kanıtlanır.
@@ -324,7 +386,7 @@ sıralamayı, index ve query plan temelini açıklayabilir.
 
 ## Aşama 8 - Redis leaderboard read model
 
-Durum: Bekliyor; öğrenme hedefi nedeniyle uygulanması zorunlu
+Durum: Tamamlandı (04.08.2026)
 
 PostgreSQL ölçümü kabul kriterini karşılasa bile Redis bu projede öğrenme hedefi
 nedeniyle uygulanır. Redis kalıcı doğru kaynak olmaz; PostgreSQL sonucundan
@@ -359,8 +421,6 @@ Kullanıcı cache/read model ile doğru kaynak farkını, eventual consistency'y
 Redis sorted set'i ve rebuild stratejisini açıklayabilir.
 
 ## Aşama 9 - Operasyon ve production hazırlığı
-
-Durum: Bekliyor
 
 ### İşler
 

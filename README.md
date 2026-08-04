@@ -42,6 +42,8 @@ güvenlik, test ve operasyon davranışlarına birlikte hâkim olmaktır.
 - Tek seferlik ve süre kontrollü cevap gönderme
 - Sunucu taraflı puanlama
 - Kullanıcı ve yönetici yetkilendirmesi
+- Görselli sorular ve erişilebilir metin alternatifleri
+- Ayarlanabilir quiz süresi
 - XP işlemleri
 - Global ve içerik bazlı leaderboard
 - OpenAPI dokümantasyonu
@@ -105,6 +107,7 @@ Bu akışı kanıtlamayan teknoloji veya özellik MVP'ye eklenmez.
 - [PlantUML sistem diyagramı](docs/diagrams/system-architecture.puml)
 - [Yol haritası](docs/ROADMAP.md)
 - [Güncel durum](docs/CURRENT_STATE.md)
+- [Geliştirme zorlukları ve çözüm günlüğü](docs/DEVELOPMENT_CHALLENGES.md)
 - [Mimari kararlar](docs/DECISIONS/README.md)
 
 Uzun teknik referans:
@@ -145,18 +148,20 @@ docker compose version
 
 `java -version` çıktısı Java 21 göstermelidir.
 
-### PostgreSQL'i başlatma
+### PostgreSQL, RabbitMQ ve Redis'i başlatma
 
 ```powershell
 docker compose up -d --wait
 docker compose ps
 ```
 
-Proje PostgreSQL'i host üzerinde `5433`, container içinde `5432` portunu
-kullanır. Bunun nedeni geliştirme bilgisayarında `5432` portunu kullanan başka
-bir PostgreSQL sürecinin bulunmasıdır.
+Proje PostgreSQL'i host üzerinde `5433`, container içinde `5432`; RabbitMQ'yu
+host üzerinde `5673`, container içinde `5672` portunda kullanır. RabbitMQ
+yönetim arayüzü `http://localhost:15673` adresindedir. Redis host üzerinde
+`6380`, container içinde `6379` portundadır. Farklı host portları,
+geliştirme bilgisayarındaki mevcut servislerle çakışmayı önler.
 
-PostgreSQL'i durdurmak için:
+Servisleri durdurmak için:
 
 ```powershell
 docker compose stop
@@ -180,13 +185,13 @@ Linux, macOS veya CI:
 bash ./mvnw verify
 ```
 
-Bu komut kodu derler, Testcontainers ile geçici gerçek PostgreSQL başlatır,
-Flyway migration'ını uygular, API testlerini çalıştırır ve çalıştırılabilir JAR
-üretir.
+Bu komut kodu derler, Testcontainers ile geçici gerçek PostgreSQL, RabbitMQ ve Redis
+başlatır, Flyway migration'larını uygular, API/mesajlaşma testlerini çalıştırır
+ve çalıştırılabilir JAR üretir.
 
 ### Uygulamayı çalıştırma
 
-Önce PostgreSQL açık olmalıdır:
+Önce PostgreSQL, RabbitMQ ve Redis açık olmalıdır:
 
 ```powershell
 docker compose up -d --wait
@@ -205,8 +210,10 @@ Beklenen cevap:
 {"status":"UP"}
 ```
 
-Yerel varsayılanlar `application.yml` içindedir. Gerçek ortamlarda bağlantı
-bilgileri `DATABASE_URL`, `DATABASE_USERNAME` ve `DATABASE_PASSWORD` environment
+Yerel varsayılanlar `application.yml` içindedir. Gerçek ortamlarda PostgreSQL
+bağlantısı `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`; RabbitMQ
+bağlantısı `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USERNAME` ve
+`RABBITMQ_PASSWORD`; Redis bağlantısı `REDIS_HOST` ve `REDIS_PORT` environment
 değişkenleriyle dışarıdan verilmelidir.
 
 ### Geçici yerel kimlikle çalıştırma
@@ -246,6 +253,7 @@ veya `ADMIN` rolü ister:
 POST   /api/v1/admin/contents
 GET    /api/v1/admin/contents/{contentId}
 PUT    /api/v1/admin/contents/{contentId}
+PUT    /api/v1/admin/contents/{contentId}/cover
 DELETE /api/v1/admin/contents/{contentId}
 POST   /api/v1/admin/contents/{contentId}/publish
 POST   /api/v1/admin/contents/{contentId}/seasons
@@ -267,10 +275,150 @@ GET /api/v1/contents/{contentId}
 sezon içinde tektir. Bu kurallar hem domain modelinde hem PostgreSQL
 constraint'lerinde korunur. Bir dizi, en az bir sezon ve her sezonda en az bir
 bölüm bulunmadan yayınlanamaz. Yayınlanan içerik yerinde değiştirilemez.
+Yayın öncesinde doğrulanmış bir kapak görseli ve bu görselin alternatif metni
+atanmalıdır.
+
+### Medya ve erişilebilir görsel sözleşmesi
+
+Aşama 4.1 ile EDITOR/ADMIN için doğrulanan görsel yükleme ve kimliği doğrulanmış
+kullanıcı için görsel okuma yolları eklendi:
+
+```text
+POST /api/v1/admin/media/images
+GET  /api/v1/media/{mediaAssetId}/content
+```
+
+Yükleme `multipart/form-data` içindeki `file` alanıyla yapılır. Yalnız JPEG/PNG,
+en fazla 5 MB ve en fazla 4096×4096 görseller kabul edilir; bildirilen MIME türü
+dosya imzası ve çözülebilir içerikle doğrulanır. PostgreSQL değişmez medya
+kimliği ve SHA-256 bütünlük bilgisini saklar. Yerel geliştirmede dosyalar
+`MEDIA_STORAGE_DIRECTORY` ile değiştirilebilen klasöre yazılır; production
+storage sağlayıcısı aynı portun farklı adapter'ı olacaktır.
+
+### Quiz authoring ve sürümleme API'leri
+
+Aşama 3 ile quiz, sürüm, soru ve cevap seçeneği yönetimi eklendi. Yönetim
+yolları `EDITOR` veya `ADMIN` rolü ister:
+
+```text
+POST   /api/v1/admin/quizzes
+GET    /api/v1/admin/quizzes/{quizId}
+POST   /api/v1/admin/quizzes/{quizId}/versions
+PUT    /api/v1/admin/quizzes/{quizId}/versions/{versionId}
+POST   /api/v1/admin/quizzes/{quizId}/versions/{versionId}/questions
+PUT    /api/v1/admin/quizzes/{quizId}/versions/{versionId}/questions/{questionId}
+DELETE /api/v1/admin/quizzes/{quizId}/versions/{versionId}/questions/{questionId}
+POST   /api/v1/admin/quizzes/{quizId}/versions/{versionId}/publish
+POST   /api/v1/admin/quizzes/{quizId}/versions/{versionId}/archive
+```
+
+Kimliği doğrulanmış kullanıcı yalnız aktif yayın sürümünü okuyabilir:
+
+```text
+GET /api/v1/quizzes/{quizId}
+GET /api/v1/contents/{contentId}/quizzes
+```
+
+Draft quizler kullanıcıya görünmez. Yayın için en az bir soru, her soruda en az
+iki seçenek ve tam bir doğru seçenek gerekir. Kullanıcı response modeli doğru
+cevap alanını içermez. Yayındaki sürüm yerinde değiştirilemez; düzenleme için
+yeni draft sürümü oluşturulur. Puanlama politikası bu aşamada `STANDARD_V1`
+kimliğiyle sürüme sabitlenmiştir; puan hesabı Aşama 4 gameplay kapsamında
+sunucu tarafından uygulanır.
+
+Soruya özel görsel `INFORMATIVE` veya `DECORATIVE` rolüyle tanımlanabilir.
+Bilgilendirici görsel, alternatif metin ve cevabı sızdırmayan eşdeğer
+`accessiblePrompt` olmadan yayınlanamaz. Özel görsel yoksa içerik kapağı yayın
+anında quiz sürümüne dekoratif fallback olarak sabitlenir.
+
+### Gameplay API'leri
+
+Aşama 4 ile kimliği doğrulanmış kullanıcı için attempt akışı eklendi:
+
+```text
+POST /api/v1/quizzes/{quizId}/attempts
+GET  /api/v1/attempts/{attemptId}
+POST /api/v1/attempts/{attemptId}/answers
+POST /api/v1/attempts/{attemptId}/complete
+```
+
+Answer ve complete istekleri en fazla 100 karakterlik `Idempotency-Key` header'ı
+ister. Attempt varsayılan olarak beş dakika aktiftir. Başlatma body’sinde
+`STANDARD_V1` veya herkese açık `EXTENDED_V1` seçilebilir; ikinci seçenek 50
+dakikadır. Seçim attempt'e sabitlenir, sağlık/engel verisi tutmaz ve puanı
+değiştirmez. Süre ve skor sunucu tarafından belirlenir.
+Sorular sunucu sırasıyla cevaplanır ve aynı soru ikinci kez kabul edilmez.
+Cevap kaydedildikten sonra response `correct` ve `correctOptionId` alanlarının
+yanında `CORRECT`/`INCORRECT` semantik durumunu gösterir, ardından sıradaki
+soruyu çözümlenmiş görsel ve erişilebilir metinle döndürür. Son cevap attempt'i otomatik
+tamamlar. Kullanıcı yalnız kendi attempt'ini okuyabilir.
+
+### XP ve güvenilir mesajlaşma
+
+Aşama 6 ile tamamlanan attempt ve sürümlü `quiz.completed` Outbox olayı aynı
+PostgreSQL transaction'ında kesinleşir. RabbitMQ publisher olayı daha sonra
+yayımlar; idempotent consumer Inbox kaydıyla birlikte XP ledger işlemini
+oluşturur. Broker geçici olarak kapalı olsa bile attempt ve Outbox olayı
+kaybolmaz, tekrar teslimat ikinci XP üretmez.
+
+`SCORE_MATCH_V1` politikasında kazanılacak XP sunucunun kesin skoruna eşittir;
+bu nedenle son answer ve complete yanıtlarında `earnedXp` hemen gösterilir.
+`GET /api/v1/me/xp` asenkron consumer çalışana kadar kısa süreli eski toplamı
+döndürebilir.
+
+```text
+GET  /api/v1/me/xp
+POST /api/v1/admin/xp-transactions/{transactionId}/adjustments
+```
+
+XP geçmişi append-only işlem defteridir. Aynı attempt veya tekrar gönderilen
+complete isteği ikinci ödül üretmez. Geçmiş satır değiştirilmez; yalnız `ADMIN`
+rolü, özgün kazanca bağlı pozitif veya negatif yeni bir düzeltme kaydı ekleyebilir.
+
+Mesajlaşma akışı kalıcı direct exchange, dayanıklı XP queue'su, üç denemeli
+artan gecikme ve dead-letter queue kullanır. Publish/consumer başarıları,
+hataları ve duplicate mesajlar Actuator'ın Micrometer metrikleri üzerinden
+izlenebilir.
+
+### Leaderboard API'leri
+
+Aşama 7 ile global ve içerik bazlı PostgreSQL leaderboard doğruluğu, Aşama 8
+ile bu sonuçtan yeniden oluşturulabilen Redis read model tamamlandı:
+
+```text
+GET /api/v1/leaderboards/global?limit=20
+GET /api/v1/leaderboards/contents/{contentId}?limit=20
+```
+
+İlk dönem `ALL_TIME`'dır. Kullanıcının bütün geçerli XP ledger işlemleri
+toplanır; içerik sıralamasında yalnız ilgili içeriğin kazanç ve düzeltmeleri
+sayılır. Tekrar çözülen bütün tamamlanmış attempt'ler XP ürettikleri ölçüde
+toplama katılır. Sıra toplam XP azalan, ilk XP zamanı artan ve son olarak
+kullanıcı UUID'si artan biçimde deterministiktir.
+
+`limit` 1–100 arasındadır. Response Top N listesinin yanında kimliği doğrulanmış
+kullanıcının kendi sırasını Top N dışında olsa bile döndürür. Henüz kalıcı
+profil bulunmadığından görünen ad/avatar yoktur; arkadaş sıralaması sosyal
+özellik olarak MVP dışındadır. Küçük örneklemde yanıltıcı olacağı için yüzdelik
+alanı üretilmez.
+
+Redis sorted set içinde puan yerine PostgreSQL'in ürettiği benzersiz pozisyon
+saklanır; böylece toplam XP, ilk XP zamanı ve UUID tie-break sırası değişmez.
+Projeksiyon varsayılan olarak beş saniyede bir yenilenir ve yalnız `ADMIN`
+rolünün çağırabildiği aşağıdaki yolla elle yeniden oluşturulabilir:
+
+```text
+POST /api/v1/admin/leaderboards/rebuild
+```
+
+Response içindeki `dataSource`, sonucun `REDIS` veya Redis boş/erişilemezken
+`POSTGRESQL_FALLBACK` kaynağından geldiğini gösterir. Redis sonucunda
+`projectionGeneratedAt` eventual consistency sınırını görünür kılar. Redis
+silinse veya kesilse XP kaybolmaz; doğru kaynak PostgreSQL'dir.
 
 ## Sıradaki çalışma
 
-Aşama 2 içerik kataloğu tamamlandı. Kod akışı, transaction/audit sınırı,
-aggregate ve veritabanı constraint'lerinin birlikte koruduğu kurallar
-kullanıcıyla gözden geçirildikten sonra ayrı onayla Aşama 3 quiz authoring ve
-sürümlemeye geçilebilir.
+Aşama 8 Redis leaderboard read model tamamlandı. Sıradaki backend işi,
+kullanıcı onayından sonra Aşama 9 operasyon ve production hazırlığıdır.
+Admin paneli çekirdek backend roadmap'i tamamlandıktan sonra ayrı bir frontend
+aşaması olarak belirlenecektir.

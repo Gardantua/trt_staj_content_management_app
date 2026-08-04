@@ -60,6 +60,9 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
 - Attempt yaşam döngüsü
 - Süre kontrollü cevap kabulü ve sunucu taraflı puanlama
 - Kullanıcı ve yönetici yetkilendirmesi
+- Her soruda sürüme sabitlenmiş kapak veya soruya özel görsel
+- Görsele dayalı sorular için cevabı sızdırmayan eşdeğer erişilebilir sunum
+- Kullanıcının engel/sağlık verisini toplamadan ayarlanabilir quiz süresi
 - Tekrarlı işlem üretmeyen XP kaydı
 - Global ve içerik bazlı leaderboard
 
@@ -80,6 +83,7 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
 - İzlenebilir hata ve işlem kayıtları
 - Yatay ölçeklenmeye uygun stateless uygulama
 - Yeni quiz türlerine genişleyebilir domain modeli
+- WCAG 2.2 AA'yı hedefleyen API ve medya sözleşmeleri
 
 ## MVP dışında
 
@@ -92,13 +96,20 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
 - Çok bölgeli production dağıtımı
 - İlk günden mikroservis mimarisi
 - Kubernetes zorunluluğu
-- Gelişmiş medya işleme ve gerçek TRT/tabii entegrasyonu
+- Gelişmiş medya işleme, canlı caption üretimi ve gerçek TRT/tabii
+  entegrasyonu
 
 ## Başarı ölçütleri
 
 - Aynı soruya ikinci cevap veri katmanında engellenir.
 - Aynı complete isteği ikinci kez XP üretmez.
 - Doğru cevap quiz başlamadan istemciye sızmaz.
+- Görsel soru, alternatif metin veya erişilebilir soru sunumu yoluyla doğru
+  cevabı istemeden açığa çıkarmaz.
+- Yayınlanan her soru, sürüme sabitlenmiş bir görsel ve uygun metin alternatifi
+  ile okunabilir.
+- Quiz süresi kullanıcı tarafından engel/sağlık verisi vermeden erişilebilir
+  aralıkta ayarlanabilir.
 - Yayındaki quiz sürümü geçmiş attempt'leri değiştirmez.
 - Kullanıcı yalnız kendi attempt ve sonuçlarına erişir.
 - Süre, skor ve attempt kapanma davranışları sunucu saatine göre deterministiktir.
@@ -107,6 +118,8 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
   yayımlanır ve tekrar teslimat ikinci XP işlemi üretmez.
 - Leaderboard sonucu Redis olmadan önce PostgreSQL üzerinde doğru ve
   deterministik olarak hesaplanabilir.
+- Redis leaderboard PostgreSQL sonucuyla aynı sırayı verir; silindiğinde yeniden
+  kurulur ve kesintisinde kalıcı XP kaybı yaşanmaz.
 - Kritik domain ve entegrasyon testleri otomatik çalışır.
 - API OpenAPI üzerinden anlaşılır biçimde belgelenir.
 

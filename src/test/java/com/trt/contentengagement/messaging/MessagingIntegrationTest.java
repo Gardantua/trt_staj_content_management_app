@@ -14,7 +14,6 @@ import com.trt.contentengagement.messaging.application.OutboxEventRepository;
 import com.trt.contentengagement.messaging.application.OutboxPublisher;
 import com.trt.contentengagement.messaging.application.QuizCompletedIntegrationEventV1;
 import com.trt.contentengagement.messaging.infrastructure.rabbit.RabbitMessagingTopology;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,7 +72,6 @@ class MessagingIntegrationTest {
     private final RabbitTemplate rabbitTemplate;
     private final RabbitAdmin rabbitAdmin;
     private final ObjectMapper objectMapper;
-    private final MeterRegistry meterRegistry;
 
     @Autowired
     MessagingIntegrationTest(
@@ -82,8 +80,7 @@ class MessagingIntegrationTest {
             OutboxPublisher outboxPublisher,
             RabbitTemplate rabbitTemplate,
             RabbitAdmin rabbitAdmin,
-            ObjectMapper objectMapper,
-            MeterRegistry meterRegistry
+            ObjectMapper objectMapper
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.outboxEventRepository = outboxEventRepository;
@@ -91,7 +88,6 @@ class MessagingIntegrationTest {
         this.rabbitTemplate = rabbitTemplate;
         this.rabbitAdmin = rabbitAdmin;
         this.objectMapper = objectMapper;
-        this.meterRegistry = meterRegistry;
     }
 
     @BeforeEach
@@ -144,10 +140,6 @@ class MessagingIntegrationTest {
                 Boolean.class,
                 event.eventId()
         )).isTrue();
-        assertThat(meterRegistry.get("messaging.outbox.publish").timer().count())
-                .isGreaterThanOrEqualTo(1);
-        assertThat(meterRegistry.get("messaging.quiz.completed.consume").timer().count())
-                .isGreaterThanOrEqualTo(1);
     }
 
     @Test

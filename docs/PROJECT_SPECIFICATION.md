@@ -39,8 +39,11 @@ alınmayacaktır.
   gibi hataları hem uygulama kuralları hem veritabanı constraint'leriyle
   engellemek.
 - **Modüler Tasarım:** Sistemi başlangıçta tek uygulama olarak dağıtırken
-  identity, content, quiz, gameplay, gamification ve leaderboard sınırlarını
-  korumak.
+  identity, content, media, quiz, gameplay, gamification ve leaderboard
+  sınırlarını korumak.
+- **Erişilebilir Deneyim:** WCAG 2.2 AA'yı mühendislik hedefi alarak görsel
+  alternatifleri, semantik geri bildirimi ve ayarlanabilir süreyi backend
+  sözleşmesinden itibaren desteklemek.
 - **Genişleyebilirlik:** Çekirdek sistem tamamlandıktan sonra yeni etkileşim
   türlerinin kontrollü biçimde eklenebileceği bir temel oluşturmak.
 
@@ -58,6 +61,9 @@ alınmayacaktır.
 - Draft quiz sürümünün doğrulanarak yayınlanması
 - Yayınlanmış quiz için kullanıcı attempt'i başlatılması
 - Soruların süre kontrollü ve tek cevaplı biçimde yanıtlanması
+- Her soruda quiz sürümüne sabitlenmiş kapak veya soruya özel görsel
+- Görsele dayalı soru için cevabı sızdırmayan eşdeğer erişilebilir metin
+- Engel/sağlık verisi toplamadan ayarlanabilir quiz süresi
 - Skorun yalnız sunucu tarafından hesaplanması
 - Attempt'in tek kez tamamlanması
 - Tekrarlı işlem üretmeyen XP kaydı
@@ -74,7 +80,7 @@ alınmayacaktır.
 - Rozet sistemi
 - Mikroservis mimarisi
 - Kubernetes zorunluluğu
-- Gelişmiş medya işleme
+- Gelişmiş medya işleme, canlı caption üretimi ve video quizleri
 - Yetkisiz TRT veya tabii veri kazıma işlemleri
 
 ## 2. Proje Mimarisi
@@ -106,11 +112,20 @@ bağlanmayacaktır.
 
 - Kullanıcı yayınlanmış bölüm quizini başlatabilmelidir.
 - Backend tarafından gönderilen sorular ve cevap seçenekleri gösterilmelidir.
+- Backend tarafından çözümlenmiş soru görseli ve uygun metin alternatifi
+  semantik olarak sunulmalıdır.
+- Görsel tanımaya dayalı soruda eşdeğer erişilebilir soru metni ekran
+  okuyucu tarafından kullanılabilmelidir.
 - Doğru cevap bilgisi quiz başlamadan veya cevap verilmeden istemciye
   gönderilmemelidir.
 - Kullanıcının cevabı attempt ve soru bilgisiyle backend'e iletilmelidir.
 - Frontend'deki sayaç yalnız kullanıcı deneyimi içindir; geçerli süreyi backend
   belirlemelidir.
+- Kullanıcı attempt öncesinde standart veya uzatılmış süreyi seçebilmelidir.
+- Doğru/yanlış geri bildirimi renk yanında metin ve simgeyle gösterilmeli,
+  ekran okuyucuya durum mesajı olarak duyurulmalıdır.
+- Quiz akışı klavyeyle tamamlanabilmeli; odak sırası, kontrast, reflow ve
+  dokunma hedefleri WCAG 2.2 AA kabul kriterleriyle doğrulanmalıdır.
 - Aynı cevap isteği kullanıcı veya ağ nedeniyle tekrar gönderildiğinde backend
   davranışı güvenilir kalmalıdır.
 
@@ -141,9 +156,13 @@ katmanıdır.
 
 - **identity:** Kullanıcı kimliği, profil, rol ve izinleri yönetir.
 - **content:** Dizi, sezon, bölüm ve yayın durumunu yönetir.
+- **media:** Değişmez medya kimliği, storage referansı, dosya bütünlüğü ve
+  erişilebilirlik metadatasını yönetir.
 - **quiz:** Quiz, quiz sürümü, soru, seçenek ve yayınlama kurallarını yönetir.
 - **gameplay:** Attempt, cevap, süre, durum geçişi ve puanlamayı yönetir.
 - **gamification:** XP işlem defterini ve kullanıcı XP özetini yönetir.
+- **messaging:** Sürümlü integration event, Outbox/Inbox ve broker adapter'larını
+  yönetir.
 - **leaderboard:** Global ve içerik bazlı sıralama sonuçlarını yönetir.
 - **admin:** Yetkili yönetim use case'lerini ve audit kaydını koordine eder.
 - **shared:** Yalnız gerçekten ortak olan, domain'e özel olmayan küçük teknik
@@ -196,7 +215,7 @@ use case ortaya çıktıkça oluşturulacaktır.
 - `POST /api/v1/attempts/{attemptId}/answers`: Bir soruya cevap gönderir.
 - `POST /api/v1/attempts/{attemptId}/complete`: Attempt'i tamamlar ve sonucu
   kesinleştirir.
-- `GET /api/v1/me/stats`: Kullanıcının XP ve temel istatistiklerini verir.
+- `GET /api/v1/me/xp`: Kullanıcının toplam XP ve işlem sayısını verir.
 - `GET /api/v1/leaderboards/{scope}`: İstenen kapsamdaki sıralamayı verir.
 
 Yönetici endpoint'leri ayrı yetki gerektirecektir. Public API sözleşmesi
@@ -290,6 +309,8 @@ değişiklik sürümlendirilecektir. Uygulamanın açılışta entity modelinden
 - **quizzes:** Bir bölüm veya içerik için quiz tanımı
 - **quiz_versions:** Draft, published veya archived quiz sürümleri
 - **questions:** Quiz sürümüne bağlı sorular
+- **media_assets:** Değişmez storage referansı, MIME/boyut/bütünlük ve
+  erişilebilirlik metadatası
 - **answer_options:** Soru seçenekleri ve sunucu tarafında tutulan doğruluk
   bilgisi
 - **quiz_attempts:** Kullanıcının başlattığı quiz oturumu
@@ -306,6 +327,8 @@ Episode 1 --- N Quiz
 Quiz    1 --- N QuizVersion
 QuizVersion 1 --- N Question
 Question    1 --- N AnswerOption
+Content  N --- 1 MediaAsset : cover
+Question N --- 0..1 MediaAsset : specific visual
 User    1 --- N QuizAttempt
 QuizAttempt 1 --- N UserAnswer
 User    1 --- N XpTransaction
@@ -318,6 +341,8 @@ User    1 --- N XpTransaction
 - Quiz sürüm numarası aynı quiz içinde tekil olmalıdır.
 - Yayınlanmış quiz sürümü değişmez kabul edilmelidir.
 - Her soru için geçerli sayıda seçenek ve doğru cevap bulunmalıdır.
+- Yayınlanan soru, sürüme sabitlenmiş görsel ve uygun erişilebilirlik
+  metadatası olmadan kullanıcıya açılmamalıdır.
 - Aynı attempt ve soru için yalnız bir user answer bulunmalıdır.
 - XP kaynağı aynı kullanıcı için ikinci kez işlenmemelidir.
 - Foreign key'ler sahipsiz kayıt oluşmasını engellemelidir.
@@ -334,7 +359,7 @@ User    1 --- N XpTransaction
   oluşturulabilir leaderboard read model için değerlendirilecektir.
 - **RabbitMQ:** Stajdan sorumlu mühendisin bildirdiği proje gereksinimidir.
   Çekirdek gameplay ve PostgreSQL XP güvenilir çalıştıktan sonra yan etkileri
-  Outbox üzerinden asenkron ayırmak için kullanılacaktır.
+  Outbox üzerinden asenkron ayırmak için Aşama 6'da eklenmiştir.
 
 RabbitMQ'nun hedef mimaride kullanılacak olması ilk günden eklenmesini
 gerektirmez. Redis ise ancak ölçülmüş bir problem ve açık kabul kriteri
@@ -498,7 +523,35 @@ dayansın diye öne alınmıştır.
 - Paralel answer/complete istekleri için concurrency ve idempotency test
 - Doğru cevabın API DTO'sunda bulunmadığını doğrulayan contract test
 
-### 5.6. Aşama 5 - PostgreSQL Üzerinde XP
+### 5.6. Aşama 4.1 - Erişilebilir Medya ve Kapsayıcı Gameplay
+
+Durum: Tamamlandı. Bu ek seviye Aşama 5'ten önce uygulanmıştır. WCAG 2.2 AA bir mühendislik
+hedefidir; tek başına hukukî uygunluk veya sertifika iddiası değildir.
+
+**Kabul Kriterleri:**
+
+- Her yayınlanmış soru, soruya özel veya kapaktan sabitlenmiş görsel
+  döndürmelidir.
+- Bilgi taşıyan görsel alternatif metinsiz yayınlanmamalıdır.
+- Görsele dayalı soru, cevabı sızdırmayan eşdeğer erişilebilir soru metni
+  olmadan yayınlanmamalıdır.
+- Medya veya kapak değişikliği eski quiz sürümünü değiştirmemelidir.
+- Standart ve en az on kat uzun süre modu herkese açık olmalı, attempt'te
+  sabitlenmeli ve skor bonusu üretmemelidir.
+- Engel veya sağlık bilgisi saklanmamalıdır.
+
+**Test Yaklaşımı:**
+
+- Medya fallback, publish ve değişmezlik kuralları için domain unit test
+- Medya referansı ve migration için PostgreSQL integration test
+- Alternatif metin/doğru cevap sızması için API contract test
+- Standart/uzatılmış süre için sabit `Clock` gameplay testi
+- Yetki, MIME, boyut ve medya sahipliği için API testleri
+
+### 5.7. Aşama 5 - PostgreSQL Üzerinde XP
+
+Durum: Tamamlandı. `SCORE_MATCH_V1` politikasında kazanılan XP, sunucunun
+kesinleştirdiği skora eşittir.
 
 Bu aşamada RabbitMQ kullanılmaz.
 
@@ -515,9 +568,12 @@ Bu aşamada RabbitMQ kullanılmaz.
 - Attempt complete ve XP transaction integration testi
 - XP kaynak unique constraint ve paralel complete testi
 
-### 5.7. Aşama 6 - Güvenilir Mesajlaşma ve RabbitMQ
+### 5.8. Aşama 6 - Güvenilir Mesajlaşma ve RabbitMQ
 
-Bu aşama çalışan gameplay ve PostgreSQL XP davranışını asenkronlaştıracaktır.
+Durum: Tamamlandı. Çalışan gameplay ve PostgreSQL XP davranışı sürümlü
+`quiz.completed` v1 olayı, Transactional Outbox, RabbitMQ ve idempotent Inbox
+consumer ile asenkronlaştırılmıştır. Sonuç yanıtındaki `earnedXp` kesin skordan
+hemen hesaplanır; XP özeti kısa süreli eventual consistency gösterebilir.
 
 **Kabul Kriterleri:**
 
@@ -531,11 +587,17 @@ Bu aşama çalışan gameplay ve PostgreSQL XP davranışını asenkronlaştıra
 - XP ledger domain testleri
 - Attempt complete ile Outbox kaydının aynı transaction'da olduğunu doğrulayan
   PostgreSQL integration testi
-- Gerçek RabbitMQ ile publish, consume, retry ve duplicate testleri
+- Gerçek RabbitMQ ile publish, consume, retry, DLQ ve duplicate testleri
 
-### 5.8. Aşama 7 - PostgreSQL Üzerinde Leaderboard
+### 5.9. Aşama 7 - PostgreSQL Üzerinde Leaderboard
 
-Bu aşamada Redis kullanılmaz.
+Durum: Tamamlandı. Bu aşamada Redis kullanılmaz. `ALL_TIME` global ve içerik
+leaderboard'u XP ledger toplamından hesaplanır; Top N ve mevcut kullanıcının
+sırası aynı deterministik PostgreSQL sorgusundan okunur.
+
+Tekrar çözülen bütün geçerli attempt kazançları sayılır. Tie-break toplam XP
+azalan, ilk XP zamanı artan ve kullanıcı UUID'si artandır. Küçük örneklem için
+yüzdelik, profil/görünen ad ve arkadaş sıralaması üretilmez.
 
 **Kabul Kriterleri:**
 
@@ -550,10 +612,12 @@ Bu aşamada Redis kullanılmaz.
 - Gerçek PostgreSQL query/index integration testi
 - Top N ve “benim sıram” kontrollü performans testi
 
-### 5.9. Aşama 8 - Redis Leaderboard Read Model
+### 5.10. Aşama 8 - Redis Leaderboard Read Model
 
-Bu aşama PostgreSQL ölçümünde ihtiyaç görülürse veya açık öğrenme hedefiyle,
-gerekçesi ADR'a yazılarak uygulanacaktır.
+Durum: Tamamlandı (04.08.2026).
+
+Bu aşama açık öğrenme hedefiyle uygulandı; gerekçesi ve ölçüm sonucu
+ADR-0014'e kaydedildi.
 
 **Kabul Kriterleri:**
 
@@ -568,7 +632,7 @@ gerekçesi ADR'a yazılarak uygulanacaktır.
 - Gerçek Redis sorted set integration testi
 - Redis silme, yeniden kurma ve geçici kesinti testleri
 
-### 5.10. Aşama 9 - Operasyon ve Production Hazırlığı
+### 5.11. Aşama 9 - Operasyon ve Production Hazırlığı
 
 **Kabul Kriterleri:**
 
@@ -585,7 +649,7 @@ gerekçesi ADR'a yazılarak uygulanacaktır.
 - Güvenlik, rate limit ve dependency taramaları
 - Backup/restore ve migration kilit riski provası
 
-### 5.11. Aşama 10 - Opsiyonel Genişlemeler
+### 5.12. Aşama 10 - Opsiyonel Genişlemeler
 
 Rozet, arkadaş, eğitim, canlı TV, WebSocket ve AI özellikleri çekirdek sistem
 ile operasyon kalitesi tamamlanmadan başlatılmayacaktır. Her biri ayrı ürün
@@ -612,14 +676,17 @@ kararı, ADR, kabul kriteri ve test planı gerektirir.
 
 ## 7. Mevcut Durum
 
-Proje planlama ve başlangıç ortamı hazırlığı aşamasındadır. Ürün kapsamı,
-modüler monolith yaklaşımı, geliştirme yol haritası ve eğitim belgeleri
-hazırlanmıştır.
+Aşama 0–8 tamamlanmıştır. Java 21 ve Spring Boot uygulaması; PostgreSQL/Flyway,
+kimlik ve yetki sınırı, içerik/quiz yönetimi, erişilebilir medya, sunucu otoriteli
+gameplay, append-only XP ledger ve RabbitMQ tabanlı güvenilir mesajlaşma
+akışları ile PostgreSQL tabanlı global/içerik leaderboard ve Redis read modelini
+içerir.
 
-Java 21 geliştirme ortamı kurulmuştur. Docker Desktop kurulum dosyası indirilmiş
-ve WSL 2 etkinleştirilmiştir. Docker Desktop'ın kurulması ve Docker Engine ile
-Compose komutlarının doğrulanması sıradaki tek teknik iştir.
+Transactional Outbox ile attempt sonucu aynı PostgreSQL transaction'ında
+kesinleşir. Sürümlü olay publisher confirm ile RabbitMQ'ya taşınır; Inbox
+korumalı consumer XP'yi at-least-once teslimata dayanıklı biçimde üretir. Tam
+doğrulamada 89 test, Flyway V1–V8 ve gerçek PostgreSQL/RabbitMQ/Redis Testcontainers
+senaryoları başarıyla geçmiştir.
 
-Henüz Spring Boot uygulama iskeleti, PostgreSQL container'ı, migration veya
-uygulama özelliği geliştirilmemiştir. Bu belge hedef sistemi ve teslim
-beklentilerini tanımlar; tamamlanmış özellik raporu değildir.
+Sıradaki tek teknik iş, kullanıcı onayından sonra Aşama 9 operasyon ve
+production hazırlığıdır.

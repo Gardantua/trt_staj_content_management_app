@@ -28,4 +28,13 @@ class LeaderboardModuleArchitectureTest {
                     "..gamification.infrastructure..", "..gameplay.infrastructure..",
                     "..quiz.infrastructure..", "..messaging.infrastructure.."
             );
+
+    @ArchTest
+    static final ArchRule REDIS_STAYS_OUT_OF_APPLICATION_AND_DOMAIN = noClasses()
+            .that().resideInAnyPackage(
+                    "..leaderboard.application..", "..leaderboard.domain.."
+            )
+            .should().dependOnClassesThat().resideInAPackage(
+                    "org.springframework.data.redis.."
+            );
 }

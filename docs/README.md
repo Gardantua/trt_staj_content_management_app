@@ -9,6 +9,7 @@ mimari kararlarını ve sistem diyagramlarını içerir.
 - [Mimari](ARCHITECTURE.md)
 - [Yol haritası](ROADMAP.md)
 - [Güncel durum](CURRENT_STATE.md)
+- [Geliştirme zorlukları ve çözüm günlüğü](DEVELOPMENT_CHALLENGES.md)
 - [Resmî proje tanımı ve teknik isterler](PROJECT_SPECIFICATION.md)
 - [Mimari karar kayıtları](DECISIONS/README.md)
 
