@@ -230,10 +230,12 @@ PostgreSQL tabanlı doğru sonuç önce kanıtlandı. Redis'in ilk uygulaması:
 - Beş saniyelik kontrollü yenileme ve ADMIN rebuild yolu
 - Atomik nesil işaretçisi, PostgreSQL fallback ve kaynak metrikleri
 
-ile sınırlıdır. Sık okunan quiz cache'i ve rate limiting, Redis öğrenme
-kapsamını büyütmek için otomatik olarak eklenmez; bunlar ayrıca ölçülmüş okuma
-yükü veya abuse ihtiyacı gerektirir. Redis kaybı kalıcı iş verisi kaybına neden
-olmamalı; leaderboard PostgreSQL'den yeniden kurulabilmelidir.
+ile sınırlıdır. Sık okunan quiz cache'i Redis öğrenme kapsamını büyütmek için
+otomatik eklenmez. Aşama 9 abuse kontrolü, Redis kesintisinden bağımsız kalması
+için uzak IP anahtarlı ve belleği sınırlı local token bucket olarak eklendi.
+Global çok-instance kota gerçek bir gereksinim olursa Redis veya gateway
+limiter ayrı kararla değerlendirilir. Redis kaybı kalıcı iş verisi kaybına
+neden olmamalı; leaderboard PostgreSQL'den yeniden kurulabilmelidir.
 
 `leaderboard.redis.hit` ve `leaderboard.postgresql.fallback` sayaçları okuma
 kaynağını izler. API ayrıca `dataSource` ve Redis üretim zamanını döndürür.
@@ -323,7 +325,8 @@ satırını özgün completion ile kullanıcı ve içerik bakımından doğrular
 - Şema yalnız Flyway ile değiştirilir.
 - Küçük/boş geliştirme tablolarında sade migration tercih edilir.
 - Büyük production tablolarında index, backfill, constraint doğrulama ve veri
-  tipi değişiklikleri için kademeli expand-contract yaklaşımı değerlendirilir.
+  tipi değişiklikleri kademeli expand-contract yaklaşımını izler. V9'un nullable
+  W3C context kolonları ve eski Outbox satırı testi ilk uyumluluk provasıdır.
 - Transaction dışı çalışması gereken PostgreSQL DDL komutları Flyway davranışı
   dikkate alınarak ayrı doğrulanır.
 - Redis, connection pool veya ölçek kararı vermeden önce örnek kapasite modeli
@@ -356,15 +359,18 @@ Admin endpoint'leri ayrı yetki gerektirir.
 
 ## Gözlemlenebilirlik
 
-İlk sürümden itibaren:
+İlk sürümde:
 
-- Correlation/trace ID
-- Structured log
-- Merkezi hata modeli
-- HTTP ve veritabanı süre metrikleri
+- Destek amaçlı `requestTraceId` ile OpenTelemetry `traceId/spanId` ayrımı
+- HTTP → Outbox → RabbitMQ boyunca W3C `traceparent`/`tracestate`
+- Structured log ve merkezi hata modeli
+- Prometheus HTTP/gecikme ve mesajlaşma metrikleri
+- Tempo trace deposu ve provision edilmiş Grafana dashboard'u
 
-bulunmalıdır. RabbitMQ eklendiğinde queue depth, retry, DLQ ve consumer işlem
-süreleri de izlenir.
+bulunur. Event/actor UUID gibi sınırsız değerler metric label'ı yapılmaz.
+RabbitMQ publish/consume süresi, başarı/hata, retry ve DLQ operasyon sinyalleri
+izlenir. Production scraper/exporter ağı, sampling, retention ve alarm kanalı
+kurum altyapısıyla kesinleştirilmelidir.
 
 ## Açık kararlar
 
@@ -375,7 +381,7 @@ süreleri de izlenir.
 - Leaderboard dönem/sıfırlama ve hile/diskalifiye operasyon politikası
 - Attempt otomatik expire ve tekrar çözme politikası
 - Gelecekte XP bonusu/çarpanı gerekip gerekmediği
-- Öğrenme/demo ve hedef ortam için kapasite varsayımları
+- Gerçek production trafik hedefi ve ilk ölçümlerin SLO/alarm kalibrasyonu
 
 Bu kararlar uygulamaya başlamadan veya ilgili aşamaya gelindiğinde ADR olarak
 kaydedilmelidir.
@@ -392,3 +398,5 @@ kaydedilmelidir.
 | Testcontainers | Gerçek altyapı davranışını test etmek | PostgreSQL constraint/migration davranışını sahte DB olmadan doğrular | CI altyapısı container çalıştıramıyorsa eşdeğer ephemeral ortam aranır |
 | RabbitMQ | Tamamlama sonrası bağımsız yan etkiler | Kurum gereksinimi; routing, retry ve DLQ ile güvenilir asenkron işlemeyi sağlar | Kurum standardı değişir veya replay/stream hacmi Kafka gibi başka bir broker gerektirirse |
 | Redis | Hızlı leaderboard ve geçici veri | Sorted set ve düşük gecikmeli sıralama | PostgreSQL çözümü yeterliyse eklenmez; kalıcı doğru kaynak yapılmaz |
+| OpenTelemetry + Prometheus | İstek/mesaj akışını ve eğilimleri izlemek | Standart W3C context, düşük cardinality metrik ve mevcut Spring entegrasyonu | Kurumun farklı telemetry backend'i veya sampling standardı varsa |
+| Yerel token bucket | Tek-instance MVP abuse kontrolü | Redis'ten bağımsız, düşük maliyetli ve bounded bellek | Çok instance'ta global kullanıcı/API-key kotası gerekirse gateway veya dağıtık limiter seçilir |

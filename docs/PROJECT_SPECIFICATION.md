@@ -634,6 +634,11 @@ ADR-0014'e kaydedildi.
 
 ### 5.11. Aşama 9 - Operasyon ve Production Hazırlığı
 
+**Durum:** Tamamlandı (04.08.2026). OpenTelemetry W3C trace continuation,
+Prometheus/Grafana/Tempo, rate limiting, CycloneDX SBOM + OSV ve Gitleaks
+kapıları, dört k6 profili, dependency kesinti testleri, backup/restore,
+expand-contract ve retention/KVKK runbook'u hazırdır.
+
 **Kabul Kriterleri:**
 
 - İstekler trace ID ile izlenebilmelidir.
@@ -648,6 +653,12 @@ ADR-0014'e kaydedildi.
 - PostgreSQL, RabbitMQ ve Redis kesinti senaryoları
 - Güvenlik, rate limit ve dependency taramaları
 - Backup/restore ve migration kilit riski provası
+
+**Doğrulama sonucu:** Final `clean verify` 97 testle, 0 failure/error/skipped
+sonucuyla geçti; Flyway V1–V9 ve gerçek PostgreSQL/RabbitMQ/Redis senaryoları
+doğrulandı. Ayrı k6 baseline'ı 601 istekte `%0` hata, p95 `15,75 ms`, p99
+`332,82 ms` ve 0 dropped iteration üretti. Güvenlik patch'leri sonrasında 164
+bileşenli OSV taraması bilinen açık bulmadı.
 
 ### 5.12. Aşama 10 - Opsiyonel Genişlemeler
 
@@ -676,17 +687,21 @@ kararı, ADR, kabul kriteri ve test planı gerektirir.
 
 ## 7. Mevcut Durum
 
-Aşama 0–8 tamamlanmıştır. Java 21 ve Spring Boot uygulaması; PostgreSQL/Flyway,
+Aşama 0–9 tamamlanmıştır. Java 21 ve Spring Boot uygulaması; PostgreSQL/Flyway,
 kimlik ve yetki sınırı, içerik/quiz yönetimi, erişilebilir medya, sunucu otoriteli
 gameplay, append-only XP ledger ve RabbitMQ tabanlı güvenilir mesajlaşma
 akışları ile PostgreSQL tabanlı global/içerik leaderboard ve Redis read modelini
-içerir.
+içerir. Operasyon katmanında W3C trace zinciri, Prometheus/Grafana/Tempo,
+instance-bazlı token bucket, SBOM/secret güvenlik kapıları, k6 yük profilleri,
+kesinti ve backup/restore provaları bulunur.
 
 Transactional Outbox ile attempt sonucu aynı PostgreSQL transaction'ında
 kesinleşir. Sürümlü olay publisher confirm ile RabbitMQ'ya taşınır; Inbox
 korumalı consumer XP'yi at-least-once teslimata dayanıklı biçimde üretir. Tam
-doğrulamada 89 test, Flyway V1–V8 ve gerçek PostgreSQL/RabbitMQ/Redis Testcontainers
-senaryoları başarıyla geçmiştir.
+doğrulamada 97 test, Flyway V1–V9 ve gerçek PostgreSQL/RabbitMQ/Redis
+Testcontainers senaryoları başarıyla geçmiştir. Bir dakikalık gerçek k6
+baseline'ı ve patch sonrası OSV taraması ayrıca başarılıdır.
 
-Sıradaki tek teknik iş, kullanıcı onayından sonra Aşama 9 operasyon ve
-production hazırlığıdır.
+Sırada zorunlu backend aşaması yoktur. Aşama 10 tek bir uygulama aşaması değil;
+kullanıcı tarafından ayrıca seçilmesi ve kendi ADR/kabul kriterleriyle
+planlanması gereken bağımsız opsiyonel ürün genişlemeleridir.

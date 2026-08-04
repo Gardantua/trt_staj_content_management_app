@@ -71,6 +71,9 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
 - Admin audit kayıtları
 - OpenAPI sözleşmesi
 - Kararlı hata kodu ve trace ID
+- API'den asenkron consumer'a W3C trace continuation
+- Abuse/rate limit kontrolü ve dependency/secret güvenlik kapıları
+- Ölçülebilir p95/p99, hata oranı ve tekrarlanabilir yük profilleri
 - Migration ve otomatik testler
 - Kimlik ve kaynak sahipliği kontrollerinin attempt akışından önce kurulması
 
@@ -118,6 +121,10 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
   yayımlanır ve tekrar teslimat ikinci XP işlemi üretmez.
 - Leaderboard sonucu Redis olmadan önce PostgreSQL üzerinde doğru ve
   deterministik olarak hesaplanabilir.
+- PostgreSQL, RabbitMQ ve Redis kesintileri kalıcı veri kaybı üretmez.
+- PostgreSQL backup'ı ayrı bir veritabanına geri yüklenebilir.
+- Dependency envanteri transitive SBOM olarak üretilebilir ve bilinen açıklara
+  karşı CI'da taranabilir.
 - Redis leaderboard PostgreSQL sonucuyla aynı sırayı verir; silindiğinde yeniden
   kurulur ve kesintisinde kalıcı XP kaybı yaşanmaz.
 - Kritik domain ve entegrasyon testleri otomatik çalışır.

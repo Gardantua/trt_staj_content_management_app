@@ -36,6 +36,11 @@ tamamlandıkça güncellenmelidir.
 | 6 | Zaman hassasiyeti ve test profilinde broker health | Mikro-saniye normalizasyonu ve test health ayrımı | Çözüldü |
 | 7 | “Sıralama” ürün kuralının belirsizliği | Ledger toplamı, deterministik tie-break ve ALL_TIME kapsam | Çözüldü |
 | 7 | İçerik XP'sinin yanlış içeriğe bağlanabilmesi | `content_id` backfill, PostgreSQL trigger ve integration test | Çözüldü |
+| 8 | Redis'in PostgreSQL sırasını korumaması ve N+1 nedeniyle yavaşlaması | Pozisyon skoru, toplu metadata okuması ve atomik generation | Çözüldü |
+| 9 | HTTP ile asenkron consumer arasında trace'in kopması | Outbox'ta W3C context, RabbitMQ inject/extract ve eski satır uyumluluğu | Çözüldü |
+| 9 | Yük testinin kimliksiz istekleri ve eksik p99 raporu | Local/test kimliği, açık trend istatistikleri ve ayrı load profili | Çözüldü |
+| 9 | Güvenlik taramasının NVD rate limitine takılması ve gerçek açıklar | CycloneDX SBOM, OSV taraması ve güvenli patch override'ları | Çözüldü |
+| 9 | Kesinti sırasında health timeout'u ve restore kanıtı ihtiyacı | Sınırlı probe, recovery veri kontrolü ve disposable restore provası | Çözüldü |
 
 ## Ayrıntılı problem kayıtları
 
@@ -511,7 +516,9 @@ ile önce/sonra ölçümü çalıştırıldı; tam doğrulamadaki performans tes
 
 **Trade-off veya kalan risk:** Redis yerel küçük örnekte hâlâ PostgreSQL'den
 hızlı değildir. Değeri bu ölçekte hız değil, PostgreSQL okuma yükünü ayıran
-yeniden üretilebilir projection sınırıdır. Production SLO/yük testi Aşama 9'dur.
+yeniden üretilebilir projection sınırıdır. Aşama 9'da uygulama HTTP kapasitesi
+ayrıca k6 ile ölçüldü; Redis karşılaştırması gerçek production trafiği ve veri
+dağılımıyla yeniden kalibre edilmelidir.
 
 **Rapor çıkarımı:** “Redis hızlıdır” teknoloji seçimi için kanıt değildir;
 komut sayısı, ağ turu ve gerçek veri dağılımı ölçülmelidir.
@@ -542,6 +549,153 @@ yanlış sonuç veya veri kaybı görmez. Beş saniyelik yenileme stale pencere 
 değildir; immutable generation, atomik pointer ve güvenli fallback ile yarım
 durum gözlenmesi engellenebilir.
 
+### 26. Korelasyon kimliği ile dağıtık trace kimliğinin karıştırılması
+
+**Belirti:** HTTP isteği bir trace üretiyor, fakat Outbox publisher ve XP
+consumer yeni ve birbirinden bağımsız trace'ler başlatıyordu. Outbox'ta yalnız
+32 karakterlik trace ID tutmak parent-child ilişkisini kurmaya yetmiyordu.
+
+**Kök neden:** Kullanıcının gönderdiği `X-Trace-Id` destek amaçlı korelasyon
+değeridir. OpenTelemetry'nin örnekleme bayrağı, parent span kimliği ve vendor
+durumunu taşıyan W3C `traceparent`/`tracestate` sözleşmesinin yerine geçmez.
+
+**Denenen fakat yeterli olmayan yaklaşım:** Aynı trace ID'yi log ve event
+alanına kopyalamak log aramasını kolaylaştırdı, fakat gözlem sisteminde span
+ağacı oluşturmadı.
+
+**Çözüm:** Aktif context, attempt ve Outbox'ın ortak transaction'ında nullable
+W3C alanlarına yazıldı. Publisher bu parent'ı çıkarıp PRODUCER span başlattı;
+RabbitMQ header'ına enjekte edilen context consumer tarafından çıkarılıp
+CONSUMER span'a bağlandı. V9 alanları nullable bırakılarak eski Outbox satırları
+rolling deployment sırasında geçerli tutuldu.
+
+**Kanıt/test:** Gameplay integration testi trace ID ile `traceparent` eşliğini,
+messaging testi gerçek RabbitMQ publish/consume akışını ve W3C alanı olmayan eski
+satırın hâlâ yayımlanabildiğini doğruladı.
+
+**Trade-off veya kalan risk:** Context propagation iz sürekliliğini sağlar;
+Tempo retention'ı, sampling ve production exporter ağı kurum altyapısıyla
+kesinleştirilmelidir.
+
+**Rapor çıkarımı:** Correlation ID bir arama anahtarıdır; dağıtık trace context'i
+ise nedensel parent-child ilişkisini taşıyan protokol sözleşmesidir.
+
+### 27. İlk k6 ölçümünün hızlı ama tamamen yanlış olması
+
+**Belirti:** İlk bir dakikalık baseline'da p95 `8,57 ms` görünmesine rağmen 600
+isteğin tamamı başarısızdı. Ayrıca k6 eşik olarak p99'u kontrol ediyor fakat
+varsayılan JSON summary sayısal p99 değerini yazmıyordu.
+
+**Kök neden:** Korunan content API'sine local/test actor header'ları
+gönderilmediği için ölçülen şey veritabanı okuması değil hızlı `401` yanıtıydı.
+Yalnız latency'ye bakmak hatalı koşuyu başarılı gibi gösterebilirdi.
+
+**Denenen fakat yeterli olmayan yaklaşım:** Yalnız `http_req_duration` eşikleri
+tanımlamak performansı ölçtü, fakat iş yolunun başarıyla tamamlandığını kanıtlamadı.
+
+**Çözüm:** Senaryo geçici USER kimliğini yalnız local/test akışında gönderdi;
+HTTP status, response trace header'ı, hata oranı, dropped iteration ve
+`summaryTrendStats` içindeki p95/p99 birlikte kontrol edildi. Baseline, ramp,
+spike ve kısa soak aynı endpoint yolunu paylaşacak biçimde tanımlandı.
+
+**Kanıt/test:** Düzeltilmiş baseline gerçek PostgreSQL ve tek uygulama örneğinde
+601/601 başarılı istek, `%0` hata, `0` dropped iteration, p95 `15,75 ms` ve p99
+`332,82 ms` üretti.
+
+**Trade-off veya kalan risk:** Bu tek makine ve boş/küçük veri baseline'ıdır;
+150 istek/s spike veya production kapasite garantisi değildir. Ramp, spike ve
+soak hedef ortamda release öncesi tekrar çalıştırılmalıdır.
+
+**Rapor çıkarımı:** Performans testi yalnız “kaç istek attık?” değildir; doğru
+iş yolunu çalıştırdığı ve yanıtların başarılı olduğu kanıtlanmadan latency
+sayısının anlamı yoktur.
+
+### 28. Dependency taramasının dış veri kaynağına bağımlılığı
+
+**Belirti:** OWASP Dependency-Check ilk NVD indirmesinde uzun süre çalıştı ve
+NVD `429` rate limit'i nedeniyle sonuç üretmeden durdu. OSV'nin doğrudan
+`pom.xml` çözümü de Maven Central rate limit'i ve yönetilen boş sürümler nedeniyle
+transitive ağacı güvenilir çıkaramadı.
+
+**Kök neden:** Tarayıcı hem dependency resolution hem vulnerability verisini
+aynı anda dış servislerden kurmaya çalışıyordu. Böylece güvenlik kapısının sonucu
+ürün bağımlılıklarından çok üçüncü taraf rate limit'ine bağlı hale geldi.
+
+**Denenen fakat yeterli olmayan yaklaşım:** NVD API anahtarı olmadan uzun retry
+beklemek ve OSV'ye yalnız kaynak `pom.xml` vermek deterministik değildi.
+
+**Çözüm:** Maven'in yerel ve kesin dependency graph'ından 164 bileşenli
+CycloneDX SBOM üretildi; OSV yalnız bu sabit envanteri taradı. İlk taramada
+Netty, PostgreSQL JDBC ve Jackson için dört düzeltilebilir bulgu çıktı. Spring
+Boot BOM'u korunarak güvenli patch sürümleri override edildi. CI'daki OSV ve
+Gitleaks referansları tam commit SHA'sına sabitlendi.
+
+**Kanıt/test:** Patch sonrasında aynı 164 bileşenli SBOM taraması `No issues
+found` verdi; ardından 97 testlik `clean verify` bütünüyle geçti.
+
+**Trade-off veya kalan risk:** Açık veritabanı zamanla değişir; temiz sonuç
+yalnız tarama anını ifade eder. Dependabot ve her CI çalışmasındaki yeniden
+tarama bu yüzden gereklidir.
+
+**Rapor çıkarımı:** Güvenlik taramasının kendisi de tekrarlanabilir bir veri
+akışıdır; önce dependency envanterini deterministik üretmek, sonra açığı eşlemek
+failure mode'ları ayırır.
+
+### 29. PostgreSQL hard pause sırasında health kontrolünün de askıda kalması
+
+**Belirti:** PostgreSQL container'ı duraklatıldığında health endpoint'i her
+zaman hızlı `503` üretmedi; havuzdaki mevcut JDBC bağlantısı yüzünden istemci
+beş saniyelik timeout'a ulaştı.
+
+**Kök neden:** Yeni bağlantı alma timeout'u ile var olan TCP bağlantısında
+başlatılmış sorgunun socket/query timeout'u aynı sınır değildir.
+
+**Çözüm:** Failure testi `DOWN/503` veya sınırlandırılmış probe timeout'unu
+erişilemezlik olarak kabul etti, fakat container geri geldiğinde health'in
+yeniden `200` olmasını ve önceden commit edilen marker'ın korunmasını ayrıca
+zorunlu tuttu. İkinci prova `pg_dump` backup'ını ayrı disposable veritabanına
+restore edip Flyway geçmişi ve marker verisini okudu. İlk RPO/RTO hedefleri ve
+restore sırası operasyon rehberine yazıldı.
+
+**Kanıt/test:** İki operasyon integration testi gerçek PostgreSQL 17.5
+container'ında geçti; final `clean verify` 97/97 başarılı oldu.
+
+**Trade-off veya kalan risk:** Production readiness/liveness timeout'ları
+deployment platformunda uygulama ve altyapı ağ davranışına göre ayarlanmalıdır.
+Yerel restore süresi, production `RTO ≤ 60 dakika` hedefinin sağlandığını tek
+başına kanıtlamaz.
+
+**Rapor çıkarımı:** “Dependency kapalı” testi yalnız hata koduna bakmamalı;
+tespit süresi, recovery ve commit edilmiş verinin bütünlüğünü birlikte ölçmelidir.
+
+### 30. Rate limiter'ın kendisinin abuse yüzeyi oluşturması
+
+**Belirti:** IP başına ayrı bucket tutmak basit görünse de sınırsız farklı IP
+anahtarı belleği büyütebilirdi. Ayrıca doğrudan `X-Forwarded-For` kullanmak,
+güvenilir proxy sınırı yokken saldırganın her istekte yeni kimlik üretmesini
+sağlardı.
+
+**Kök neden:** Abuse kontrolü yalnız istek sayısını değil, anahtarın kim
+tarafından doğrulandığını ve limiter state'inin ne kadar büyüyebileceğini de
+tanımlamalıdır.
+
+**Çözüm:** İlk MVP limiter'ı `request.getRemoteAddr()` kullanır, proxy header'ına
+güvenmez, en fazla 10.000 ayrı istemci bucket'ı izler ve sınırdan sonraki
+istemcileri ortak overflow bucket'ında toplar. Idle bucket'lar periyodik
+temizlenir; bucket seçimi eşzamanlı eklemelerde sınırın aşılmaması için atomik
+kritik bölümle korunur.
+
+**Kanıt/test:** Unit test burst/refill, istemci izolasyonu ve overflow kotasını;
+API testi üçüncü isteğin `429`, `RATE_LIMIT_EXCEEDED`, `Retry-After`, RateLimit
+header'ları ve trace ID ürettiğini doğruladı.
+
+**Trade-off veya kalan risk:** Kota instance bazlıdır ve restart ile sıfırlanır.
+Güvenilir load balancer gerçek istemci adresini normalize etmeli; yatay ölçekte
+global kota gerekirse gateway veya dağıtık limiter seçilmelidir.
+
+**Rapor çıkarımı:** Rate limiter güvenlik kontrolüdür ama sınırsız state veya
+spoof edilebilir kimlik kullanırsa yeni bir kaynak tüketimi açığına dönüşebilir.
+
 ## Açık teknik uyarılar ve gelecek rapor konuları
 
 - Mockito/Byte Buddy Java agent'i bugün testleri geçiriyor; gelecekte JDK'nın
@@ -550,14 +704,20 @@ durum gözlenmesi engellenebilir.
 - Production OIDC/JWT claim sözleşmesi henüz bilinmiyor.
 - Production media storage/CDN, sahipsiz dosya temizliği ve kullanım hakları
   belirlenmedi.
-- RabbitMQ TLS, secret yönetimi, queue alarmı, DLQ replay ve Outbox/Inbox
-  retention politikaları belirlenmedi.
-- Redis stale penceresi, rebuild süresi ve fallback oranı için production alarm
-  eşikleri Aşama 9'da belirlenmelidir.
+- RabbitMQ TLS, secret yönetimi ve kurum queue alarm kanalı belirlenmedi. DLQ
+  replay ile Outbox/Inbox başlangıç retention politikası `OPERATIONS.md` içinde
+  tanımlandı; otomatik purge işi henüz uygulanmadı.
+- Redis stale penceresi, rebuild süresi ve fallback oranı için izlenecek SLI'lar
+  tanımlandı; kesin production alarm eşikleri gerçek trafikle kalibre edilmelidir.
 - Dönemsel leaderboard, hile/diskalifiye, kullanıcı görünen adı/avatarı ve
   arkadaş kapsamı ayrı ürün kararlarıdır.
-- Gerçek trafik hedefi, SLO, p95/p99 kapasite ve yük testi Aşama 9'da ele
-  alınacaktır.
+- 10 istek/s baseline ve ilk SLO koruma sınırları ölçüldü; gerçek trafik hedefi
+  bilinmediği için production kapasite garantisi değildir.
+- KVKK retention süreleri başlangıç mühendislik politikasıdır; production
+  öncesinde hukuk/veri sorumlusu onayı ve kimlik sağlayıcısıyla doğrulanmış
+  silme/anonimleştirme iş akışı gerekir.
+- Observability Compose dosyaları doğrulandı; production scraper/exporter ağı,
+  secret yönetimi ve kurum alarm kanalı henüz belirlenmedi.
 
 ## Yeni problem ekleme şablonu
 
@@ -589,8 +749,10 @@ seçilebilir:
 3. Idempotency/concurrency ayrımından bir örnek
 4. Outbox/Inbox ile çözülen dağıtık sistem problemi
 5. Erişilebilirlik ile cevap güvenliği arasındaki tasarım problemi
-6. PostgreSQL leaderboard doğruluğu ve Redis öncesi ölçüm
-7. Çözülmemiş production riskleri ve sonraki çalışma
+6. PostgreSQL leaderboard doğruluğu ve Redis öncesi/sonrası ölçüm
+7. W3C trace continuation, hatalı ilk k6 koşusu ve p95/p99 doğrulaması
+8. SBOM taramasının bulduğu açıklar ile dependency patch süreci
+9. Kesinti, backup/restore, RPO/RTO ve çözülmemiş production riskleri
 
 Her örnekte problem, yanlış/eksik ilk varsayım, uygulanan çözüm ve testi birlikte
 vermek raporu yalnız özellik listesi olmaktan çıkarıp mühendislik süreci haline

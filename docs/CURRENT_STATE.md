@@ -310,8 +310,9 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 - Expand-contract, migration kilit/rollback yaklaşımı, DLQ replay, ilk
   `RPO ≤ 15 dk` / `RTO ≤ 60 dk`, retention/KVKK/audit sınırları
   `docs/OPERATIONS.md` ve ADR-0016'da kaydedildi.
-- Aşama 0–7 boyunca karşılaşılan ortam, framework, veri bütünlüğü,
-  concurrency, erişilebilirlik, Outbox/RabbitMQ ve leaderboard problemleri;
+- Aşama 0–9 boyunca karşılaşılan ortam, framework, veri bütünlüğü,
+  concurrency, erişilebilirlik, Outbox/RabbitMQ, leaderboard, trace, yük,
+  güvenlik taraması ve disaster-recovery problemleri;
   kök neden, çözüm, test kanıtı ve rapor çıkarımıyla
   `docs/DEVELOPMENT_CHALLENGES.md` günlüğünde toplandı.
 
@@ -600,6 +601,13 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
 - CycloneDX SBOM + OSV ilk taramada 164 bileşende 4 düzeltilebilir bulgu yakaladı.
   Netty `4.2.16.Final`, PostgreSQL JDBC `42.7.12` ve Jackson `3.1.5` patch
   sürümlerine yükseltildikten sonra tekrar tarama `No issues found` sonucu verdi.
+- Aşama 9 sonrası dokümantasyon tutarlılığı düzeltmesinde
+  `DEVELOPMENT_CHALLENGES.md` günlüğüne trace, k6, SBOM/OSV, PostgreSQL
+  outage/restore ve rate limiter kayıtları eklendi; `PROJECT_BRIEF.md`,
+  `ARCHITECTURE.md` ve `PROJECT_SPECIFICATION.md` tamamlanan Aşama 9, 97 test ve
+  sırada zorunlu aşama kalmadığı bilgisiyle eşitlendi. Uygulama kodu değişmediği
+  için testler yeniden çalıştırılmadı; stale durum ifadeleri, Markdown bağlantıları
+  ve diff biçimi kontrol edildi.
 
 ## Öğrenme odağı
 

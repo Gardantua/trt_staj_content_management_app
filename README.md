@@ -102,7 +102,6 @@ Bu akışı kanıtlamayan teknoloji veya özellik MVP'ye eklenmez.
 - [Dokümantasyon ve diyagram dizini](docs/README.md)
 - [Resmî proje tanımı ve teknik isterler](docs/PROJECT_SPECIFICATION.md)
 - [PDF proje dokümanı](output/pdf/TRT_Icerik_Etkilesim_Backend_Proje_Dokumani.pdf)
-- [Backend mühendisliği çalışma defteri](docs/bwl.md)
 - [Mimari](docs/ARCHITECTURE.md)
 - [PlantUML sistem diyagramı](docs/diagrams/system-architecture.puml)
 - [Yol haritası](docs/ROADMAP.md)
