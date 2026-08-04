@@ -1,9 +1,9 @@
-package com.trt.contentengagement.content.infrastructure.persistence;
+package com.trt.contentengagement.admin.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.UUID;
 
-import com.trt.contentengagement.content.application.AdminAuditLog;
+import com.trt.contentengagement.admin.application.AdminAuditLog;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -24,12 +24,7 @@ public class JpaAdminAuditLogAdapter implements AdminAuditLog {
             Instant occurredAt
     ) {
         auditRepository.save(new JpaAdminAuditEntry(
-                UUID.randomUUID(),
-                actorId,
-                action,
-                resourceType,
-                resourceId,
-                occurredAt
+                UUID.randomUUID(), actorId, action, resourceType, resourceId, occurredAt
         ));
     }
 }

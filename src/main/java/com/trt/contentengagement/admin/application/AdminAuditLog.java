@@ -1,4 +1,4 @@
-package com.trt.contentengagement.content.application;
+package com.trt.contentengagement.admin.application;
 
 import java.time.Instant;
 import java.util.UUID;

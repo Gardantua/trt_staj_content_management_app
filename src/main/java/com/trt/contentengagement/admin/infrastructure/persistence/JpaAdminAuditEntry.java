@@ -1,4 +1,4 @@
-package com.trt.contentengagement.content.infrastructure.persistence;
+package com.trt.contentengagement.admin.infrastructure.persistence;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,19 +14,14 @@ class JpaAdminAuditEntry {
 
     @Id
     private UUID id;
-
     @Column(name = "actor_id", nullable = false)
     private UUID actorId;
-
     @Column(nullable = false, length = 80)
     private String action;
-
     @Column(name = "resource_type", nullable = false, length = 40)
     private String resourceType;
-
     @Column(name = "resource_id", nullable = false)
     private UUID resourceId;
-
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt;
 

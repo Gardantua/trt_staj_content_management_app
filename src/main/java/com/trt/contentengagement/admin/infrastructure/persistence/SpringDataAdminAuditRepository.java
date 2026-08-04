@@ -1,4 +1,4 @@
-package com.trt.contentengagement.content.infrastructure.persistence;
+package com.trt.contentengagement.admin.infrastructure.persistence;
 
 import java.util.UUID;
 
