@@ -11,6 +11,22 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5673}
+    username: ${RABBITMQ_USERNAME:content_engagement}
+    password: ${RABBITMQ_PASSWORD:local_development_password}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 200ms
+          multiplier: 2
+          max-interval: 1s
   servlet:
     multipart:
       max-file-size: 5MB
@@ -19,12 +35,16 @@ spring:
 app:
   media:
     storage-directory: ${MEDIA_STORAGE_DIRECTORY:${java.io.tmpdir}/content-engagement-media}
+  messaging:
+    rabbit-enabled: ${RABBITMQ_ENABLED:true}
+    publisher-delay: ${OUTBOX_PUBLISHER_DELAY:1000}
+    publisher-batch-size: ${OUTBOX_PUBLISHER_BATCH_SIZE:25}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
   endpoint:
     health:
       show-details: never
@@ -33,4 +53,19 @@ server:
   port: ${SERVER_PORT:8081}
   error:
     whitelabel:
+      enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+app:
+  messaging:
+    rabbit-enabled: false
+
+management:
+  health:
+    rabbit:
       enabled: false
