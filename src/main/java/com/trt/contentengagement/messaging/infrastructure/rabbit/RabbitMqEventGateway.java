@@ -2,6 +2,9 @@ package com.trt.contentengagement.messaging.infrastructure.rabbit;
 
 import com.trt.contentengagement.messaging.application.OutboxEvent;
 import com.trt.contentengagement.messaging.application.RabbitEventGateway;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.core.MessageProperties;
@@ -13,9 +16,17 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "app.messaging.rabbit-enabled", havingValue = "true")
 public class RabbitMqEventGateway implements RabbitEventGateway {
     private final RabbitTemplate rabbitTemplate;
+    private final Tracer tracer;
+    private final Propagator propagator;
 
-    public RabbitMqEventGateway(RabbitTemplate rabbitTemplate) {
+    public RabbitMqEventGateway(
+            RabbitTemplate rabbitTemplate,
+            Tracer tracer,
+            Propagator propagator
+    ) {
         this.rabbitTemplate = rabbitTemplate;
+        this.tracer = tracer;
+        this.propagator = propagator;
         this.rabbitTemplate.setMandatory(true);
     }
 
@@ -37,6 +48,7 @@ public class RabbitMqEventGateway implements RabbitEventGateway {
                         properties.setHeader("event-type", event.eventType());
                         properties.setHeader("event-version", event.eventVersion());
                         properties.setHeader("x-trace-id", event.traceId());
+                        injectCurrentTrace(properties);
                         return message;
                     }
             );
@@ -44,6 +56,18 @@ public class RabbitMqEventGateway implements RabbitEventGateway {
         });
         if (!Boolean.TRUE.equals(confirmed)) {
             throw new AmqpException("RabbitMQ did not confirm the outbox event.");
+        }
+    }
+
+    private void injectCurrentTrace(MessageProperties properties) {
+        Span currentSpan = tracer.currentSpan();
+        if (currentSpan != null) {
+            propagator.inject(
+                    currentSpan.context(),
+                    properties,
+                    (messageProperties, key, traceValue) ->
+                            messageProperties.setHeader(key, traceValue)
+            );
         }
     }
 }

@@ -11,6 +11,8 @@ public record OutboxEvent(
         int eventVersion,
         String payload,
         String traceId,
+        String traceParent,
+        String traceState,
         Instant occurredAt,
         int publishAttempts
 ) {

@@ -20,7 +20,7 @@ public class TraceIdFilter extends OncePerRequestFilter {
 
     public static final String TRACE_ID_HEADER = "X-Trace-Id";
 
-    private static final String TRACE_ID_MDC_KEY = "traceId";
+    public static final String REQUEST_TRACE_ID_MDC_KEY = "requestTraceId";
     private static final Pattern VALID_TRACE_ID_PATTERN =
             Pattern.compile("[a-zA-Z0-9-]{1,64}");
 
@@ -32,13 +32,13 @@ public class TraceIdFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String traceId = resolveTraceId(request.getHeader(TRACE_ID_HEADER));
 
-        MDC.put(TRACE_ID_MDC_KEY, traceId);
+        MDC.put(REQUEST_TRACE_ID_MDC_KEY, traceId);
         response.setHeader(TRACE_ID_HEADER, traceId);
 
         try {
             filterChain.doFilter(request, response);
         } finally {
-            MDC.remove(TRACE_ID_MDC_KEY);
+            MDC.remove(REQUEST_TRACE_ID_MDC_KEY);
         }
     }
 
@@ -51,4 +51,3 @@ public class TraceIdFilter extends OncePerRequestFilter {
         return UUID.randomUUID().toString();
     }
 }
-

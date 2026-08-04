@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: Content Engagement Platform
+    orgId: 1
+    folder: Content Engagement
+    type: file
+    disableDeletion: true
+    editable: false
+    options:
+      path: /var/lib/grafana/dashboards

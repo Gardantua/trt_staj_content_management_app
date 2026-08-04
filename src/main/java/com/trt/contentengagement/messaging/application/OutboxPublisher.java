@@ -5,6 +5,11 @@ import java.time.Instant;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.observation.Observation;
+import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+import io.micrometer.tracing.propagation.Propagator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -19,12 +24,18 @@ public class OutboxPublisher {
     private final int batchSize;
     private final Counter publishedCounter;
     private final Counter failedCounter;
+    private final ObservationRegistry observationRegistry;
+    private final Tracer tracer;
+    private final Propagator propagator;
 
     public OutboxPublisher(
             OutboxEventRepository outboxEventRepository,
             RabbitEventGateway rabbitEventGateway,
             Clock clock,
             MeterRegistry meterRegistry,
+            ObservationRegistry observationRegistry,
+            Tracer tracer,
+            Propagator propagator,
             @Value("${app.messaging.publisher-batch-size:25}") int batchSize
     ) {
         this.outboxEventRepository = outboxEventRepository;
@@ -33,6 +44,9 @@ public class OutboxPublisher {
         this.batchSize = batchSize;
         this.publishedCounter = meterRegistry.counter("messaging.outbox.published");
         this.failedCounter = meterRegistry.counter("messaging.outbox.publish.failed");
+        this.observationRegistry = observationRegistry;
+        this.tracer = tracer;
+        this.propagator = propagator;
     }
 
     @Transactional
@@ -42,8 +56,7 @@ public class OutboxPublisher {
         int publishedCount = 0;
         for (OutboxEvent event : pendingEvents) {
             try {
-                rabbitEventGateway.publish(event);
-                outboxEventRepository.markPublished(event, clock.instant());
+                publishObserved(event);
                 publishedCounter.increment();
                 publishedCount++;
             } catch (RuntimeException exception) {
@@ -56,6 +69,44 @@ public class OutboxPublisher {
             }
         }
         return publishedCount;
+    }
+
+    private void publishObserved(OutboxEvent event) {
+        Span publisherSpan = publisherSpan(event);
+        try (Tracer.SpanInScope ignored = tracer.withSpan(publisherSpan)) {
+            Observation.createNotStarted("messaging.outbox.publish", observationRegistry)
+                    .lowCardinalityKeyValue("event.type", event.eventType())
+                    .lowCardinalityKeyValue("event.version", Integer.toString(event.eventVersion()))
+                    .observe(() -> {
+                        rabbitEventGateway.publish(event);
+                        outboxEventRepository.markPublished(event, clock.instant());
+                    });
+        } catch (RuntimeException exception) {
+            publisherSpan.error(exception);
+            throw exception;
+        } finally {
+            publisherSpan.end();
+        }
+    }
+
+    private Span publisherSpan(OutboxEvent event) {
+        Span.Builder spanBuilder;
+        if (event.traceParent() == null || event.traceParent().isBlank()) {
+            spanBuilder = tracer.spanBuilder();
+        } else {
+            var traceCarrier = new java.util.HashMap<String, String>();
+            traceCarrier.put("traceparent", event.traceParent());
+            if (event.traceState() != null && !event.traceState().isBlank()) {
+                traceCarrier.put("tracestate", event.traceState());
+            }
+            spanBuilder = propagator.extract(traceCarrier, java.util.Map::get);
+        }
+        return spanBuilder
+                .name("messaging.rabbitmq.publish")
+                .kind(Span.Kind.PRODUCER)
+                .tag("messaging.system", "rabbitmq")
+                .tag("messaging.destination", "content.engagement.events")
+                .start();
     }
 
     private Instant nextAttemptAt(int previousAttempts, Instant now) {

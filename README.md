@@ -416,9 +416,47 @@ Response içindeki `dataSource`, sonucun `REDIS` veya Redis boş/erişilemezken
 `projectionGeneratedAt` eventual consistency sınırını görünür kılar. Redis
 silinse veya kesilse XP kaybolmaz; doğru kaynak PostgreSQL'dir.
 
+### Operasyon ve gözlemlenebilirlik
+
+Aşama 9 OpenTelemetry trace, Prometheus metric, hazır Grafana dashboard'u,
+rate limiting, güvenlik taraması, k6 yük profilleri ve disaster/migration
+runbook'unu tamamlar. Bu servisler normal backend geliştirmesinde kaynak
+tüketmemesi için yalnız açık profille başlar:
+
+```powershell
+docker compose --profile observability up -d --wait
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local,observability"
+```
+
+Yerel adresler:
+
+```text
+Grafana:    http://localhost:3000
+Prometheus: http://localhost:9090
+Tempo API:  http://localhost:3200
+Metrics:    http://localhost:8081/actuator/prometheus
+```
+
+Grafana'nın yerel varsayılan kullanıcısı `admin`, parolası
+`local_development_password` değeridir; `GRAFANA_ADMIN_USER` ve
+`GRAFANA_ADMIN_PASSWORD` ile değiştirilebilir. Bu parola ve Compose ortamı
+production secret yönetimi değildir. `/actuator/prometheus` yalnız
+`observability` Spring profilinde açılır. Production'da ayrıca ayrı management
+ağı veya kimlik doğrulaması gerekir.
+
+Yük profilleri, ilk p95/p99 sonuçları, backup/restore, RPO/RTO, kesinti,
+migration ve veri saklama sınırları [operasyon rehberinde](docs/OPERATIONS.md)
+toplanmıştır. `load-test` Maven profili gerçek uygulama ve PostgreSQL üzerinde
+bir dakikalık k6 baseline'ını çalıştırır:
+
+```powershell
+.\mvnw.cmd -Pload-test "-Dtest=Stage9K6LoadTest" test
+```
+
 ## Sıradaki çalışma
 
-Aşama 8 Redis leaderboard read model tamamlandı. Sıradaki backend işi,
-kullanıcı onayından sonra Aşama 9 operasyon ve production hazırlığıdır.
+Aşama 0–9 çekirdek backend roadmap'i tamamlandı. Sırada zorunlu backend aşaması
+yoktur; Aşama 10 yalnız ayrı ürün kararı gerektiren opsiyonel genişlemeleri
+listeler.
 Admin paneli çekirdek backend roadmap'i tamamlandıktan sonra ayrı bir frontend
 aşaması olarak belirlenecektir.

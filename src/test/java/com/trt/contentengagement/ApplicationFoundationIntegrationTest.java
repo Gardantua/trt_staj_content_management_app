@@ -39,7 +39,13 @@ import org.springframework.web.bind.annotation.RestController;
 @Testcontainers
 @ActiveProfiles("test")
 @Import(ApplicationFoundationIntegrationTest.SecurityProbeConfiguration.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "management.prometheus.metrics.export.enabled=true",
+                "management.endpoints.web.exposure.include=health,info,metrics,prometheus"
+        }
+)
 class ApplicationFoundationIntegrationTest {
 
     private static final UUID USER_ACTOR_ID =
@@ -101,6 +107,19 @@ class ApplicationFoundationIntegrationTest {
         assertThat(healthResponse.statusCode()).isEqualTo(200);
         assertThat(healthResponse.body()).contains("\"status\":\"UP\"");
         assertThat(healthResponse.headers().firstValue("X-Trace-Id")).isPresent();
+    }
+
+    @Test
+    void prometheusEndpointPublishesHttpLatencyMetrics()
+            throws IOException, InterruptedException {
+        sendGetRequest("/actuator/health");
+
+        HttpResponse<String> metricsResponse = sendGetRequest("/actuator/prometheus");
+
+        assertThat(metricsResponse.statusCode()).isEqualTo(200);
+        assertThat(metricsResponse.body())
+                .contains("http_server_requests_seconds_count")
+                .contains("application=\"content-engagement-platform\"");
     }
 
     @Test

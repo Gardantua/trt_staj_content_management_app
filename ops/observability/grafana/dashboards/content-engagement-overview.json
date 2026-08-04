@@ -1,0 +1,85 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"content-engagement-platform\"}[5m]))", "refId": "A"}],
+      "title": "API request rate",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 0.01}]}}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "reduceOptions": {"calcs": ["lastNotNull"]}},
+      "targets": [{"expr": "sum(rate(http_server_requests_seconds_count{application=\"content-engagement-platform\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"content-engagement-platform\"}[5m])), 0.000001)", "refId": "A"}],
+      "title": "API 5xx error ratio",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"content-engagement-platform\"}[5m])))", "legendFormat": "p95", "refId": "A"},
+        {"expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_seconds_bucket{application=\"content-engagement-platform\"}[5m])))", "legendFormat": "p99", "refId": "B"}
+      ],
+      "title": "API latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 4,
+      "targets": [
+        {"expr": "sum(rate(messaging_outbox_published_total[5m]))", "legendFormat": "published", "refId": "A"},
+        {"expr": "sum(rate(messaging_outbox_publish_failed_total[5m]))", "legendFormat": "publish failed", "refId": "B"},
+        {"expr": "sum(rate(messaging_consumer_failed_total[5m]))", "legendFormat": "consumer failed", "refId": "C"}
+      ],
+      "title": "Messaging outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 8},
+      "id": 5,
+      "targets": [
+        {"expr": "sum(rate(leaderboard_redis_hit_total[5m]))", "legendFormat": "Redis", "refId": "A"},
+        {"expr": "sum(rate(leaderboard_postgresql_fallback_total[5m]))", "legendFormat": "PostgreSQL fallback", "refId": "B"}
+      ],
+      "title": "Leaderboard data source",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 8},
+      "id": 6,
+      "targets": [{"expr": "sum(jvm_memory_used_bytes{area=\"heap\"}) / sum(jvm_memory_max_bytes{area=\"heap\"})", "refId": "A"}],
+      "title": "JVM heap utilization",
+      "type": "gauge"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["content-engagement", "stage-9"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "Content Engagement - Operations Overview",
+  "uid": "content-engagement-overview",
+  "version": 1
+}

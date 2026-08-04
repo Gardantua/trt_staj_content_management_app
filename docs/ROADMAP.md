@@ -422,6 +422,14 @@ Redis sorted set'i ve rebuild stratejisini açıklayabilir.
 
 ## Aşama 9 - Operasyon ve production hazırlığı
 
+Durum: Tamamlandı (04.08.2026); 97 test ve ayrı k6/OSV doğrulamaları başarılı
+
+OpenTelemetry HTTP trace üretimi, W3C bağlamını sürdüren Outbox/RabbitMQ akışı,
+Prometheus/Grafana/Tempo profili, token-bucket rate limiter, güvenlik kapıları,
+k6 profilleri, PostgreSQL/RabbitMQ/Redis kesinti kanıtları, backup/restore
+provası ve production runbook'u tamamlandı. İlk retention ve RPO/RTO sınırları
+ADR-0016 ile kaydedildi.
+
 ### İşler
 
 - OpenTelemetry trace

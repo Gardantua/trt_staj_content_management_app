@@ -14,6 +14,7 @@ import com.trt.contentengagement.messaging.application.OutboxEventRepository;
 import com.trt.contentengagement.messaging.application.OutboxPublisher;
 import com.trt.contentengagement.messaging.application.QuizCompletedIntegrationEventV1;
 import com.trt.contentengagement.messaging.infrastructure.rabbit.RabbitMessagingTopology;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,9 @@ import tools.jackson.databind.ObjectMapper;
         "app.messaging.publisher-delay=600000"
 })
 class MessagingIntegrationTest {
+    private static final String TEST_TRACE_ID = "11111111111111111111111111111111";
+    private static final String TEST_TRACE_PARENT =
+            "00-" + TEST_TRACE_ID + "-2222222222222222-01";
     private static final UUID USER_ID =
             UUID.fromString("11111111-1111-1111-1111-111111111111");
 
@@ -72,6 +76,7 @@ class MessagingIntegrationTest {
     private final RabbitTemplate rabbitTemplate;
     private final RabbitAdmin rabbitAdmin;
     private final ObjectMapper objectMapper;
+    private final MeterRegistry meterRegistry;
 
     @Autowired
     MessagingIntegrationTest(
@@ -80,7 +85,8 @@ class MessagingIntegrationTest {
             OutboxPublisher outboxPublisher,
             RabbitTemplate rabbitTemplate,
             RabbitAdmin rabbitAdmin,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            MeterRegistry meterRegistry
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.outboxEventRepository = outboxEventRepository;
@@ -88,6 +94,7 @@ class MessagingIntegrationTest {
         this.rabbitTemplate = rabbitTemplate;
         this.rabbitAdmin = rabbitAdmin;
         this.objectMapper = objectMapper;
+        this.meterRegistry = meterRegistry;
     }
 
     @BeforeEach
@@ -140,6 +147,10 @@ class MessagingIntegrationTest {
                 Boolean.class,
                 event.eventId()
         )).isTrue();
+        assertThat(meterRegistry.get("messaging.outbox.publish").timer().count())
+                .isGreaterThanOrEqualTo(1);
+        assertThat(meterRegistry.get("messaging.quiz.completed.consume").timer().count())
+                .isGreaterThanOrEqualTo(1);
     }
 
     @Test
@@ -176,6 +187,31 @@ class MessagingIntegrationTest {
                 Integer.class,
                 event.attemptId()
         )).isEqualTo(100);
+    }
+
+    @Test
+    void legacyOutboxRowWithoutW3cTraceContextRemainsPublishable() {
+        QuizCompletedIntegrationEventV1 event = completedAttemptFixture(75);
+        outboxEventRepository.appendIfAbsent(new OutboxEvent(
+                event.eventId(), "QUIZ_ATTEMPT", event.attemptId(),
+                QuizCompletedIntegrationEventV1.EVENT_TYPE,
+                QuizCompletedIntegrationEventV1.EVENT_VERSION,
+                objectMapper.writeValueAsString(event),
+                TEST_TRACE_ID,
+                null,
+                null,
+                event.occurredAt(),
+                0
+        ));
+
+        assertThat(outboxPublisher.publishPendingBatch()).isEqualTo(1);
+        await(() -> count("xp_transactions") == 1);
+
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT published_at IS NOT NULL FROM outbox_events WHERE event_id = ?",
+                Boolean.class,
+                event.eventId()
+        )).isTrue();
     }
 
     @Test
@@ -249,7 +285,9 @@ class MessagingIntegrationTest {
                 QuizCompletedIntegrationEventV1.EVENT_TYPE,
                 QuizCompletedIntegrationEventV1.EVENT_VERSION,
                 objectMapper.writeValueAsString(event),
-                "messaging-integration-test",
+                TEST_TRACE_ID,
+                TEST_TRACE_PARENT,
+                null,
                 event.occurredAt(),
                 0
         ));

@@ -41,6 +41,12 @@ spring:
       max-request-size: 6MB
 
 app:
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    capacity: ${RATE_LIMIT_CAPACITY:60}
+    refill-tokens: ${RATE_LIMIT_REFILL_TOKENS:60}
+    refill-period: ${RATE_LIMIT_REFILL_PERIOD:1m}
+    max-tracked-clients: ${RATE_LIMIT_MAX_TRACKED_CLIENTS:10000}
   media:
     storage-directory: ${MEDIA_STORAGE_DIRECTORY:${java.io.tmpdir}/content-engagement-media}
   messaging:
@@ -60,6 +66,39 @@ management:
   endpoint:
     health:
       show-details: never
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.95,0.99
+      slo:
+        http.server.requests: 100ms,250ms,500ms,1s,2s
+  tracing:
+    sampling:
+      probability: ${OTEL_TRACES_SAMPLER_ARG:0.1}
+    export:
+      otlp:
+        enabled: ${OTEL_TRACING_EXPORT_ENABLED:false}
+  opentelemetry:
+    resource-attributes:
+      service.namespace: content-engagement
+      deployment.environment: ${DEPLOYMENT_ENVIRONMENT:local}
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+  otlp:
+    metrics:
+      export:
+        enabled: false
+
+logging:
+  pattern:
+    correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-},request=%X{requestTraceId:-},event=%X{eventTraceId:-}] "
+  include-application-name: false
 
 server:
   port: ${SERVER_PORT:8081}
@@ -74,6 +113,8 @@ spring:
       on-profile: test
 
 app:
+  rate-limit:
+    enabled: false
   messaging:
     rabbit-enabled: false
   leaderboard:
@@ -85,3 +126,19 @@ management:
       enabled: false
     redis:
       enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: observability
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    export:
+      otlp:
+        enabled: ${OTEL_TRACING_EXPORT_ENABLED:true}

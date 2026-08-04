@@ -34,7 +34,7 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
-    private static final String TRACE_ID_MDC_KEY = "traceId";
+    private static final String TRACE_ID_MDC_KEY = "requestTraceId";
     private static final String UNKNOWN_TRACE_ID = "unknown";
 
     @ExceptionHandler(NoResourceFoundException.class)

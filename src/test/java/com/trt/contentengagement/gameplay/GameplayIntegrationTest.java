@@ -94,6 +94,16 @@ class GameplayIntegrationTest {
                 .contains("\"earnedXp\":100");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gameplay_answers",Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM outbox_events",Integer.class)).isEqualTo(1);
+        String storedTraceId = jdbc.queryForObject(
+                "SELECT trace_id FROM outbox_events", String.class
+        );
+        String storedTraceParent = jdbc.queryForObject(
+                "SELECT trace_parent FROM outbox_events", String.class
+        );
+        assertThat(storedTraceId).matches("[0-9a-f]{32}");
+        assertThat(storedTraceParent)
+                .matches("00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}")
+                .contains("-" + storedTraceId + "-");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM xp_transactions",Integer.class)).isZero();
         consumeCompletionEvent(attemptId);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM xp_transactions",Integer.class)).isEqualTo(1);

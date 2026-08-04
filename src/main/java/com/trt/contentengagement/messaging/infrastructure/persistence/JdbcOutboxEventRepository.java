@@ -31,12 +31,13 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
                 """
                 INSERT INTO outbox_events
                     (event_id, aggregate_type, aggregate_id, event_type, event_version,
-                     payload, trace_id, occurred_at, next_attempt_at)
-                VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?)
+                     payload, trace_id, trace_parent, trace_state, occurred_at, next_attempt_at)
+                VALUES (?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?)
                 ON CONFLICT (event_id) DO NOTHING
                 """,
                 event.eventId(), event.aggregateType(), event.aggregateId(), event.eventType(),
                 event.eventVersion(), event.payload(), event.traceId(),
+                event.traceParent(), event.traceState(),
                 Timestamp.from(event.occurredAt()), Timestamp.from(event.occurredAt())
         );
         if (insertedRows == 0) {
@@ -52,7 +53,8 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
         return jdbcTemplate.query(
                 """
                 SELECT event_id, aggregate_type, aggregate_id, event_type, event_version,
-                       payload::text, trace_id, occurred_at, publish_attempts
+                       payload::text, trace_id, trace_parent, trace_state,
+                       occurred_at, publish_attempts
                 FROM outbox_events
                 WHERE published_at IS NULL AND next_attempt_at <= ?
                 ORDER BY occurred_at, event_id
@@ -94,7 +96,8 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
         return jdbcTemplate.queryForObject(
                 """
                 SELECT event_id, aggregate_type, aggregate_id, event_type, event_version,
-                       payload::text, trace_id, occurred_at, publish_attempts
+                       payload::text, trace_id, trace_parent, trace_state,
+                       occurred_at, publish_attempts
                 FROM outbox_events
                 WHERE event_id = ?
                 """,
@@ -112,6 +115,8 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
                 resultSet.getInt("event_version"),
                 resultSet.getString("payload"),
                 resultSet.getString("trace_id"),
+                resultSet.getString("trace_parent"),
+                resultSet.getString("trace_state"),
                 resultSet.getTimestamp("occurred_at").toInstant(),
                 resultSet.getInt("publish_attempts")
         );
