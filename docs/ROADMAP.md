@@ -464,7 +464,54 @@ ADR-0016 ile kaydedildi.
 Kullanıcı metric-log-trace, SLI/SLO, RPO/RTO, darboğaz ölçümü, güvenli migration
 ve performans testinin neden yalnız istek sayısı olmadığını açıklayabilir.
 
-## Aşama 10 - Opsiyonel genişlemeler
+## Aşama 10A - Admin web temeli ve içerik yönetimi
+
+Durum: Tamamlandı (06.08.2026); 98 backend ve 4 frontend testi başarılı
+
+Bu aşama ayrı `admin-web` uygulamasının temelini ve yalnız içerik kataloğu
+yönetimini kapsar. Production kimlik sağlayıcısı belli olmadığı için gerçek
+login uygulanmaz; geçici aktör yalnız yerel geliştirme kolaylığıdır.
+
+### İşler
+
+- React, TypeScript ve Vite tabanlı ayrı frontend uygulaması
+- EDITOR/ADMIN istemci rota koruması ve görünür yerel aktör bilgisi
+- Draft dahil sayfalı admin içerik listesi
+- İçerik oluşturma, detay okuma ve draft düzenleme
+- Dizi sezon/bölüm ekleme, düzenleme ve silme
+- Publish isteği ile backend hata kodu/trace ID sunumu
+- Klavye, odak, etiket ve renk dışı hata erişilebilirliği
+
+### Kabul kriterleri
+
+- USER rolü hem arayüz hem backend tarafından yönetim erişiminden çıkarılır.
+- Liste public DTO'yu değil, yalnız admin sayfalama sözleşmesini kullanır.
+- Yayınlanmış içerik arayüzde değiştirilemez gösterilir; backend kuralı otorite
+  olmaya devam eder.
+- SERIES sezon/bölüm yönetebilir, FILM sezon yönetimi sunmaz.
+- Backend validation/publish hataları kararlı code ve trace ID ile gösterilir.
+- Yerel test header'ı production authentication olarak sunulmaz.
+- Frontend test/build ve tam backend verify başarılıdır.
+
+### Test yaklaşımı
+
+- Rol ayrımı ve API hata ayrıştırması için frontend unit testleri
+- Admin liste/pagination/yetki için gerçek PostgreSQL API integration testi
+- TypeScript strict derleme ve Vite production build
+- Çalışan geliştirme sunucusunda DOM, form etiketi, hata katmanı ve konsol
+  kontrolü
+- Bütün backend modülleri için Maven verify regresyon testi
+
+### Öğrenme çıktısı
+
+Kullanıcı istemci rota korumasının authorization olmadığını, backend'in neden
+güvenlik otoritesi kaldığını, liste DTO'su ile aggregate detayının neden ayrı
+olduğunu ve local proxy ile production CORS kararının farkını açıklayabilir.
+
+Kalıcı karar ve alternatifler ADR-0017'de kayıtlıdır. Medya yükleme, quiz
+authoring, XP ve leaderboard arayüzleri ayrı ürün dilimleri olarak kalır.
+
+## Aşama 10B - Opsiyonel genişlemeler
 
 Çekirdek sistem ve operasyon kalitesi tamamlanmadan başlanmaz:
 

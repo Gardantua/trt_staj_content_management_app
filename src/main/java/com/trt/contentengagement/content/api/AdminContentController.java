@@ -1,9 +1,13 @@
 package com.trt.contentengagement.content.api;
 
 import java.net.URI;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
+import com.trt.contentengagement.content.application.AdminContentSummary;
 import com.trt.contentengagement.content.application.ContentManagementService;
+import com.trt.contentengagement.content.application.PageResult;
 import com.trt.contentengagement.content.application.EpisodeManagementService;
 import com.trt.contentengagement.content.application.SeasonManagementService;
 import com.trt.contentengagement.content.domain.ContentType;
@@ -22,6 +26,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -54,6 +59,16 @@ public class AdminContentController {
         ));
         return ResponseEntity.created(URI.create("/api/v1/admin/contents/" + response.id()))
                 .body(response);
+    }
+
+    @GetMapping
+    public AdminContentPageResponse listContents(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
+        return AdminContentPageResponse.from(
+                contentManagementService.listForAdministration(page, size)
+        );
     }
 
     @GetMapping("/{contentId}")
@@ -212,5 +227,55 @@ public class AdminContentController {
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
     ) {
+    }
+
+    public record AdminContentPageResponse(
+            List<AdminContentSummaryResponse> items,
+            int page,
+            int size,
+            long totalItems,
+            int totalPages
+    ) {
+
+        static AdminContentPageResponse from(PageResult<AdminContentSummary> pageResult) {
+            return new AdminContentPageResponse(
+                    pageResult.items().stream().map(AdminContentSummaryResponse::from).toList(),
+                    pageResult.page(),
+                    pageResult.size(),
+                    pageResult.totalItems(),
+                    pageResult.totalPages()
+            );
+        }
+    }
+
+    public record AdminContentSummaryResponse(
+            String id,
+            String title,
+            String description,
+            String contentType,
+            String publicationStatus,
+            String coverMediaId,
+            String coverImageUrl,
+            String coverAlternativeText,
+            Instant createdAt,
+            Instant updatedAt
+    ) {
+
+        static AdminContentSummaryResponse from(AdminContentSummary contentSummary) {
+            String coverMediaId = contentSummary.coverMediaId() == null
+                    ? null : contentSummary.coverMediaId().toString();
+            return new AdminContentSummaryResponse(
+                    contentSummary.id().toString(),
+                    contentSummary.title(),
+                    contentSummary.description(),
+                    contentSummary.contentType().name(),
+                    contentSummary.publicationStatus().name(),
+                    coverMediaId,
+                    coverMediaId == null ? null : "/api/v1/media/" + coverMediaId + "/content",
+                    contentSummary.coverAlternativeText(),
+                    contentSummary.createdAt(),
+                    contentSummary.updatedAt()
+            );
+        }
     }
 }

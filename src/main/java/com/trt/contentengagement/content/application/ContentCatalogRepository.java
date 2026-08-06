@@ -13,6 +13,8 @@ public interface ContentCatalogRepository {
 
     Optional<Content> findPublishedById(UUID contentId);
 
+    PageResult<AdminContentSummary> findAllForAdministration(int page, int size);
+
     PageResult<ContentSummary> findPublished(int page, int size);
 
     void delete(Content content);

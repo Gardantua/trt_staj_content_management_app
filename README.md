@@ -250,6 +250,7 @@ veya `ADMIN` rolü ister:
 
 ```text
 POST   /api/v1/admin/contents
+GET    /api/v1/admin/contents?page=0&size=20
 GET    /api/v1/admin/contents/{contentId}
 PUT    /api/v1/admin/contents/{contentId}
 PUT    /api/v1/admin/contents/{contentId}/cover
@@ -454,8 +455,26 @@ bir dakikalık k6 baseline'ını çalıştırır:
 
 ## Sıradaki çalışma
 
-Aşama 0–9 çekirdek backend roadmap'i tamamlandı. Sırada zorunlu backend aşaması
-yoktur; Aşama 10 yalnız ayrı ürün kararı gerektiren opsiyonel genişlemeleri
-listeler.
-Admin paneli çekirdek backend roadmap'i tamamlandıktan sonra ayrı bir frontend
-aşaması olarak belirlenecektir.
+Aşama 0–9 çekirdek backend roadmap'i ve Aşama 10A admin web içerik yönetimi
+dilimi tamamlandı. Yönetim arayüzü [admin-web çalışma rehberinde](admin-web/README.md)
+açıklanan ayrı React/TypeScript uygulamasıdır.
+
+Yerel olarak backend'i geçici kimlik adapter'ıyla başlat:
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+Başka bir terminalde admin arayüzünü başlat:
+
+```powershell
+Set-Location admin-web
+npm ci
+$env:VITE_LOCAL_ACTOR_ID = "22222222-2222-2222-2222-222222222222"
+$env:VITE_LOCAL_ACTOR_ROLES = "EDITOR"
+npm run dev
+```
+
+`VITE_LOCAL_ACTOR_*` production authentication değildir. Arayüzün sıradaki tek
+aday dilimi medya yükleme ve içerik kapağı bağlamadır; kullanıcı onayı olmadan
+başlanmaz.

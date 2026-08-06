@@ -163,6 +163,19 @@ Aşama 3'te audit portu ve JPA adapter'ı content paketinden `admin` modülüne
 taşındı. Content ve quiz application servisleri aynı kalıcı audit sözleşmesini
 kullanır; domain kuralları admin modülüne taşınmaz.
 
+### admin-web
+
+Aşama 10A'da aynı repo içinde ayrı React/TypeScript istemcisi olarak eklendi.
+Frontend yalnız `/api/v1/admin/contents` sözleşmesini çağırır; content domain
+kuralını veya authorization kararını tekrar uygulayan otorite değildir.
+Tarayıcıdaki EDITOR/ADMIN kontrolü kullanıcı deneyimi sağlar, asıl rol kontrolü
+Spring Security'de kalır.
+
+Liste yolu aggregate hiyerarşisini yüklemeyen sayfalı admin özetleri döndürür;
+sezon ve bölüm ağacı yalnız detay yolundan okunur. Yerel Vite proxy geliştirme
+kolaylığıdır. Production OIDC, hosting, CORS ve CSRF topolojisi kurum sözleşmesi
+geldiğinde ADR-0017 tetikleyicileriyle yeniden ele alınacaktır.
+
 ## Katmanlar
 
 Her modül aşağıdaki sorumluluklara ayrılabilir:

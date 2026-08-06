@@ -1,6 +1,6 @@
 # Güncel Proje Durumu
 
-Son güncelleme: 04.08.2026
+Son güncelleme: 06.08.2026
 
 ## Genel durum
 
@@ -28,6 +28,12 @@ Global ve içerik bazlı `ALL_TIME` leaderboard XP ledger toplamından,
 deterministik tie-break ile hesaplanır; Top N yanında mevcut kullanıcının sırası
 da okunabilir. Redis bu PostgreSQL sonucundan atomik nesiller halinde yeniden
 kurulur; boşluk veya kesintide sorgu PostgreSQL'e düşer.
+
+Aşama 10A ile aynı repoda ayrı React/TypeScript `admin-web` uygulaması eklendi.
+EDITOR/ADMIN yerel aktörü; draft dahil sayfalı içerik listesi, içerik
+oluşturma/düzenleme, sezon/bölüm yönetimi, yayınlanmış içerik değişmezliği ve
+backend code/trace ID hata sunumuyla görünürdür. Production kimlik sağlayıcısı
+henüz belli olmadığı için bu arayüz local-only geliştirme sınırındadır.
 
 Hedef klasörde bulunan uzun mimari rapor teknik referans olarak korunmaktadır.
 Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
@@ -315,6 +321,16 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
   güvenlik taraması ve disaster-recovery problemleri;
   kök neden, çözüm, test kanıtı ve rapor çıkarımıyla
   `docs/DEVELOPMENT_CHALLENGES.md` günlüğünde toplandı.
+- Aşama 10A `admin-web` uygulaması React, TypeScript ve Vite ile ayrı frontend
+  olarak kuruldu; quiz, medya yükleme, XP ve leaderboard kapsam dışında tutuldu.
+- Admin içerik listesi draft kayıtları da döndüren hafif ve sayfalı
+  `GET /api/v1/admin/contents` sözleşmesiyle tamamlandı; hiyerarşi detay
+  endpoint'inde kaldı.
+- İçerik oluşturma/düzenleme, dizi sezon/bölüm işlemleri, publish isteği,
+  published değişmezliği, local rol göstergesi ve code/trace ID hata sunumu
+  erişilebilir native kontrollerle uygulandı.
+- Ayrı frontend, local-only kimlik ve admin liste DTO kararı ADR-0017 ile
+  kaydedildi.
 
 ## Henüz tamamlanmayanlar
 
@@ -323,6 +339,8 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
   öğrenilmesi
 - Production kimlik entegrasyonuyla doğrulanmış KVKK silme/anonimleştirme
   iş akışının ve hukuk onaylı retention sürelerinin uygulanması
+- Admin web için production OIDC/JWT login, hosting, CORS ve CSRF sözleşmesi
+- Medya yükleme/kapak bağlama, quiz authoring, XP ve leaderboard admin ekranları
 
 ## Mevcut teknoloji temeli
 
@@ -336,6 +354,7 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 - Spring AMQP ve RabbitMQ 4.1
 - Spring Data Redis ve Redis 8.2
 - OpenTelemetry/OTLP, Prometheus, Tempo ve Grafana
+- Admin web için React 19, TypeScript, Vite ve Vitest
 
 Bu seçimler `ADR-0003` ile gerekçelendirilmiştir; kurum standardı farklıysa
 yeniden değerlendirilir.
@@ -608,6 +627,20 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
   sırada zorunlu aşama kalmadığı bilgisiyle eşitlendi. Uygulama kodu değişmediği
   için testler yeniden çalıştırılmadı; stale durum ifadeleri, Markdown bağlantıları
   ve diff biçimi kontrol edildi.
+- Aşama 10A hedefli `ContentCatalogIntegrationTest` gerçek PostgreSQL 17.5 ve
+  Flyway V1–V9 ile 7 testte geçti; draft admin listesi, pagination, EDITOR
+  erişimi ve USER reddi doğrulandı.
+- `admin-web` içinde `npm run test` 4/4 testle; local rol koruması ve backend
+  code/trace ID hata ayrıştırmasını doğruladı. `npm run build` TypeScript strict
+  kontrolü ve Vite production build'iyle geçti; `npm install` audit sonucu
+  0 vulnerability idi.
+- Çalışan Vite geliştirme sunucusu tarayıcıda incelendi: anlamlı içerik ve yeni
+  draft formu render edildi, form etiketleri bulundu, Vite hata katmanı ve
+  console error görülmedi. Backend kapalıyken 502 yanıtı güvenli hata kartında
+  gösterildi.
+- Son `.\mvnw.cmd --batch-mode verify` çalışması 98 testle geçti: 0 failure,
+  0 error, 0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ ve Redis Testcontainers
+  senaryoları, ArchUnit sınırları, Flyway V1–V9 ve JAR paketleme doğrulandı.
 
 ## Öğrenme odağı
 
@@ -660,19 +693,26 @@ ile sürdürülebilir hızı ayırır. SLI ölçüm, SLO hedef; RPO kabul edilen
 penceresi, RTO geri dönüş hedefidir. Yük testinde istek sayısı tek başına yeterli
 değildir: p95/p99, hata ve dropped iteration birlikte değerlendirilir.
 
+Aşama 10A, tarayıcıdaki rol kontrolünün yalnız kullanıcı deneyimi olduğunu;
+gerçek authorization'ın backend'de kalması gerektiğini gösterir. Liste ekranı
+aggregate'in sezon/bölüm ağacını her satırda taşımayan özet DTO kullanır, detay
+ekranı ise tam yönetim sözleşmesini okur. Vite proxy yerel same-origin kolaylığı
+sağlar; production CORS/CSRF ve OIDC kararının yerine geçmez.
+
 ## Sıradaki tek iş
 
-Aşama 0–9 çekirdek backend roadmap'i tamamlandı. Sırada zorunlu aşama yoktur.
-Yeni çalışma ancak Aşama 10'daki opsiyonel ürünlerden biri açıkça seçilirse veya
-kurum kimlik/hukuk/altyapı sözleşmeleri gelirse başlamalıdır.
+Aşama 10A admin web içerik yönetimi tamamlandı. Sıradaki tek aday, yeni draft'ın
+publish önkoşulunu arayüzden tamamlayabilmek için medya yükleme ve içerik kapağı
+bağlama dilimidir. Kullanıcı açıkça onaylamadan bu dilime veya quiz/XP/
+leaderboard ekranlarına başlanmamalıdır.
 
 ## Yeni Codex görevi için kısa komut
 
 ```text
-Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku. Aşama 0–9'un
-tamamlandığını CURRENT_STATE, ROADMAP, OPERATIONS ve ADR-0015/0016 üzerinden
-doğrula. Kullanıcıdan Aşama 10'daki hangi bağımsız ürün genişlemesinin istendiği
-gelmeden yeni teknoloji veya özellik ekleme.
+Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku. Aşama 0–9 ile
+Aşama 10A admin web içerik yönetiminin tamamlandığını CURRENT_STATE, ROADMAP ve
+ADR-0017 üzerinden doğrula. Kullanıcı medya yükleme/kapak bağlama dilimini açıkça
+seçmeden quiz, XP, leaderboard veya başka admin ekranı ekleme.
 ```
 
 ## Bilinen riskler
@@ -690,6 +730,12 @@ gelmeden yeni teknoloji veya özellik ekleme.
 - Production authentication yöntemi, kurum kimlik sağlayıcısı, issuer/audience
   ve rol claim eşlemesi henüz belli değil. Geçici header adapter'ı production'da
   etkin değildir.
+- `admin-web` local actor header'ları production login değildir. Gerçek hosting
+  topolojisi belli olunca OIDC, CORS, CSRF ve secret/config dağıtımı ayrıca
+  tasarlanıp test edilmelidir.
+- Aşama 10A medya yüklemez veya kapak bağlamaz; yeni draft publish isteği bu
+  önkoşullar eksikken backend hata kodunu gösterir. Başarılı uçtan uca publish
+  arayüzü sonraki ürün dilimidir.
 - Mockito/Byte Buddy, Java 21 test koşusunda gelecekte varsayılan olarak
   engellenecek dinamik agent yükleme uyarısı veriyor; testler bugün geçiyor,
   ayrı bir test-tooling bakım görevinde explicit agent yapılandırması

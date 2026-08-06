@@ -42,3 +42,4 @@ Mevcut kayıtlar:
 - [ADR-0014: Redis leaderboard read model ve fallback](ADR-0014-redis-leaderboard-read-model.md)
 - [ADR-0015: OpenTelemetry, Prometheus ve yerel gözlemlenebilirlik profili](ADR-0015-opentelemetry-prometheus-observability.md)
 - [ADR-0016: Aşama 9 production hazırlığı koruma sınırları](ADR-0016-stage-9-production-readiness-guardrails.md)
+- [ADR-0017: Admin web uygulaması ve yerel kimlik sınırı](ADR-0017-admin-web-frontend-siniri.md)

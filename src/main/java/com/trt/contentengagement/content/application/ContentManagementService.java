@@ -49,6 +49,11 @@ public class ContentManagementService {
         return ContentDetails.from(requireContent(contentId));
     }
 
+    @Transactional(readOnly = true)
+    public PageResult<AdminContentSummary> listForAdministration(int page, int size) {
+        return contentCatalogRepository.findAllForAdministration(page, size);
+    }
+
     @Transactional
     public ContentDetails update(UUID contentId, String title, String description) {
         Instant occurredAt = clock.instant();

@@ -169,6 +169,42 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void editorCanPageAllContentWhileNormalUserCannotUseAdminCatalog() throws Exception {
+        HttpResponse<String> olderDraft = createFilm("Older Draft");
+        String olderDraftId = json(olderDraft).get("id").stringValue();
+        HttpResponse<String> newerDraft = createFilm("Newer Draft");
+        String newerDraftId = json(newerDraft).get("id").stringValue();
+
+        HttpResponse<String> firstPage = sendGet(
+                "/api/v1/admin/contents?page=0&size=1",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> secondPage = sendGet(
+                "/api/v1/admin/contents?page=1&size=1",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> forbiddenPage = sendGet(
+                "/api/v1/admin/contents?page=0&size=20",
+                USER_ACTOR_ID,
+                "USER"
+        );
+
+        assertThat(firstPage.statusCode()).isEqualTo(200);
+        assertThat(firstPage.body())
+                .contains("\"totalItems\":2")
+                .contains("\"totalPages\":2")
+                .contains("\"publicationStatus\":\"DRAFT\"");
+        assertThat(secondPage.statusCode()).isEqualTo(200);
+        assertThat(firstPage.body() + secondPage.body())
+                .contains(olderDraftId)
+                .contains(newerDraftId);
+        assertThat(forbiddenPage.statusCode()).isEqualTo(403);
+        assertThat(forbiddenPage.body()).contains("\"code\":\"ACCESS_DENIED\"");
+    }
+
+    @Test
     void normalUserCannotManageContent() throws Exception {
         HttpResponse<String> response = sendJson(
                 "POST",
@@ -200,11 +236,18 @@ class ContentCatalogIntegrationTest {
                 USER_ACTOR_ID,
                 "USER"
         );
+        HttpResponse<String> invalidAdminPage = sendGet(
+                "/api/v1/admin/contents?page=-1&size=101",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
 
         assertThat(invalidContent.statusCode()).isEqualTo(400);
         assertThat(invalidContent.body()).contains("\"code\":\"VALIDATION_FAILED\"");
         assertThat(invalidPage.statusCode()).isEqualTo(400);
         assertThat(invalidPage.body()).contains("\"code\":\"VALIDATION_FAILED\"");
+        assertThat(invalidAdminPage.statusCode()).isEqualTo(400);
+        assertThat(invalidAdminPage.body()).contains("\"code\":\"VALIDATION_FAILED\"");
     }
 
     @Test

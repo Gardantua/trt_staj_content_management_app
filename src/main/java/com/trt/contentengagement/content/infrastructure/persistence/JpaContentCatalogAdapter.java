@@ -3,6 +3,7 @@ package com.trt.contentengagement.content.infrastructure.persistence;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.trt.contentengagement.content.application.AdminContentSummary;
 import com.trt.contentengagement.content.application.ContentCatalogRepository;
 import com.trt.contentengagement.content.application.ContentSummary;
 import com.trt.contentengagement.content.application.PageResult;
@@ -39,6 +40,35 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
         return springDataContentRepository
                 .findByIdAndPublicationStatus(contentId, PublicationStatus.PUBLISHED)
                 .map(this::toDomain);
+    }
+
+    @Override
+    public PageResult<AdminContentSummary> findAllForAdministration(int page, int size) {
+        PageRequest pageRequest = PageRequest.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id"))
+        );
+        Page<JpaContentEntity> contentPage = springDataContentRepository.findAll(pageRequest);
+        return new PageResult<>(
+                contentPage.getContent().stream()
+                        .map(entity -> new AdminContentSummary(
+                                entity.id(),
+                                entity.title(),
+                                entity.description(),
+                                entity.contentType(),
+                                entity.publicationStatus(),
+                                entity.coverMediaId(),
+                                entity.coverAlternativeText(),
+                                entity.createdAt(),
+                                entity.updatedAt()
+                        ))
+                        .toList(),
+                contentPage.getNumber(),
+                contentPage.getSize(),
+                contentPage.getTotalElements(),
+                contentPage.getTotalPages()
+        );
     }
 
     @Override
