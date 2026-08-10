@@ -43,3 +43,5 @@ Mevcut kayıtlar:
 - [ADR-0015: OpenTelemetry, Prometheus ve yerel gözlemlenebilirlik profili](ADR-0015-opentelemetry-prometheus-observability.md)
 - [ADR-0016: Aşama 9 production hazırlığı koruma sınırları](ADR-0016-stage-9-production-readiness-guardrails.md)
 - [ADR-0017: Admin web uygulaması ve yerel kimlik sınırı](ADR-0017-admin-web-frontend-siniri.md)
+- [ADR-0018: Kullanıcı web kataloğu için ayrı giriş noktası](ADR-0018-user-web-catalog.md)
+- [ADR-0019: Kullanıcı webinde sunucu otoriteli gameplay akışı](ADR-0019-user-gameplay-web-flow.md)

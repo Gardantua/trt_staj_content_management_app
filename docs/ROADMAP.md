@@ -511,7 +511,52 @@ olduğunu ve local proxy ile production CORS kararının farkını açıklayabil
 Kalıcı karar ve alternatifler ADR-0017'de kayıtlıdır. Medya yükleme, quiz
 authoring, XP ve leaderboard arayüzleri ayrı ürün dilimleri olarak kalır.
 
-## Aşama 10B - Opsiyonel genişlemeler
+## Aşama 10B - Kullanıcı web kataloğu
+
+Durum: Tamamlandı (08.08.2026); 6 frontend testi ve production build başarılı
+
+Bu aşama, kullanıcıların yalnız yayınlanmış içerikleri keşfedebildiği read-only
+web girişini ekler. Yönetim deneyiminden ayrı tutulur; production login
+uygulamaz, ancak backend'in sunucu otoriteli gameplay akışını kullanır.
+
+### İşler
+
+- Aynı Vite çalışma zamanında kullanıcı için ayrı HTML giriş noktası
+- Yayınlanmış içerik kataloğu ve sayfalama
+- İçerik detayı, dizi sezon/bölüm görünümü ve yayınlanmış quiz özeti
+- Local USER actor ile public API sözleşmesi kullanımı
+- Quiz başlangıcı, standart/uzatılmış süre seçimi, cevap ve sonuç geri bildirimi
+- XP özeti, profil ilerlemesi ve global leaderboard
+- Mobilde tek sütuna inen katalog, detay, quiz ve bölüm düzeni
+- Erişilebilir odak, anlamlı görsel alt metni ve renk dışı bilgi sunumu
+
+### Kabul kriterleri
+
+- Kullanıcı ekranı admin endpoint'lerini veya draft içeriklerini kullanmaz.
+- İçerik ve ilgili quiz özeti yalnız public API kaynaklarından okunur.
+- İstemci doğru cevabı, skoru veya deadline'ı üretmez; bunları yalnız answer ve
+  attempt response'undan gösterir.
+- Tekrar denenen cevap isteği aynı `Idempotency-Key` ile backend'e gider.
+- Local aktör bulunmadığında production login izlenimi vermeyen açıklayıcı
+  bir durum gösterilir.
+- TypeScript strict derleme, production build ve frontend testleri geçer.
+
+### Test yaklaşımı
+
+- Public katalog isteğinin doğru yol/USER header ile, answer isteğinin ise
+  caller-provided `Idempotency-Key` ile çıktığını doğrulayan unit testler
+- Mevcut local rol ve API hata ayrıştırma testleri için regresyon
+- TypeScript strict kontrolü ve iki giriş noktalı Vite production build
+
+### Öğrenme çıktısı
+
+Kullanıcı, aynı API-first backend üzerinde yönetim ve kullanıcı deneyimlerinin
+neden farklı giriş noktaları olabileceğini; istemcinin yalnız yayınlanmış
+kaynakları okuyarak taslak veya doğru cevap sınırını neden koruduğunu açıklar.
+
+Kalıcı karar ve alternatifler ADR-0019'da kayıtlıdır.
+
+## Aşama 11 - Opsiyonel genişlemeler
 
 Çekirdek sistem ve operasyon kalitesi tamamlanmadan başlanmaz:
 

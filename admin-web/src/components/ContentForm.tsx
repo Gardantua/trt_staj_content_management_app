@@ -25,7 +25,7 @@ export function ContentForm({ initialValue, includeContentType, submitLabel, onS
   }
 
   return (
-    <form className="stack" onSubmit={submit}>
+    <form className="content-form stack" onSubmit={submit}>
       <div>
         <label htmlFor="content-title">Başlık</label>
         <input id="content-title" name="title" required maxLength={200} value={title}
@@ -45,7 +45,7 @@ export function ContentForm({ initialValue, includeContentType, submitLabel, onS
           </select>
         </div>
       )}
-      <button type="submit" disabled={isSubmitting}>{isSubmitting ? "Kaydediliyor…" : submitLabel}</button>
+      <div className="form-actions"><button className="button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? "Kaydediliyor…" : submitLabel}</button></div>
     </form>
   );
 }

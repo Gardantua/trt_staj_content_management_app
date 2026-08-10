@@ -1,6 +1,6 @@
 # Güncel Proje Durumu
 
-Son güncelleme: 06.08.2026
+Son güncelleme: 08.08.2026
 
 ## Genel durum
 
@@ -34,11 +34,32 @@ EDITOR/ADMIN yerel aktörü; draft dahil sayfalı içerik listesi, içerik
 oluşturma/düzenleme, sezon/bölüm yönetimi, yayınlanmış içerik değişmezliği ve
 backend code/trace ID hata sunumuyla görünürdür. Production kimlik sağlayıcısı
 henüz belli olmadığı için bu arayüz local-only geliştirme sınırındadır.
+Mevcut akışın görsel yenilemesinde koyu, editoryal bir içerik stüdyosu dili;
+sıcak nötr yüzeyler, ölçülü kiremit vurgu, poster benzeri taslak kartları ve
+mobilde tek sütuna inen düzenle uygulandı. Bu yenileme yeni bir API veya ürün
+modülü eklemez.
+Kullanıcı tarafı da aynı Vite çalışma zamanında ayrı `user.html` giriş noktası
+olarak eklendi. Yalnız yayınlanmış katalog, içerik detayı, dizi bölümleri ve
+quiz özeti okunur. Kullanıcı ayrıca backend'in sunucu otoriteli attempt/cevap
+akışıyla quiz çözebilir; sonuç, XP özeti ve global leaderboard ekranları da
+aynı dilime eklendi. Yerel UUID kapısı yalnız development kimliği üretir;
+production login değildir.
 
 Hedef klasörde bulunan uzun mimari rapor teknik referans olarak korunmaktadır.
 Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 
 ## Tamamlananlar
+
+- 10.08.2026 tasarım iyileştirmesinde admin arayüzünden tüm gradyen ve turuncu
+  vurgu kaldırıldı; açık nötr çalışma yüzeyleri ile mint ana eylem rengi
+  uygulandı.
+- Kullanıcı arayüzü, özgün **Hikâye İzi** anlatımıyla yenilendi. Ana sayfadaki
+  numaralı yönlendirme ve boş dekoratif şekil kaldırıldı; ana, profil ve
+  sıralama başlıkları ortak tipografik hiyerarşiye taşındı. Yerel platform
+  görselleri üretim paketine dahil edildi; bu sunum değişikliği backend
+  sözleşmesini, skor/süre otoritesini veya ürün kapsamını değiştirmez.
+- `admin-web` için `npm run test` 9/9 testle geçti; `npm run build` TypeScript
+  strict kontrolü ve iki giriş noktalı production paketlemesiyle başarılı oldu.
 
 - Ürün fikri değerlendirildi.
 - İlk kullanım senaryosu fan/bölüm quizi olarak seçildi.
@@ -331,6 +352,10 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
   erişilebilir native kontrollerle uygulandı.
 - Ayrı frontend, local-only kimlik ve admin liste DTO kararı ADR-0017 ile
   kaydedildi.
+- Aşama 10B kullanıcı web kontrolünde belgelenmiş yerel UUID kabulü, oturumdan
+  çıkış, yetkili medya istekleri, süre dolunca cevap kilidi ve ağ hatasında aynı
+  idempotent cevabın güvenli yeniden denenmesi tamamlandı. İçerik detayı, quiz
+  listesi yüklenemese de erişilebilir kalır.
 
 ## Henüz tamamlanmayanlar
 
@@ -615,8 +640,11 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
 - Aşama 9 final `clean verify` çalışması 97 testle geçti: 0 failure, 0 error,
   0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ 4.1 ve Redis 8.2 kesinti/geri
   dönüş senaryoları, Flyway V1–V9 ve çalıştırılabilir JAR paketleme doğrulandı.
-- Ayrı k6 baseline testi 601/601 başarılı istek, 0 dropped iteration,
-  p95 `15,75 ms` ve p99 `332,82 ms` ile bütün eşikleri geçti.
+- 05.08.2026 k6 baseline testi, `preAllocatedVUs` değeri yerel Docker zamanlama
+  dalgalanmalarında iki iteration düşürmesin diye 10'dan 20'ye çıkarıldıktan
+  sonra `clean -Pload-test -Dtest=Stage9K6LoadTest test` komutuyla geçti.
+  600/600 istek başarılı, 0 dropped iteration, p95 `12,42 ms` ve p99
+  `958,31 ms` ölçüldü; HTTP hata oranı `%0` kaldı ve k6 eşikleri sağlandı.
 - CycloneDX SBOM + OSV ilk taramada 164 bileşende 4 düzeltilebilir bulgu yakaladı.
   Netty `4.2.16.Final`, PostgreSQL JDBC `42.7.12` ve Jackson `3.1.5` patch
   sürümlerine yükseltildikten sonra tekrar tarama `No issues found` sonucu verdi.
@@ -634,6 +662,36 @@ terminale yansıması için yeni terminal açılmalı; `java -version`,
   code/trace ID hata ayrıştırmasını doğruladı. `npm run build` TypeScript strict
   kontrolü ve Vite production build'iyle geçti; `npm install` audit sonucu
   0 vulnerability idi.
+- `admin-web` görsel yenilemesi, katalog ve içerik detay akışını yeni API
+  eklemeden editoryal tasarım diline taşıdı. `docs/FRONTEND_EXPERIENCE_PLAN.md`
+  tasarım kararlarını, mobil daralma davranışını ve medya yükleme/kapak bağlama
+  diliminin hâlâ ayrı onay gerektirdiğini kaydeder.
+- Yenileme sonrası `npm run test` 4/4 testle geçti; `npm run build` TypeScript
+  strict kontrolü ve Vite production build'iyle başarıyla tamamlandı. Yerel
+  Vite sunucusu HTTP 200 verdi ve doğrulama sonunda kapatıldı. Bu çalışma
+  ortamında tarayıcı otomasyonu izin nedeniyle açılamadığından ekran görüntülü
+  görsel inceleme yapılamadı.
+- Aşama 10B kullanıcı kataloğu, aynı Vite uygulamasına ayrı `user.html` giriş
+  noktası olarak eklendi. Public katalog, içerik detayı ve içerik bazlı quiz
+  listesi yalnız kullanıcı API yollarını kullanır; taslak, doğru cevap ve
+  puanlama sonucu istemciye eklenmedi.
+- `PublicApi` unit testi yayınlanmış katalog isteğinin `/api/v1/contents`
+  yoluna USER header ile gittiğini doğruladı. `npm run test` 5/5 testle,
+  `npm run build` ise iki HTML giriş noktasıyla başarıyla tamamlandı.
+- Kullanıcı flow'u local deneme oturumu, standart/uzatılmış quiz süresi,
+  server deadline sayacı, cevap geri bildirimi, sonuç, XP profil özeti ve
+  global leaderboard ile tamamlandı. Cevap yeniden denemesinde aynı
+  `Idempotency-Key` korunur; istemci doğru cevabı, skoru veya süreyi üretmez.
+- `PublicApi` testi answer isteğinin caller-provided idempotency anahtarını ve
+  aynı soru/şık payload'ını taşıdığını doğruladı. `npm run test` 6/6 testle,
+  `npm run build` iki giriş noktasıyla başarıyla tamamlandı.
+- Kullanıcı web sağlamlaştırması sonrası `npm run test` 4 dosyada 9/9 testle
+  geçti. Yeni testler proje dokümanındaki UUID biçimini ve korumalı medya
+  isteğinde USER kimlik header'larının taşındığını kanıtladı. `npm run build`
+  TypeScript strict kontrolü ve iki giriş noktalı Vite üretim derlemesiyle
+  geçti. Sayfa 390×844 mobil görünümde tarayıcıyla kontrol edildi; belgelenmiş
+  UUID ile yerel giriş ve `Çıkış` akışı çalıştı. Backend çalışmadığı için katalog
+  verisi yerine beklenen güvenli API hata kartı görüldü.
 - Çalışan Vite geliştirme sunucusu tarayıcıda incelendi: anlamlı içerik ve yeni
   draft formu render edildi, form etiketleri bulundu, Vite hata katmanı ve
   console error görülmedi. Backend kapalıyken 502 yanıtı güvenli hata kartında
@@ -699,12 +757,20 @@ aggregate'in sezon/bölüm ağacını her satırda taşımayan özet DTO kullan�
 ekranı ise tam yönetim sözleşmesini okur. Vite proxy yerel same-origin kolaylığı
 sağlar; production CORS/CSRF ve OIDC kararının yerine geçmez.
 
+Aşama 10B, kullanıcı ve yönetici deneyimlerinin aynı backend'i kullanmasına
+rağmen aynı ekran akışında olmak zorunda olmadığını gösterir. Kullanıcı
+sayfasının yalnız yayınlanmış kaynakları okuması draft görünürlüğü sınırını;
+quiz başlangıcından sonra server-authoritative attempt sözleşmesini kullanması
+ise doğru cevap, süre ve skor güvenlik sınırını korur. Idempotency anahtarı,
+ağ hatasında aynı cevap niyetinin ikinci bir kalıcı sonuç üretmemesini sağlar.
+
 ## Sıradaki tek iş
 
-Aşama 10A admin web içerik yönetimi tamamlandı. Sıradaki tek aday, yeni draft'ın
-publish önkoşulunu arayüzden tamamlayabilmek için medya yükleme ve içerik kapağı
-bağlama dilimidir. Kullanıcı açıkça onaylamadan bu dilime veya quiz/XP/
-leaderboard ekranlarına başlanmamalıdır.
+Aşama 10A admin içerik yönetimi ve Aşama 10B kullanıcı katalog görünümü
+tamamlandı. Sıradaki tek aday, yeni draft'ın publish önkoşulunu arayüzden
+tamamlayabilmek için medya yükleme ve içerik kapağı bağlama dilimidir. Kullanıcı
+açıkça onaylamadan bu dilime veya production OIDC/profile/social özelliklerine
+başlanmamalıdır.
 
 ## Yeni Codex görevi için kısa komut
 
@@ -774,6 +840,10 @@ seçmeden quiz, XP, leaderboard veya başka admin ekranı ekleme.
   yazma yarışları ayrı concurrency testleriyle ele alınmalıdır.
 - Aşama 9'un 10 istek/s baseline sınırı geçti; gerçek trafik hedefi bilinmediği
   için ilk SLO değerleri production kapasite garantisi değildir.
+- Windows güç tasarrufu ve yerel Docker/WSL zamanlaması k6 p99 ve
+  `dropped_iterations` değerlerini etkileyebilir. Performans karşılaştırması,
+  güç modu `En iyi performans` ayarında ve ağır arka plan işleri kapalıyken
+  tekrarlanmalıdır; bu durum uygulama davranışından ayrı test ortamı riskidir.
 - Yerel dashboard'daki 100 ms–2 s bucket'ları ölçüm başlangıcıdır; ürün SLO'su
   veya kapasite garantisi değildir.
 - Outbox W3C context'i taşır; nullable kolonlar eski satır uyumluluğunu korur.

@@ -32,8 +32,15 @@ export function App() {
   const detailMatch = path.match(/^\/contents\/([\w-]+)$/);
   return <main className="app-shell">
     <header className="app-header">
-      <a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>İçerik Yönetimi</a>
-      <p>Yerel aktör: <code>{actor.id}</code> · roller: <strong>{actor.roles.join(", ")}</strong></p>
+      <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }} aria-label="İçerik Stüdyosu ana sayfası">
+        <span className="brand-mark" aria-hidden="true">t</span>
+        <span><strong>İçerik</strong> Stüdyosu</span>
+      </a>
+      <nav className="primary-nav" aria-label="Ana menü">
+        <a className={path === "/" ? "is-active" : ""} href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>Katalog</a>
+        <a className={path === "/contents/new" ? "is-active" : ""} href="/contents/new" onClick={(event) => { event.preventDefault(); navigate("/contents/new"); }}>Yeni taslak</a>
+      </nav>
+      <p className="actor-context"><span>Yerel oturum</span><code>{actor.id}</code><strong>{actor.roles.join(", ")}</strong></p>
     </header>
     {path === "/contents/new" ? <CreateContent api={api} navigate={navigate} /> : detailMatch
       ? <ContentDetail api={api} contentId={detailMatch[1]} navigate={navigate} />
@@ -69,10 +76,13 @@ function ContentList({ api, navigate }: { api: ContentApi; navigate: (path: stri
   }, [api, currentPage, reloadVersion]);
 
   return <section>
-    <div className="title-row"><div><h1>İçerikler</h1><p>Draft içerikler burada düzenlenir; yayın kararı backend iş kurallarıyla doğrulanır.</p></div><button onClick={() => navigate("/contents/new")}>Yeni draft</button></div>
+    <div className="page-intro">
+      <div><p className="eyebrow">Katalog yönetimi</p><h1>İçeriği yayına hazırla.</h1><p>Başlık, hikâye ve bölüm yapısını burada kurun. Yayın kararını sunucu, kapak ve katalog kurallarıyla birlikte verir.</p></div>
+      <button className="button-primary" onClick={() => navigate("/contents/new")}>Yeni taslak <span aria-hidden="true">→</span></button>
+    </div>
     <ApiErrorNotice error={error} onRetry={error ? () => setReloadVersion((version) => version + 1) : undefined} />
     {isLoading ? <p aria-live="polite">İçerikler yükleniyor…</p> : page && <>
-      <p className="muted">Toplam {page.totalItems} içerik</p>
+      <div className="catalogue-meta"><p>Toplam <strong>{page.totalItems}</strong> içerik</p><p>Sayfa {page.page + 1} / {Math.max(page.totalPages, 1)}</p></div>
       <ul className="content-list" aria-label="İçerik listesi">
         {page.items.map((content) => <ContentListItem key={content.id} content={content} onOpen={() => navigate(`/contents/${content.id}`)} />)}
       </ul>
@@ -88,14 +98,15 @@ function ContentList({ api, navigate }: { api: ContentApi; navigate: (path: stri
 
 function ContentListItem({ content, onOpen }: { content: ContentSummary; onOpen: () => void }) {
   return <li><article className="content-card">
-    <div><p className="eyebrow">{content.contentType === "SERIES" ? "Dizi" : "Film"} · {content.publicationStatus === "DRAFT" ? "Draft" : "Yayınlandı"}</p><h2>{content.title}</h2><p>{content.description || "Açıklama yok"}</p></div>
-    <button onClick={onOpen} aria-label={`${content.title} içeriğini düzenle`}>Aç</button>
+    <div className={`content-poster content-poster--${content.contentType.toLowerCase()}`} aria-hidden="true"><span>{content.contentType === "SERIES" ? "Dizi" : "Film"}</span><strong>{content.title.slice(0, 1)}</strong></div>
+    <div className="content-card__body"><div className="content-card__meta"><span className="content-type">{content.contentType === "SERIES" ? "Dizi" : "Film"}</span><span className={`status status--${content.publicationStatus.toLowerCase()}`}>{content.publicationStatus === "DRAFT" ? "Taslak" : "Yayında"}</span></div><h2>{content.title}</h2><p>{content.description || "Henüz kısa açıklama eklenmedi."}</p></div>
+    <button className="button-secondary" onClick={onOpen} aria-label={`${content.title} içeriğini aç`}>Aç <span aria-hidden="true">→</span></button>
   </article></li>;
 }
 
 function CreateContent({ api, navigate }: { api: ContentApi; navigate: (path: string) => void }) {
   const [error, setError] = useState<ApiRequestError | null>(null);
-  return <section className="editor"><h1>Yeni draft</h1><ApiErrorNotice error={error} />
+  return <section className="editor"><div className="editor-heading"><p className="eyebrow">Yeni içerik</p><h1>Bir hikâyeyle başlayın.</h1><p>İlk kayıtta temel katalog bilgisini oluşturun. Sezonlar ve bölümler, taslak açıldıktan sonra eklenir.</p></div><ApiErrorNotice error={error} />
     <ContentForm includeContentType submitLabel="Draft oluştur" onSubmit={async (input) => {
       try { const created = await api.create(input); navigate(`/contents/${created.id}`); } catch (reason) { setError(asApiError(reason)); }
     }} />
@@ -114,14 +125,14 @@ function ContentDetail({ api, contentId, navigate }: { api: ContentApi; contentI
     return () => { isCurrent = false; };
   }, [api, contentId]);
 
-  if (isLoading) return <p aria-live="polite">İçerik yükleniyor…</p>;
-  if (!content) return <section><ApiErrorNotice error={error} /><button onClick={() => navigate("/")}>Listeye dön</button></section>;
+  if (isLoading) return <p className="loading-copy" aria-live="polite">İçerik yükleniyor…</p>;
+  if (!content) return <section><ApiErrorNotice error={error} /><button className="button-secondary" onClick={() => navigate("/")}>Listeye dön</button></section>;
   const editable = content.publicationStatus === "DRAFT";
 
   return <section className="editor">
-    <p><a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>← Listeye dön</a></p>
-    <div className="title-row"><div><p className="eyebrow">{content.publicationStatus === "DRAFT" ? "Draft" : "Yayınlandı"}</p><h1>{content.title}</h1></div>
-      {editable && <button className="publish" disabled={isPublishing} onClick={async () => { setError(null); setIsPublishing(true); try { setContent(await api.publish(content.id)); } catch (reason) { setError(asApiError(reason)); } finally { setIsPublishing(false); } }}>{isPublishing ? "Yayınlanıyor…" : "Yayınla"}</button>}
+    <p className="back-link"><a href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>← Kataloğa dön</a></p>
+    <div className="detail-hero"><div><div className="content-card__meta"><span className="content-type">{content.contentType === "SERIES" ? "Dizi" : "Film"}</span><span className={`status status--${content.publicationStatus.toLowerCase()}`}>{content.publicationStatus === "DRAFT" ? "Taslak" : "Yayında"}</span></div><h1>{content.title}</h1><p>{content.description || "Henüz kısa açıklama eklenmedi."}</p></div>
+      {editable && <button className="button-primary" disabled={isPublishing} onClick={async () => { setError(null); setIsPublishing(true); try { setContent(await api.publish(content.id)); } catch (reason) { setError(asApiError(reason)); } finally { setIsPublishing(false); } }}>{isPublishing ? "Yayınlanıyor…" : "Yayınla"}</button>}
     </div>
     <ApiErrorNotice error={error} />
     {!editable && <p className="notice">Yayınlanmış içerik değiştirilemez. Bu davranış, yayınlanan katalog bilgisinin sabit kalmasını sağlar.</p>}

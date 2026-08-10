@@ -455,9 +455,10 @@ bir dakikalık k6 baseline'ını çalıştırır:
 
 ## Sıradaki çalışma
 
-Aşama 0–9 çekirdek backend roadmap'i ve Aşama 10A admin web içerik yönetimi
-dilimi tamamlandı. Yönetim arayüzü [admin-web çalışma rehberinde](admin-web/README.md)
-açıklanan ayrı React/TypeScript uygulamasıdır.
+Aşama 0–9 çekirdek backend roadmap'i, Aşama 10A admin içerik yönetimi ve
+Aşama 10B kullanıcı web akışı tamamlandı. Yönetim ve kullanıcı arayüzleri
+[admin-web çalışma rehberinde](admin-web/README.md) açıklanan aynı
+React/TypeScript uygulamasının ayrı giriş noktalarıdır.
 
 Yerel olarak backend'i geçici kimlik adapter'ıyla başlat:
 
@@ -474,6 +475,10 @@ $env:VITE_LOCAL_ACTOR_ID = "22222222-2222-2222-2222-222222222222"
 $env:VITE_LOCAL_ACTOR_ROLES = "EDITOR"
 npm run dev
 ```
+
+Kullanıcı deneyimi için `VITE_LOCAL_ACTOR_ROLES = "USER"` tanımlayıp
+`http://localhost:5173/user.html` adresini açın. Kullanıcı burada içerik
+keşfedebilir, quiz çözebilir, XP ve leaderboard sonucunu okuyabilir.
 
 `VITE_LOCAL_ACTOR_*` production authentication değildir. Arayüzün sıradaki tek
 aday dilimi medya yükleme ve içerik kapağı bağlamadır; kullanıcı onayı olmadan
