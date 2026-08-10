@@ -32,10 +32,7 @@ export function App() {
   const detailMatch = path.match(/^\/contents\/([\w-]+)$/);
   return <main className="app-shell">
     <header className="app-header">
-      <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }} aria-label="İçerik Stüdyosu ana sayfası">
-        <span className="brand-mark" aria-hidden="true">t</span>
-        <span><strong>İçerik</strong> Stüdyosu</span>
-      </a>
+      <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }} aria-label="İçerik Stüdyosu ana sayfası"><span><strong>İçerik</strong> Stüdyosu</span></a>
       <nav className="primary-nav" aria-label="Ana menü">
         <a className={path === "/" ? "is-active" : ""} href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }}>Katalog</a>
         <a className={path === "/contents/new" ? "is-active" : ""} href="/contents/new" onClick={(event) => { event.preventDefault(); navigate("/contents/new"); }}>Yeni taslak</a>
@@ -77,7 +74,7 @@ function ContentList({ api, navigate }: { api: ContentApi; navigate: (path: stri
 
   return <section>
     <div className="page-intro">
-      <div><p className="eyebrow">Katalog yönetimi</p><h1>İçeriği yayına hazırla.</h1><p>Başlık, hikâye ve bölüm yapısını burada kurun. Yayın kararını sunucu, kapak ve katalog kurallarıyla birlikte verir.</p></div>
+      <div><p className="eyebrow">Katalog yönetimi</p><h1>İçerik kataloğu</h1><p>İçerik, sezon ve bölüm kayıtlarını yönetin.</p></div>
       <button className="button-primary" onClick={() => navigate("/contents/new")}>Yeni taslak <span aria-hidden="true">→</span></button>
     </div>
     <ApiErrorNotice error={error} onRetry={error ? () => setReloadVersion((version) => version + 1) : undefined} />
@@ -106,7 +103,7 @@ function ContentListItem({ content, onOpen }: { content: ContentSummary; onOpen:
 
 function CreateContent({ api, navigate }: { api: ContentApi; navigate: (path: string) => void }) {
   const [error, setError] = useState<ApiRequestError | null>(null);
-  return <section className="editor"><div className="editor-heading"><p className="eyebrow">Yeni içerik</p><h1>Bir hikâyeyle başlayın.</h1><p>İlk kayıtta temel katalog bilgisini oluşturun. Sezonlar ve bölümler, taslak açıldıktan sonra eklenir.</p></div><ApiErrorNotice error={error} />
+  return <section className="editor"><div className="editor-heading"><p className="eyebrow">Yeni içerik</p><h1>Yeni içerik oluştur</h1><p>Temel katalog bilgilerini girin. Sezon ve bölümleri kayıttan sonra ekleyin.</p></div><ApiErrorNotice error={error} />
     <ContentForm includeContentType submitLabel="Draft oluştur" onSubmit={async (input) => {
       try { const created = await api.create(input); navigate(`/contents/${created.id}`); } catch (reason) { setError(asApiError(reason)); }
     }} />
