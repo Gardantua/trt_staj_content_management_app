@@ -3,7 +3,7 @@ import type { LocalActor } from "../auth/actor";
 import { PublicApi, PublicApiRequestError } from "./public-api";
 import type { AnswerSubmissionResult, Leaderboard, PublicContent, PublicContentPage, PublicContentSummary, PublishedQuiz, QuizAttempt, XpSummary } from "./types";
 import { clearLocalViewerActor, initialViewerActor, isLocalActorId, saveLocalViewerActor } from "./viewer-session";
-import tabiiLogoUrl from "../../../gorseller/tabii-logo-png_seeklogo-481975.png";
+import tabiiLogoUrl from "../../../gorseller/Tabii_-_TRT_Logo.png";
 import platformArtworkUrl from "../../../gorseller/tabii-dijital-platform-2041030.jpg";
 
 const PAGE_SIZE = 12;
