@@ -82,8 +82,11 @@ h3 { line-height: 1.2; }
 .stack { display: grid; gap: 1.25rem; }
 label { color: #333942; display: grid; font-size: .88rem; font-weight: 700; gap: .45rem; }
 input, textarea, select { background: #fff; border: 1px solid #b8b6b0; border-radius: .25rem; color: var(--ink); padding: .78rem .85rem; width: 100%; }
+input::placeholder, textarea::placeholder { color: #8b9791; opacity: 1; }
 input:hover, textarea:hover, select:hover { border-color: #858078; }
 textarea { resize: vertical; }
+.form-guide { background: #edf5f1; border-left: .25rem solid var(--accent); color: #263b35; padding: .85rem 1rem; }
+.form-guide strong { font-size: .9rem; }.form-guide p, .field-help { color: var(--muted); font-size: .8rem; margin: .3rem 0 0; }
 .form-actions { border-top: 1px solid var(--line); margin-top: .25rem; padding-top: 1.25rem; }
 .back-link { margin-bottom: 1.5rem; }.back-link a { color: var(--muted); font-size: .9rem; text-underline-offset: .25rem; }
 .detail-hero { background: var(--ink); color: #fff; margin-bottom: 1.5rem; padding: clamp(1.4rem, 4vw, 3rem); }.detail-hero h1 { margin-bottom: .75rem; }.detail-hero > div > p { color: #d5d7d4; margin-bottom: 0; }.detail-hero .content-type { color: #cbc8c0; }.detail-hero .status--draft { background: #64473a; color: #ffdfbd; }.detail-hero .status--published { background: #294d40; color: #c7eddc; }

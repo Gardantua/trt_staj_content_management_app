@@ -50,6 +50,10 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 
 ## Tamamlananlar
 
+- Yeni taslak formuna kullanıcıya görünen başlık/açıklama ile admin notu
+  ayrımını açıklayan kısa rehber ve alan bazlı örnek metinler eklendi. Formun
+  quiz veya soru kaydetmediği; bu arayüzde quiz authoring ekranı bulunmadığı
+  açıkça belirtildi.
 - 10.08.2026 tasarım iyileştirmesinde admin arayüzünden tüm gradyen ve turuncu
   vurgu kaldırıldı; açık nötr çalışma yüzeyleri ile mint ana eylem rengi
   uygulandı.
