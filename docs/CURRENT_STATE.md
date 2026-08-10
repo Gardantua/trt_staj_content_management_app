@@ -1,6 +1,6 @@
 # Güncel Proje Durumu
 
-Son güncelleme: 08.08.2026
+Son güncelleme: 10.08.2026
 
 ## Genel durum
 
@@ -34,10 +34,15 @@ EDITOR/ADMIN yerel aktörü; draft dahil sayfalı içerik listesi, içerik
 oluşturma/düzenleme, sezon/bölüm yönetimi, yayınlanmış içerik değişmezliği ve
 backend code/trace ID hata sunumuyla görünürdür. Production kimlik sağlayıcısı
 henüz belli olmadığı için bu arayüz local-only geliştirme sınırındadır.
-Mevcut akışın görsel yenilemesinde koyu, editoryal bir içerik stüdyosu dili;
-sıcak nötr yüzeyler, ölçülü kiremit vurgu, poster benzeri taslak kartları ve
-mobilde tek sütuna inen düzenle uygulandı. Bu yenileme yeni bir API veya ürün
+Mevcut akışın görsel yenilemesinde yalın, editoryal bir içerik stüdyosu dili;
+açık nötr yüzeyler, mint vurgu, poster benzeri taslak kartları ve mobilde tek
+sütuna inen düzen uygulandı. Bu yenileme yeni bir API veya ürün
 modülü eklemez.
+10C medya ve kapak bağlama dilimiyle admin, JPEG/PNG dosyasını mevcut medya
+endpoint'ine multipart olarak yükleyebilir; dönen değişmez medya kimliğini
+alternatif metinle taslak içeriğe kapak olarak bağlayabilir. Böylece publish
+önkoşulu arayüzden tamamlanır. Dosya türü, boyutu, imzası ve çözülebilir olması
+istemci tarafından değil backend tarafından otoritatif olarak doğrulanır.
 Kullanıcı tarafı da aynı Vite çalışma zamanında ayrı `user.html` giriş noktası
 olarak eklendi. Yalnız yayınlanmış katalog, içerik detayı, dizi bölümleri ve
 quiz özeti okunur. Kullanıcı ayrıca backend'in sunucu otoriteli attempt/cevap
@@ -50,6 +55,13 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
 
 ## Tamamlananlar
 
+- Admin ihtiyaç haritası ve teslim sırası `docs/ADMIN_WEB_PLAN.md` içinde
+  kaydedildi. Bu turda yalnız 10C medya/kapak dilimi uygulandı; quiz yazarlığı,
+  yayın kontrolü ve operasyon araçları sonraki ayrı adaylar olarak kaldı.
+- Taslak içerik detayına iki adımlı kapak akışı eklendi: JPEG/PNG dosyası
+  yükleniyor, açıklayıcı alternatif metin giriliyor ve dönen medya kimliği
+  kapağa bağlanıyor. Mevcut kapağın alternatif metni de aynı ekrandan
+  güncellenebiliyor. `ADR-0020` bu sınırı ve alternatiflerini kaydeder.
 - Yeni taslak formuna kullanıcıya görünen başlık/açıklama ile admin notu
   ayrımını açıklayan kısa rehber ve alan bazlı örnek metinler eklendi. Formun
   quiz veya soru kaydetmediği; bu arayüzde quiz authoring ekranı bulunmadığı
@@ -62,7 +74,7 @@ Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
   sıralama başlıkları ortak tipografik hiyerarşiye taşındı. Yerel platform
   görselleri üretim paketine dahil edildi; bu sunum değişikliği backend
   sözleşmesini, skor/süre otoritesini veya ürün kapsamını değiştirmez.
-- `admin-web` için `npm run test` 9/9 testle geçti; `npm run build` TypeScript
+- `admin-web` için `npm run test` 11/11 testle geçti; `npm run build` TypeScript
   strict kontrolü ve iki giriş noktalı production paketlemesiyle başarılı oldu.
 
 - Ürün fikri değerlendirildi.
@@ -770,19 +782,19 @@ ağ hatasında aynı cevap niyetinin ikinci bir kalıcı sonuç üretmemesini sa
 
 ## Sıradaki tek iş
 
-Aşama 10A admin içerik yönetimi ve Aşama 10B kullanıcı katalog görünümü
-tamamlandı. Sıradaki tek aday, yeni draft'ın publish önkoşulunu arayüzden
-tamamlayabilmek için medya yükleme ve içerik kapağı bağlama dilimidir. Kullanıcı
-açıkça onaylamadan bu dilime veya production OIDC/profile/social özelliklerine
-başlanmamalıdır.
+Aşama 10C ile yeni draft'ın kapak/publish önkoşulu arayüzden tamamlanabilir.
+Sıradaki tek aday, `docs/ADMIN_WEB_PLAN.md` içindeki 10D quiz yazarlığı
+dilimidir: içerikle ilişkili veya genel quiz taslağı, soru ve şık yönetimi.
+Kullanıcı açıkça onaylamadan bu dilime veya production OIDC/profile/social
+özelliklerine başlanmamalıdır.
 
 ## Yeni Codex görevi için kısa komut
 
 ```text
 Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku. Aşama 0–9 ile
-Aşama 10A admin web içerik yönetiminin tamamlandığını CURRENT_STATE, ROADMAP ve
-ADR-0017 üzerinden doğrula. Kullanıcı medya yükleme/kapak bağlama dilimini açıkça
-seçmeden quiz, XP, leaderboard veya başka admin ekranı ekleme.
+Aşama 10A/10B/10C'nin tamamlandığını CURRENT_STATE, ROADMAP, ADR-0017 ve
+ADR-0020 üzerinden doğrula. Kullanıcı quiz yazarlığı dilimini açıkça seçmeden
+XP, leaderboard veya başka admin ekranı ekleme.
 ```
 
 ## Bilinen riskler
@@ -803,9 +815,10 @@ seçmeden quiz, XP, leaderboard veya başka admin ekranı ekleme.
 - `admin-web` local actor header'ları production login değildir. Gerçek hosting
   topolojisi belli olunca OIDC, CORS, CSRF ve secret/config dağıtımı ayrıca
   tasarlanıp test edilmelidir.
-- Aşama 10A medya yüklemez veya kapak bağlamaz; yeni draft publish isteği bu
-  önkoşullar eksikken backend hata kodunu gösterir. Başarılı uçtan uca publish
-  arayüzü sonraki ürün dilimidir.
+- Admin kapak akışı yerel backend'in medya endpoint'ini kullanır; production
+  object storage/CDN, telif/kullanım hakkı ve doğrudan görsel önizleme kararı
+  henüz verilmedi. Dosya storage yazımı ile PostgreSQL metadata kaydı atomik
+  değildir; sahipsiz dosya temizliği ayrı production dayanıklılık işidir.
 - Mockito/Byte Buddy, Java 21 test koşusunda gelecekte varsayılan olarak
   engellenecek dinamik agent yükleme uyarısı veriyor; testler bugün geçiyor,
   ayrı bir test-tooling bakım görevinde explicit agent yapılandırması

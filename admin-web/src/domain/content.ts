@@ -56,6 +56,11 @@ export interface ContentDraftInput {
   contentType: ContentType;
 }
 
+export interface CoverBindingInput {
+  mediaAssetId: string;
+  alternativeText: string;
+}
+
 export interface SeasonInput {
   seasonNumber: number;
   title: string;

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { ApiClient, ApiRequestError } from "./api/client";
 import { ContentApi } from "./api/content-api";
+import { MediaApi } from "./api/media-api";
 import { canManageContent, localActorFromEnvironment } from "./auth/actor";
 import { ApiErrorNotice } from "./components/ApiErrorNotice";
 import { ContentForm } from "./components/ContentForm";
+import { CoverEditor } from "./components/CoverEditor";
 import { SeasonEditor } from "./components/SeasonEditor";
 import type { Content, ContentPage, ContentSummary } from "./domain/content";
 
@@ -11,7 +13,9 @@ const PAGE_SIZE = 20;
 
 export function App() {
   const actor = useMemo(localActorFromEnvironment, []);
-  const api = useMemo(() => new ContentApi(new ApiClient(actor)), [actor]);
+  const apiClient = useMemo(() => new ApiClient(actor), [actor]);
+  const api = useMemo(() => new ContentApi(apiClient), [apiClient]);
+  const mediaApi = useMemo(() => new MediaApi(apiClient), [apiClient]);
   const [path, setPath] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -40,7 +44,7 @@ export function App() {
       <p className="actor-context"><span>Yerel oturum</span><code>{actor.id}</code><strong>{actor.roles.join(", ")}</strong></p>
     </header>
     {path === "/contents/new" ? <CreateContent api={api} navigate={navigate} /> : detailMatch
-      ? <ContentDetail api={api} contentId={detailMatch[1]} navigate={navigate} />
+      ? <ContentDetail api={api} mediaApi={mediaApi} contentId={detailMatch[1]} navigate={navigate} />
       : <ContentList api={api} navigate={navigate} />}
   </main>;
 }
@@ -110,7 +114,7 @@ function CreateContent({ api, navigate }: { api: ContentApi; navigate: (path: st
   </section>;
 }
 
-function ContentDetail({ api, contentId, navigate }: { api: ContentApi; contentId: string; navigate: (path: string) => void }) {
+function ContentDetail({ api, mediaApi, contentId, navigate }: { api: ContentApi; mediaApi: MediaApi; contentId: string; navigate: (path: string) => void }) {
   const [content, setContent] = useState<Content | null>(null);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -133,6 +137,7 @@ function ContentDetail({ api, contentId, navigate }: { api: ContentApi; contentI
     </div>
     <ApiErrorNotice error={error} />
     {!editable && <p className="notice">Yayınlanmış içerik değiştirilemez. Bu davranış, yayınlanan katalog bilgisinin sabit kalmasını sağlar.</p>}
+    {editable && <CoverEditor content={content} onUploadImage={(file) => mediaApi.uploadImage(file)} onBindCover={(input) => api.setCover(content.id, input)} onContentChanged={setContent} onError={(reason) => setError(asApiError(reason))} />}
     {editable && <ContentForm initialValue={{ title: content.title, description: content.description ?? "", contentType: content.contentType }} includeContentType={false} submitLabel="İçeriği kaydet" onSubmit={async (input) => { try { setError(null); setContent(await api.update(content.id, input)); } catch (reason) { setError(asApiError(reason)); } }} />}
     {editable && content.contentType === "SERIES" && <SeasonEditor content={content} onContentChanged={setContent} onError={(reason) => setError(asApiError(reason))}
       onAddSeason={(input) => api.addSeason(content.id, input)} onUpdateSeason={(season, input) => api.updateSeason(content.id, season.id, input)}

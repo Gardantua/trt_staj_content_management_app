@@ -1,7 +1,8 @@
 # Yönetim arayüzü (Aşama 10A)
 
-Bu uygulama yalnız içerik kataloğu yönetim dikey dilimini içerir. Quiz, medya
-yükleme, XP ve leaderboard işlemleri bilerek kapsam dışındadır.
+Bu uygulama içerik kataloğu yönetimini ve taslak içeriğe kapak görseli bağlama
+akışını içerir. Quiz yazarlığı, XP ve leaderboard operasyonları ayrı ürün
+dilimleri olarak kapsam dışındadır.
 
 Yerel backend'in `local` profiliyle çalışması gerekir. Geçici aktör header'ları
 yalnız bu profil için ayarlanır; tarayıcıdaki rol kontrolü güvenlik sınırı
@@ -24,10 +25,12 @@ npm run test
 npm run build
 ```
 
-Bu dilimde medya yükleme ve kapak bağlama ekranı yoktur. Yeni draft publish
-önkoşullarını karşılamıyorsa backend'in hata kodu ve trace ID'si arayüzde
-gösterilir. Bu davranış başarılı production authentication veya uçtan uca
-publish akışı anlamına gelmez.
+Taslak detayında **Kapak görseli** alanından JPEG veya PNG dosyası seçilir,
+önce yüklenir ve ardından alternatif metinle kapağa bağlanır. Sunucu 5 MB,
+4096 × 4096 piksel, dosya imzası ve geçerli görsel içeriğini tekrar doğrular.
+Yeni draft publish önkoşullarını karşılamıyorsa backend'in hata kodu ve trace
+ID'si arayüzde gösterilir. Bu davranış başarılı production authentication
+anlamına gelmez.
 
 ## Kullanıcı kataloğu (Aşama 10B)
 

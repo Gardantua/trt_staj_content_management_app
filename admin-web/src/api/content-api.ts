@@ -1,5 +1,5 @@
 import { ApiClient } from "./client";
-import type { Content, ContentDraftInput, ContentPage, EpisodeInput, SeasonInput } from "../domain/content";
+import type { Content, ContentDraftInput, ContentPage, CoverBindingInput, EpisodeInput, SeasonInput } from "../domain/content";
 
 export class ContentApi {
   constructor(private readonly client: ApiClient) {}
@@ -22,6 +22,10 @@ export class ContentApi {
 
   publish(contentId: string): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}/publish`, { method: "POST" });
+  }
+
+  setCover(contentId: string, input: CoverBindingInput): Promise<Content> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/cover`, { method: "PUT", body: JSON.stringify(input) });
   }
 
   addSeason(contentId: string, input: SeasonInput): Promise<Content> {

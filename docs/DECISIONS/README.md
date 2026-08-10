@@ -45,3 +45,4 @@ Mevcut kayıtlar:
 - [ADR-0017: Admin web uygulaması ve yerel kimlik sınırı](ADR-0017-admin-web-frontend-siniri.md)
 - [ADR-0018: Kullanıcı web kataloğu için ayrı giriş noktası](ADR-0018-user-web-catalog.md)
 - [ADR-0019: Kullanıcı webinde sunucu otoriteli gameplay akışı](ADR-0019-user-gameplay-web-flow.md)
+- [ADR-0020: Admin medya yükleme ve kapak bağlama akışı](ADR-0020-admin-media-and-cover-flow.md)

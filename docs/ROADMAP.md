@@ -556,6 +556,41 @@ kaynakları okuyarak taslak veya doğru cevap sınırını neden koruduğunu aç
 
 Kalıcı karar ve alternatifler ADR-0019'da kayıtlıdır.
 
+## Aşama 10C - Admin medya ve kapak bağlama
+
+Durum: Tamamlandı (10.08.2026); frontend unit testleri ve production build ile doğrulandı
+
+Bu aşama yeni bir backend endpoint'i eklemeden, editörün mevcut medya ve içerik
+sözleşmeleriyle yayın için gereken kapağı hazırlamasını sağlar.
+
+### İşler
+
+- JPEG/PNG görseli `multipart/form-data` ile yönetim medya endpoint'ine yükleme
+- Başarılı yüklemenin medya kimliğini alternatif metinle içerik kapağına bağlama
+- Mevcut kapağın alternatif metnini güncelleme ve taslak dışındaki kaydı kilitleme
+- Dosya sınırlarını açıklama; son kararın backend'in imza/decode kontrolünde
+  kaldığını ve hata code/trace ID'sinin korunmasını sağlama
+
+### Kabul kriterleri
+
+- Tarayıcı multipart sınırını bozacak elle `Content-Type` göndermeden dosyayı
+  doğru endpoint'e iletir.
+- EDITOR/ADMIN actor header'ı local profil için korunur; gerçek yetki backend'de
+  doğrulanır.
+- Kapak yalnız taslak içerikte bağlanabilir, alternatif metin boş bırakılamaz.
+- Yeni kapak yüklemek yeni bir medya kimliği üretir; içerik yalnız bu kimliği
+  referans alır.
+- Frontend testleri ve TypeScript production build geçer.
+
+### Öğrenme çıktısı
+
+Kullanıcı, multipart isteğinin JSON isteğinden farklı olarak neden tarayıcının
+üreteceği bir sınır bilgisine ihtiyaç duyduğunu; medya yükleme ile içerik kapağı
+bağlamanın neden iki ayrı, doğrulanabilir iş adımı olduğunu açıklayabilir.
+
+Kalıcı karar ve alternatifler ADR-0020'de kayıtlıdır. Sıradaki aday quiz
+yazarlığıdır; bu aşama tamamlanmadan sonraki admin modülü uygulanmaz.
+
 ## Aşama 11 - Opsiyonel genişlemeler
 
 Çekirdek sistem ve operasyon kalitesi tamamlanmadan başlanmaz:

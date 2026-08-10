@@ -84,4 +84,32 @@ export class ApiClient {
     }
     return response.json() as Promise<T>;
   }
+
+  async requestForm<T>(path: string, formData: FormData, init: Omit<RequestInit, "body" | "headers"> = {}): Promise<T> {
+    const headers = new Headers({ Accept: "application/json" });
+    if (this.actor.id) {
+      headers.set("X-Test-Actor-Id", this.actor.id);
+      headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
+    }
+
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, { ...init, body: formData, headers });
+    } catch {
+      throw new ApiRequestError({
+        code: "NETWORK_UNAVAILABLE",
+        message: "Yönetim API'sine ulaşılamadı.",
+        traceId: "unavailable",
+        status: 0
+      });
+    }
+
+    if (!response.ok) {
+      throw await readApiError(response);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return response.json() as Promise<T>;
+  }
 }
