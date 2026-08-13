@@ -42,10 +42,24 @@ public record XpTransaction(
             int finalScore,
             Instant completedAt
     ) {
-        int amount = XpPolicyVersion.SCORE_MATCH_V1.xpForCompletedQuiz(finalScore);
+        return forQuizCompletion(
+                userId, contentId, attemptId, finalScore,
+                XpPolicyVersion.SCORE_MATCH_V1, completedAt
+        );
+    }
+
+    public static XpTransaction forQuizCompletion(
+            UUID userId,
+            UUID contentId,
+            UUID attemptId,
+            int awardedXp,
+            XpPolicyVersion policyVersion,
+            Instant completedAt
+    ) {
+        int amount = policyVersion.xpForCompletedQuiz(awardedXp);
         return new XpTransaction(
                 UUID.randomUUID(), userId, contentId, amount, XpReason.QUIZ_COMPLETED,
-                XpPolicyVersion.SCORE_MATCH_V1, "QUIZ_ATTEMPT:" + attemptId,
+                policyVersion, "QUIZ_ATTEMPT:" + attemptId,
                 attemptId, null, null, null, completedAt
         );
     }
@@ -75,12 +89,13 @@ public record XpTransaction(
             UUID createdBy,
             String note
     ) {
-        if (amount < 0 || policyVersion != XpPolicyVersion.SCORE_MATCH_V1
+        if (amount < 0 || (policyVersion != XpPolicyVersion.SCORE_MATCH_V1
+                && policyVersion != XpPolicyVersion.FIRST_COMPLETION_SCORE_V2)
                 || sourceAttemptId == null || relatedTransactionId != null
                 || createdBy != null || note != null) {
             throw new GamificationRuleViolationException(
                     "XP_COMPLETION_CONTRACT_INVALID",
-                    "Quiz completion XP must identify one attempt and use SCORE_MATCH_V1."
+                    "Quiz completion XP must identify one attempt and use a completion policy."
             );
         }
     }

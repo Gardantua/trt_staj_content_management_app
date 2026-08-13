@@ -18,7 +18,7 @@ class JpaSubmittedAnswerEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "attempt_id", nullable = false) private JpaQuizAttemptEntity attempt;
     @Column(name = "question_id", nullable = false) private UUID questionId;
-    @Column(name = "selected_option_id", nullable = false) private UUID selectedOptionId;
+    @Column(name = "selected_option_id") private UUID selectedOptionId;
     @Column(name = "idempotency_key", nullable = false, length = 100) private String idempotencyKey;
     @Column(name = "is_correct", nullable = false) private boolean correct;
     @Column(name = "awarded_points", nullable = false) private int awardedPoints;

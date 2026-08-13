@@ -77,9 +77,9 @@ class LeaderboardIntegrationTest {
         jdbcTemplate.update("DELETE FROM outbox_events");
         jdbcTemplate.update("DELETE FROM xp_transactions");
         jdbcTemplate.update("DELETE FROM gameplay_answers");
+        jdbcTemplate.update("DELETE FROM gameplay_quiz_reward_claims");
         jdbcTemplate.update("DELETE FROM gameplay_attempts");
         jdbcTemplate.update("DELETE FROM admin_audit_entries");
-        jdbcTemplate.update("DELETE FROM quiz_answer_options");
         jdbcTemplate.update("DELETE FROM quiz_questions");
         jdbcTemplate.update("DELETE FROM quiz_versions");
         jdbcTemplate.update("DELETE FROM quiz_definitions");
@@ -87,10 +87,13 @@ class LeaderboardIntegrationTest {
         jdbcTemplate.update("DELETE FROM catalog_seasons");
         jdbcTemplate.update("DELETE FROM catalog_contents");
         jdbcTemplate.update("DELETE FROM media_assets");
+        jdbcTemplate.update("DELETE FROM identity_user_accounts");
     }
 
     @Test
     void globalLeaderboardUsesTotalXpAndReturnsCurrentUserOutsideTopN() throws Exception {
+        createAccount(HIGH_SCORE_USER_ID, "Ada");
+        createAccount(CURRENT_USER_ID, "Yunus");
         QuizFixture firstContent = createQuizFixture("First", true);
         QuizFixture secondContent = createQuizFixture("Second", true);
         award(firstContent, EARLIER_USER_ID, 100, Instant.parse("2026-08-04T10:00:00Z"));
@@ -106,8 +109,12 @@ class LeaderboardIntegrationTest {
         assertThat(response.get("leaders").size()).isEqualTo(1);
         assertThat(response.get("leaders").get(0).get("userId").stringValue())
                 .isEqualTo(HIGH_SCORE_USER_ID.toString());
+        assertThat(response.get("leaders").get(0).get("displayName").stringValue())
+                .isEqualTo("Ada");
         assertThat(response.get("currentUser").get("position").longValue()).isEqualTo(3);
         assertThat(response.get("currentUser").get("totalXp").longValue()).isEqualTo(200);
+        assertThat(response.get("currentUser").get("displayName").stringValue())
+                .isEqualTo("Yunus");
     }
 
     @Test
@@ -262,6 +269,18 @@ class LeaderboardIntegrationTest {
                 versionId, quizId, title + " Quiz"
         );
         return new QuizFixture(contentId, quizId, versionId);
+    }
+
+    private void createAccount(UUID accountId, String displayName) {
+        String email = accountId + "@example.test";
+        jdbcTemplate.update(
+                """
+                INSERT INTO identity_user_accounts
+                    (id, email, normalized_email, display_name, password_hash, role, created_at)
+                VALUES (?, ?, ?, ?, 'test-password-hash', 'USER', now())
+                """,
+                accountId, email, email, displayName
+        );
     }
 
     private UUID award(QuizFixture quiz, UUID userId, int amount, Instant occurredAt) {

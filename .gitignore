@@ -29,8 +29,19 @@ Thumbs.db
 
 ### Local environment ###
 .env
+.env.production
 *.local
+tmp/
+g*.txt
+group*.txt
+source_files_list.txt
+dirilis-ertugrul-quiz-1-v1*.pdf
+kılık.jpg
+KODU_ANLAMA/
+v2.puml
 
 ### Admin frontend ###
 admin-web/node_modules/
 admin-web/dist/
+
+

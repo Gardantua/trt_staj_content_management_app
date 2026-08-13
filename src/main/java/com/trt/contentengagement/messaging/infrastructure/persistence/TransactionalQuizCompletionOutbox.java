@@ -7,7 +7,7 @@ import com.trt.contentengagement.gameplay.application.QuizCompletionEventOutbox;
 import com.trt.contentengagement.gameplay.domain.QuizAttemptCompleted;
 import com.trt.contentengagement.messaging.application.OutboxEvent;
 import com.trt.contentengagement.messaging.application.OutboxEventRepository;
-import com.trt.contentengagement.messaging.application.QuizCompletedIntegrationEventV1;
+import com.trt.contentengagement.messaging.application.QuizCompletedIntegrationEventV2;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
@@ -38,9 +38,9 @@ public class TransactionalQuizCompletionOutbox implements QuizCompletionEventOut
     }
 
     @Override
-    public void stage(QuizAttemptCompleted completedAttempt) {
-        QuizCompletedIntegrationEventV1 integrationEvent =
-                QuizCompletedIntegrationEventV1.from(completedAttempt);
+    public void stage(QuizAttemptCompleted completedAttempt, boolean firstCompletionReward) {
+        QuizCompletedIntegrationEventV2 integrationEvent =
+                QuizCompletedIntegrationEventV2.from(completedAttempt, firstCompletionReward);
         String traceId = MDC.get(TRACE_ID_MDC_KEY);
         if (traceId == null || traceId.isBlank()) {
             traceId = MDC.get(REQUEST_TRACE_ID_MDC_KEY);
@@ -53,8 +53,8 @@ public class TransactionalQuizCompletionOutbox implements QuizCompletionEventOut
                 integrationEvent.eventId(),
                 "QUIZ_ATTEMPT",
                 integrationEvent.attemptId(),
-                QuizCompletedIntegrationEventV1.EVENT_TYPE,
-                QuizCompletedIntegrationEventV1.EVENT_VERSION,
+                QuizCompletedIntegrationEventV2.EVENT_TYPE,
+                QuizCompletedIntegrationEventV2.EVENT_VERSION,
                 objectMapper.writeValueAsString(integrationEvent),
                 traceId,
                 traceCarrier.get("traceparent"),

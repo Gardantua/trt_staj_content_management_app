@@ -16,8 +16,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -42,6 +45,19 @@ public class MediaController {
         }
     }
 
+    @GetMapping("/admin/media/images")
+    @PreAuthorize("hasAnyRole('EDITOR', 'ADMIN')")
+    public MediaAssetPageResponse listImages(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "24") @Min(1) @Max(100) int size
+    ) {
+        var result = mediaService.listImages(page, size);
+        return new MediaAssetPageResponse(
+                result.items().stream().map(MediaAssetResponse::from).toList(),
+                result.page(), result.size(), result.totalItems(), result.totalPages()
+        );
+    }
+
     @GetMapping("/media/{mediaAssetId}/content")
     public ResponseEntity<byte[]> getContent(@PathVariable UUID mediaAssetId) {
         MediaService.MediaContent mediaContent = mediaService.getContent(mediaAssetId);
@@ -53,14 +69,23 @@ public class MediaController {
 
     public record MediaAssetResponse(
             UUID id, String mediaType, String mimeType, long byteSize,
-            int width, int height, String contentUrl
+            int width, int height, String contentUrl, java.time.Instant createdAt
     ) {
         static MediaAssetResponse from(MediaAsset mediaAsset) {
             return new MediaAssetResponse(
                     mediaAsset.id(), mediaAsset.mediaType(), mediaAsset.mimeType(),
                     mediaAsset.byteSize(), mediaAsset.width(), mediaAsset.height(),
-                    mediaAsset.contentPath()
+                    mediaAsset.contentPath(), mediaAsset.createdAt()
             );
         }
+    }
+
+    public record MediaAssetPageResponse(
+            java.util.List<MediaAssetResponse> items,
+            int page,
+            int size,
+            long totalItems,
+            int totalPages
+    ) {
     }
 }

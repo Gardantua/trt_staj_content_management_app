@@ -8,6 +8,9 @@ import com.trt.contentengagement.quiz.application.QuizDetails;
 public record AdminQuizResponse(
         String id,
         String contentId,
+        String scopeType,
+        String seasonId,
+        String episodeId,
         Instant createdAt,
         Instant updatedAt,
         List<VersionResponse> versions
@@ -15,7 +18,9 @@ public record AdminQuizResponse(
 
     public static AdminQuizResponse from(QuizDetails details) {
         return new AdminQuizResponse(
-                details.id().toString(), details.contentId().toString(),
+                details.id().toString(), details.contentId().toString(), details.scopeType(),
+                details.seasonId() == null ? null : details.seasonId().toString(),
+                details.episodeId() == null ? null : details.episodeId().toString(),
                 details.createdAt(), details.updatedAt(),
                 details.versions().stream().map(VersionResponse::from).toList()
         );

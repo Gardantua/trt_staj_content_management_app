@@ -108,9 +108,9 @@ class RedisLeaderboardIntegrationTest {
         jdbcTemplate.update("DELETE FROM outbox_events");
         jdbcTemplate.update("DELETE FROM xp_transactions");
         jdbcTemplate.update("DELETE FROM gameplay_answers");
+        jdbcTemplate.update("DELETE FROM gameplay_quiz_reward_claims");
         jdbcTemplate.update("DELETE FROM gameplay_attempts");
         jdbcTemplate.update("DELETE FROM admin_audit_entries");
-        jdbcTemplate.update("DELETE FROM quiz_answer_options");
         jdbcTemplate.update("DELETE FROM quiz_questions");
         jdbcTemplate.update("DELETE FROM quiz_versions");
         jdbcTemplate.update("DELETE FROM quiz_definitions");

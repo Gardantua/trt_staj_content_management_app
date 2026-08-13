@@ -28,10 +28,11 @@ class JpaQuizAttemptEntity {
     @Column(name = "timing_policy_version", nullable = false, length = 40)
     private String timingPolicyVersion;
     @Column(name = "started_at", nullable = false) private Instant startedAt;
-    @Column(nullable = false) private Instant deadline;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20)
+    private Instant deadline;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 30)
     private AttemptStatus status;
     @Column(nullable = false) private int score;
+    @Column(name = "earned_xp") private Integer earnedXp;
     @Column(name = "completed_at") private Instant completedAt;
     @OneToMany(mappedBy = "attempt", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("answeredAt ASC")
@@ -42,12 +43,12 @@ class JpaQuizAttemptEntity {
             UUID id, UUID userId, UUID quizId, UUID quizVersionId,
             String scoringPolicyVersion, Instant startedAt, Instant deadline,
             String timingPolicyVersion,
-            AttemptStatus status, int score, Instant completedAt
+            AttemptStatus status, int score, Integer earnedXp, Instant completedAt
     ) {
         this.id=id; this.userId=userId; this.quizId=quizId; this.quizVersionId=quizVersionId;
         this.scoringPolicyVersion=scoringPolicyVersion; this.startedAt=startedAt;
         this.deadline=deadline; this.timingPolicyVersion=timingPolicyVersion;
-        this.status=status; this.score=score; this.completedAt=completedAt;
+        this.status=status; this.score=score; this.earnedXp=earnedXp; this.completedAt=completedAt;
     }
     void addAnswer(JpaSubmittedAnswerEntity answer) { answers.add(answer); answer.attachTo(this); }
     UUID id(){return id;} UUID userId(){return userId;} UUID quizId(){return quizId;}
@@ -55,5 +56,6 @@ class JpaQuizAttemptEntity {
     String timingPolicyVersion(){return timingPolicyVersion;}
     Instant startedAt(){return startedAt;} Instant deadline(){return deadline;}
     AttemptStatus status(){return status;} int score(){return score;}
+    Integer earnedXp(){return earnedXp;}
     Instant completedAt(){return completedAt;} List<JpaSubmittedAnswerEntity> answers(){return answers;}
 }

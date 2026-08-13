@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: leaderboard-service
+  datasource:
+    url: ${LEADERBOARD_DATABASE_URL:jdbc:postgresql://localhost:5434/leaderboard}
+    username: ${LEADERBOARD_DATABASE_USERNAME:leaderboard}
+    password: ${LEADERBOARD_DATABASE_PASSWORD:local_development_password}
+  flyway:
+    enabled: true
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5673}
+    username: ${RABBITMQ_USERNAME:content_engagement}
+    password: ${RABBITMQ_PASSWORD:local_development_password}
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+  data:
+    redis:
+      host: ${LEADERBOARD_REDIS_HOST:localhost}
+      port: ${LEADERBOARD_REDIS_PORT:6381}
+      connect-timeout: 500ms
+      timeout: 500ms
+      repositories:
+        enabled: false
+
+app:
+  leaderboard:
+    redis-enabled: ${LEADERBOARD_REDIS_ENABLED:true}
+    refresh-enabled: ${LEADERBOARD_REFRESH_ENABLED:true}
+    refresh-delay: ${LEADERBOARD_REFRESH_DELAY:5s}
+
+server:
+  port: ${SERVER_PORT:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: never
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+app:
+  leaderboard:
+    redis-enabled: false
+    refresh-enabled: false
+management:
+  health:
+    rabbit:
+      enabled: false
+    redis:
+      enabled: false

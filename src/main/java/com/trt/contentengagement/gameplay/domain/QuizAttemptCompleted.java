@@ -9,6 +9,7 @@ public record QuizAttemptCompleted(
         UUID quizId,
         UUID quizVersionId,
         int score,
+        int earnedXp,
         Instant completedAt
 ) {
 }

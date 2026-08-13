@@ -50,7 +50,7 @@ export interface ContentPage {
   totalPages: number;
 }
 
-export interface ContentDraftInput {
+export interface ContentInput {
   title: string;
   description: string;
   contentType: ContentType;
@@ -64,6 +64,13 @@ export interface CoverBindingInput {
 export interface SeasonInput {
   seasonNumber: number;
   title: string;
+}
+
+export interface SeasonPlanInput {
+  seasons: Array<{
+    seasonNumber: number;
+    episodeCount: number;
+  }>;
 }
 
 export interface EpisodeInput {

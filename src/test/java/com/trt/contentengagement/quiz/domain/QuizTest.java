@@ -44,7 +44,9 @@ class QuizTest {
                 null, null, null, null,
                 List.of(
                         new Question.OptionDraft(1, "Ali", false),
-                        new Question.OptionDraft(2, "Veli", false)
+                        new Question.OptionDraft(2, "Veli", false),
+                        new Question.OptionDraft(3, "Ayse", false),
+                        new Question.OptionDraft(4, "Fatma", false)
                 ),
                 INITIAL_TIME
         );
@@ -65,6 +67,18 @@ class QuizTest {
                 publishedVersion.id(), "Değişen başlık", null, LATER_TIME
         )).isInstanceOf(QuizRuleViolationException.class)
                 .hasMessage("Published or archived quiz versions cannot be modified in place.");
+    }
+
+    @Test
+    void retiringQuizArchivesPublishedVersionAndDiscardsWorkingCopy() {
+        Quiz quiz = publishedQuiz();
+        quiz.createDraftFromPublished(LATER_TIME);
+
+        quiz.retire(LATER_TIME.plusSeconds(1));
+
+        assertThat(quiz.versions()).hasSize(1);
+        assertThat(quiz.versions().getFirst().status()).isEqualTo(QuizVersionStatus.ARCHIVED);
+        assertThat(quiz.hasPublicationHistory()).isTrue();
     }
 
     @Test
@@ -111,6 +125,23 @@ class QuizTest {
     }
 
     @Test
+    void questionRequiresExactlyFourOptions() {
+        Quiz quiz = Quiz.create(CONTENT_ID, "Dort Secenek Quizi", null, INITIAL_TIME);
+        UUID draftVersionId = quiz.versions().getFirst().id();
+
+        assertThatThrownBy(() -> quiz.addQuestion(
+                draftVersionId, 1, "Eksik secenekli soru", QuestionDifficulty.MEDIUM,
+                null, null, null, null,
+                List.of(
+                        new Question.OptionDraft(1, "A", true),
+                        new Question.OptionDraft(2, "B", false),
+                        new Question.OptionDraft(3, "C", false)
+                ), INITIAL_TIME
+        )).isInstanceOf(QuizRuleViolationException.class)
+                .hasMessage("Every question must contain exactly four answer options.");
+    }
+
+    @Test
     void informativeVisualRequiresEquivalentAccessibleQuestionText() {
         Quiz quiz = Quiz.create(CONTENT_ID, "Gorsel Quiz", null, INITIAL_TIME);
         UUID draftVersionId = quiz.versions().getFirst().id();
@@ -121,7 +152,9 @@ class QuizTest {
                 "Karla kapli bir dag", null,
                 List.of(
                         new Question.OptionDraft(1, "Erciyes", true),
-                        new Question.OptionDraft(2, "Uludag", false)
+                        new Question.OptionDraft(2, "Uludag", false),
+                        new Question.OptionDraft(3, "Agri", false),
+                        new Question.OptionDraft(4, "Toros", false)
                 ), INITIAL_TIME
         )).isInstanceOf(QuizRuleViolationException.class)
                 .hasMessageContaining("accessible prompt");
@@ -138,7 +171,9 @@ class QuizTest {
                 "Fotografta karli ve volkanik bir dag goruluyor. Bu dagin adi nedir?",
                 List.of(
                         new Question.OptionDraft(1, "Erciyes", true),
-                        new Question.OptionDraft(2, "Uludag", false)
+                        new Question.OptionDraft(2, "Uludag", false),
+                        new Question.OptionDraft(3, "Agri", false),
+                        new Question.OptionDraft(4, "Toros", false)
                 ), INITIAL_TIME
         );
 
@@ -146,6 +181,26 @@ class QuizTest {
                 draftVersionId, FALLBACK_MEDIA_ID, "Dizi kapak gorseli", LATER_TIME
         )).isInstanceOf(QuizRuleViolationException.class)
                 .hasMessage("Accessible visual text cannot contain the correct answer.");
+    }
+
+    @Test
+    void quizScopeRequiresMatchingSeasonAndEpisodeReferences() {
+        UUID seasonId = UUID.randomUUID();
+        UUID episodeId = UUID.randomUUID();
+
+        Quiz episodeQuiz = Quiz.create(
+                CONTENT_ID, QuizScopeType.EPISODE, seasonId, episodeId,
+                "Bölüm Quizi", null, INITIAL_TIME
+        );
+
+        assertThat(episodeQuiz.scopeType()).isEqualTo(QuizScopeType.EPISODE);
+        assertThat(episodeQuiz.seasonId()).isEqualTo(seasonId);
+        assertThat(episodeQuiz.episodeId()).isEqualTo(episodeId);
+        assertThatThrownBy(() -> Quiz.create(
+                CONTENT_ID, QuizScopeType.SEASON, null, episodeId,
+                "Geçersiz", null, INITIAL_TIME
+        )).isInstanceOf(QuizRuleViolationException.class)
+                .hasMessageContaining("scope");
     }
 
     private Quiz publishedQuiz() {
@@ -165,7 +220,9 @@ class QuizTest {
                 null, null, null, null,
                 List.of(
                         new Question.OptionDraft(1, "Ali", true),
-                        new Question.OptionDraft(2, "Veli", false)
+                        new Question.OptionDraft(2, "Veli", false),
+                        new Question.OptionDraft(3, "Ayse", false),
+                        new Question.OptionDraft(4, "Fatma", false)
                 ),
                 INITIAL_TIME
         );

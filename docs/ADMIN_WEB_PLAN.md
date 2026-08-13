@@ -14,8 +14,8 @@ anlamına gelmez. Her sürüm tek bir doğrulanabilir dikey dilim olarak ele al�
 | Alan | Editörün ihtiyacı | Durum | Planlanan dilim |
 | --- | --- | --- | --- |
 | Katalog | Dizi/film taslağı oluşturma, başlık-açıklama düzenleme, sezon ve bölüm sıralama | Var | 10A |
-| Görsel ve erişilebilirlik | JPEG/PNG yükleme, alternatif metin, kapak bağlama ve yayın önkoşulunu tamamlama | Var | 10C |
-| Quiz yazarlığı | İçeriğe bağlı veya genel quiz, taslak/sürüm, soru-şık-doğru cevap, erişilebilir soru metni | Sonraki | 10D önerisi |
+| Görsel ve erişilebilirlik | JPEG/PNG doğrudan yükleme, alternatif metin ve kapak bağlama; kütüphane UI'si kaldırıldı | Var | 10C + 10D bakım |
+| Quiz yazarlığı | İçerik, sezon veya bölüm kapsamlı quiz; taslak/sürüm, soru-şık-doğru cevap ve erişilebilir soru metni | Var | 10D |
 | Yayın kontrolü | Eksik öğeleri tek ekranda görme, yayınlama, arşivleme ve değişmez yayın sürümünü ayırt etme | Sonraki | 10E önerisi |
 | Operasyon | Yetkili XP düzeltmesi, leaderboard yeniden kurma, audit kaydını filtreleme | Sonraki | 10F önerisi |
 | Ekip çalışması | Taslak sahipliği, değişiklik geçmişi, çakışma uyarısı ve onay akışı | Karar gerekli | Gerçek çok-editör ihtiyacından sonra |
@@ -26,9 +26,10 @@ anlamına gelmez. Her sürüm tek bir doğrulanabilir dikey dilim olarak ele al�
 1. **10C — Medya ve kapak bağlama:** Editör, doğrulanmış görseli yükler,
    açıklayıcı alternatif metni girer ve taslağa kapak olarak bağlar. Bu sayede
    mevcut publish önkoşulu arayüzden tamamlanır.
-2. **10D — Quiz yazarlığı:** "Genel" veya bir içerikle ilişkili quiz taslağı,
-   soru ve şık yönetimi eklenir. Doğru cevap bilgisi yalnız admin endpoint'inde
-   kalır; kullanıcı tarafına sızmaz.
+2. **10D — Quiz yazarlığı (tamamlandı):** İçerik, sezon veya bölüm kapsamlı quiz
+   taslağı; soru, şık, doğru cevap ve doğrudan yüklenen soru görseli
+   yönetimi eklendi. Doğru cevap bilgisi yalnız admin endpoint'inde kalır;
+   kullanıcı tarafına sızmaz.
 3. **10E — Yayın kontrolü:** İçerik ve quiz için eksik/uygun durum kontrolü,
    yayınlama ve arşivleme sunulur. Yayın sonrası düzenleme kuralı backend'in
    otoritesinde kalır.

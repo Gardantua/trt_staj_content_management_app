@@ -7,6 +7,9 @@ import com.trt.contentengagement.quiz.application.PublishedQuizDetails;
 public record PublishedQuizResponse(
         String quizId,
         String contentId,
+        String scopeType,
+        String seasonId,
+        String episodeId,
         String versionId,
         int versionNumber,
         String title,
@@ -18,6 +21,9 @@ public record PublishedQuizResponse(
     public static PublishedQuizResponse from(PublishedQuizDetails details) {
         return new PublishedQuizResponse(
                 details.quizId().toString(), details.contentId().toString(),
+                details.scopeType(),
+                details.seasonId() == null ? null : details.seasonId().toString(),
+                details.episodeId() == null ? null : details.episodeId().toString(),
                 details.versionId().toString(), details.versionNumber(), details.title(),
                 details.description(), details.scoringPolicyVersion(),
                 details.questions().stream().map(QuestionResponse::from).toList()

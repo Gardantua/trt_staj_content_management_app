@@ -12,9 +12,15 @@ public interface QuizCatalogRepository {
 
     Optional<Quiz> findById(UUID quizId);
 
+    List<Quiz> findByContentId(UUID contentId);
+
     Optional<Quiz> findWithPublishedVersionById(UUID quizId);
 
     List<Quiz> findWithPublishedVersionByContentId(UUID contentId);
 
+    List<Quiz> findAllWithPublishedVersion();
+
     Optional<Quiz> findByVersionId(UUID versionId);
+
+    void delete(Quiz quiz);
 }

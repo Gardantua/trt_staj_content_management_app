@@ -24,6 +24,13 @@ public class PublishedQuizController {
         return PublishedQuizResponse.from(publishedQuizQueryService.get(quizId));
     }
 
+    @GetMapping("/quizzes")
+    public List<PublishedQuizSummaryResponse> listPublishedQuizzes() {
+        return publishedQuizQueryService.listAll().stream()
+                .map(PublishedQuizSummaryResponse::from)
+                .toList();
+    }
+
     @GetMapping("/contents/{contentId}/quizzes")
     public List<PublishedQuizResponse> listPublishedQuizzes(@PathVariable UUID contentId) {
         return publishedQuizQueryService.listForContent(contentId).stream()

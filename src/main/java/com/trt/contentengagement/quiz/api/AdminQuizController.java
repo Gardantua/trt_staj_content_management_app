@@ -5,9 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 import com.trt.contentengagement.quiz.application.QuizManagementService;
+import com.trt.contentengagement.quiz.application.AdminQuizSummary;
 import com.trt.contentengagement.quiz.domain.Question;
 import com.trt.contentengagement.quiz.domain.QuestionDifficulty;
 import com.trt.contentengagement.quiz.domain.VisualRole;
+import com.trt.contentengagement.quiz.domain.QuizScopeType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -41,15 +44,34 @@ public class AdminQuizController {
             @Valid @RequestBody CreateQuizRequest request
     ) {
         AdminQuizResponse response = AdminQuizResponse.from(quizManagementService.create(
-                request.contentId(), request.title(), request.description()
+                request.contentId(), request.resolvedScopeType(), request.seasonId(),
+                request.episodeId(), request.title(), request.description()
         ));
         return ResponseEntity.created(URI.create("/api/v1/admin/quizzes/" + response.id()))
                 .body(response);
     }
 
+    @GetMapping
+    public List<AdminQuizSummaryResponse> listQuizzes(@RequestParam UUID contentId) {
+        return quizManagementService.listForContent(contentId).stream()
+                .map(AdminQuizSummaryResponse::from)
+                .toList();
+    }
+
     @GetMapping("/{quizId}")
     public AdminQuizResponse getQuiz(@PathVariable UUID quizId) {
         return AdminQuizResponse.from(quizManagementService.get(quizId));
+    }
+
+    @DeleteMapping("/{quizId}")
+    public ResponseEntity<Void> deleteQuiz(@PathVariable UUID quizId) {
+        quizManagementService.delete(quizId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{quizId}/retire")
+    public AdminQuizResponse retireQuiz(@PathVariable UUID quizId) {
+        return AdminQuizResponse.from(quizManagementService.retire(quizId));
     }
 
     @PostMapping("/{quizId}/versions")
@@ -76,7 +98,7 @@ public class AdminQuizController {
     ) {
         return AdminQuizResponse.from(quizManagementService.addQuestion(
                 quizId, versionId, request.questionOrder(), request.prompt(),
-                request.difficulty(), request.visualMediaId(), request.visualRole(),
+                request.resolvedDifficulty(), request.visualMediaId(), request.visualRole(),
                 request.visualAlternativeText(), request.accessiblePrompt(),
                 request.toDomainOptions()
         ));
@@ -91,7 +113,7 @@ public class AdminQuizController {
     ) {
         return AdminQuizResponse.from(quizManagementService.updateQuestion(
                 quizId, versionId, questionId, request.questionOrder(), request.prompt(),
-                request.difficulty(), request.visualMediaId(), request.visualRole(),
+                request.resolvedDifficulty(), request.visualMediaId(), request.visualRole(),
                 request.visualAlternativeText(), request.accessiblePrompt(),
                 request.toDomainOptions()
         ));
@@ -126,9 +148,39 @@ public class AdminQuizController {
 
     public record CreateQuizRequest(
             @NotNull UUID contentId,
+            QuizScopeType scopeType,
+            UUID seasonId,
+            UUID episodeId,
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
     ) {
+        QuizScopeType resolvedScopeType() {
+            return scopeType == null ? QuizScopeType.CONTENT : scopeType;
+        }
+    }
+
+    public record AdminQuizSummaryResponse(
+            String id,
+            String contentId,
+            String scopeType,
+            String seasonId,
+            String episodeId,
+            String title,
+            String status,
+            int versionNumber,
+            int questionCount,
+            java.time.Instant updatedAt
+    ) {
+        static AdminQuizSummaryResponse from(AdminQuizSummary summary) {
+            return new AdminQuizSummaryResponse(
+                    summary.id().toString(), summary.contentId().toString(),
+                    summary.scopeType(),
+                    summary.seasonId() == null ? null : summary.seasonId().toString(),
+                    summary.episodeId() == null ? null : summary.episodeId().toString(),
+                    summary.title(), summary.status(), summary.versionNumber(),
+                    summary.questionCount(), summary.updatedAt()
+            );
+        }
     }
 
     public record UpdateVersionRequest(
@@ -140,13 +192,17 @@ public class AdminQuizController {
     public record QuestionRequest(
             @Min(1) @Max(1000) int questionOrder,
             @NotBlank @Size(max = 1000) String prompt,
-            @NotNull QuestionDifficulty difficulty,
+            QuestionDifficulty difficulty,
             UUID visualMediaId,
             VisualRole visualRole,
             @Size(max = 500) String visualAlternativeText,
             @Size(max = 1000) String accessiblePrompt,
-            @NotNull @Size(max = 6) List<@Valid OptionRequest> answerOptions
+            @NotNull @Size(min = 4, max = 4) List<@Valid OptionRequest> answerOptions
     ) {
+        QuestionDifficulty resolvedDifficulty() {
+            return QuestionDifficulty.MEDIUM;
+        }
+
         List<Question.OptionDraft> toDomainOptions() {
             return answerOptions.stream()
                     .map(option -> new Question.OptionDraft(
@@ -157,7 +213,7 @@ public class AdminQuizController {
     }
 
     public record OptionRequest(
-            @Min(1) @Max(6) int optionOrder,
+            @Min(1) @Max(4) int optionOrder,
             @NotBlank @Size(max = 500) String text,
             boolean correct
     ) {

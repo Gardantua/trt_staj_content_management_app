@@ -1,0 +1,20 @@
+{$APP_DOMAIN} {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy backend:8081
+    }
+
+    @admin path /admin /admin/*
+    handle @admin {
+        root * /srv
+        rewrite * /admin.html
+        file_server
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

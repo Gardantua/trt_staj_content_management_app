@@ -22,6 +22,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -49,21 +51,26 @@ class QuizAuthoringIntegrationTest {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final TransactionTemplate transactionTemplate;
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
     @LocalServerPort
     private int serverPort;
 
     @Autowired
-    QuizAuthoringIntegrationTest(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {
+    QuizAuthoringIntegrationTest(
+            JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper,
+            PlatformTransactionManager transactionManager
+    ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @BeforeEach
     void clearData() {
         jdbcTemplate.update("DELETE FROM admin_audit_entries");
-        jdbcTemplate.update("DELETE FROM quiz_answer_options");
         jdbcTemplate.update("DELETE FROM quiz_questions");
         jdbcTemplate.update("DELETE FROM quiz_versions");
         jdbcTemplate.update("DELETE FROM quiz_definitions");
@@ -108,6 +115,16 @@ class QuizAuthoringIntegrationTest {
         assertThat(contentQuizList.statusCode()).isEqualTo(200);
         assertThat(contentQuizList.body()).contains(quiz.quizId());
 
+        HttpResponse<String> quizDiscoveryList = sendGet(
+                "/api/v1/quizzes", USER_ACTOR_ID, "USER"
+        );
+        assertThat(quizDiscoveryList.statusCode()).isEqualTo(200);
+        assertThat(quizDiscoveryList.body())
+                .contains(quiz.quizId())
+                .contains("\"questionCount\":1")
+                .doesNotContain("answerOptions")
+                .doesNotContain("correct");
+
         Integer auditCount = jdbcTemplate.queryForObject(
                 """
                 SELECT COUNT(*) FROM admin_audit_entries
@@ -134,7 +151,9 @@ class QuizAuthoringIntegrationTest {
                  "accessiblePrompt":"Fotografta karli, yuksek ve volkanik bir dag goruluyor. Bu dagin adi nedir?",
                  "answerOptions":[
                    {"optionOrder":1,"text":"Erciyes","correct":true},
-                   {"optionOrder":2,"text":"Uludag","correct":false}
+                   {"optionOrder":2,"text":"Uludag","correct":false},
+                   {"optionOrder":3,"text":"Agri","correct":false},
+                   {"optionOrder":4,"text":"Toros","correct":false}
                  ]}
                 """.formatted(questionMediaId),
                 EDITOR_ACTOR_ID,
@@ -197,6 +216,86 @@ class QuizAuthoringIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM quiz_definitions", Integer.class
         )).isZero();
+    }
+
+    @Test
+    void publishedContentWithoutQuizReturnsEmptyAdminList() throws Exception {
+        String contentId = createContent("Quizsiz Film");
+
+        HttpResponse<String> response = sendGet(
+                "/api/v1/admin/quizzes?contentId=" + contentId,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).isEqualTo("[]");
+    }
+
+    @Test
+    void editorCanPermanentlyDeleteQuizWithoutGameplayHistory() throws Exception {
+        String contentId = createContent("Silinebilir Film");
+        QuizIdentifiers quiz = createQuiz(contentId, "Silinebilir Quiz");
+
+        HttpResponse<String> deleteResponse = sendJson(
+                "DELETE",
+                "/api/v1/admin/quizzes/" + quiz.quizId(),
+                null,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+
+        assertThat(deleteResponse.statusCode()).isEqualTo(204);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM quiz_definitions WHERE id = ?",
+                Integer.class,
+                UUID.fromString(quiz.quizId())
+        )).isZero();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admin_audit_entries WHERE action = 'QUIZ_DELETED'",
+                Integer.class
+        )).isEqualTo(1);
+    }
+
+    @Test
+    void previouslyPublishedQuizMovesToHistoryAndCannotBeHardDeleted() throws Exception {
+        String contentId = createContent("Geçmiş Filmi");
+        UUID coverMediaId = insertMediaAsset();
+        sendJson(
+                "PUT", "/api/v1/admin/contents/" + contentId + "/cover",
+                "{\"mediaAssetId\":\"" + coverMediaId
+                        + "\",\"alternativeText\":\"Film kapağı\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        sendJson("POST", "/api/v1/admin/contents/" + contentId + "/publish", null,
+                EDITOR_ACTOR_ID, "EDITOR");
+        QuizIdentifiers quiz = createQuiz(contentId, "Geçmişe Taşınacak Quiz");
+        addValidQuestion(quiz);
+        sendJson("POST", adminVersionPath(quiz) + "/publish", null,
+                EDITOR_ACTOR_ID, "EDITOR");
+        sendJson("POST", "/api/v1/admin/quizzes/" + quiz.quizId() + "/versions", null,
+                EDITOR_ACTOR_ID, "EDITOR");
+
+        HttpResponse<String> retireResponse = sendJson(
+                "POST", "/api/v1/admin/quizzes/" + quiz.quizId() + "/retire", null,
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        HttpResponse<String> deleteResponse = sendJson(
+                "DELETE", "/api/v1/admin/quizzes/" + quiz.quizId(), null,
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+
+        assertThat(retireResponse.statusCode()).isEqualTo(200);
+        assertThat(json(retireResponse).get("versions")).hasSize(1);
+        assertThat(json(retireResponse).get("versions").get(0).get("status").stringValue())
+                .isEqualTo("ARCHIVED");
+        assertThat(deleteResponse.statusCode()).isEqualTo(409);
+        assertThat(json(deleteResponse).get("code").stringValue())
+                .isEqualTo("QUIZ_DELETE_REQUIRES_RETIREMENT");
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM admin_audit_entries WHERE action = 'QUIZ_RETIRED'",
+                Integer.class
+        )).isEqualTo(1);
     }
 
     @Test
@@ -272,7 +371,9 @@ class QuizAuthoringIntegrationTest {
                 """
                 {"questionOrder":1,"prompt":"Soru","difficulty":"EASY","answerOptions":[
                   {"optionOrder":1,"text":"A","correct":true},
-                  {"optionOrder":2,"text":"B","correct":true}
+                  {"optionOrder":2,"text":"B","correct":true},
+                  {"optionOrder":3,"text":"C","correct":false},
+                  {"optionOrder":4,"text":"D","correct":false}
                 ]}
                 """,
                 EDITOR_ACTOR_ID,
@@ -301,7 +402,9 @@ class QuizAuthoringIntegrationTest {
                 {"questionOrder":1,"prompt":"Güncellenen soru","difficulty":"MEDIUM",
                  "answerOptions":[
                    {"optionOrder":1,"text":"Cirit","correct":false},
-                   {"optionOrder":2,"text":"Buz hokeyi","correct":true}
+                   {"optionOrder":2,"text":"Buz hokeyi","correct":true},
+                   {"optionOrder":3,"text":"Futbol","correct":false},
+                   {"optionOrder":4,"text":"Tenis","correct":false}
                  ]}
                 """,
                 EDITOR_ACTOR_ID,
@@ -350,6 +453,59 @@ class QuizAuthoringIntegrationTest {
     }
 
     @Test
+    void editorCanCreateContentSeasonAndEpisodeScopedQuizzes() throws Exception {
+        SeriesFixture series = createSeriesContent("Kasaba Hikayesi");
+
+        HttpResponse<String> contentQuiz = createScopedQuiz(
+                series.contentId(), "CONTENT", null, null, "Dizi Geneli"
+        );
+        HttpResponse<String> seasonQuiz = createScopedQuiz(
+                series.contentId(), "SEASON", series.seasonId(), null, "Sezon Quizi"
+        );
+        HttpResponse<String> episodeQuiz = createScopedQuiz(
+                series.contentId(), "EPISODE", series.seasonId(), series.episodeId(),
+                "Bölüm Quizi"
+        );
+
+        assertThat(contentQuiz.statusCode()).isEqualTo(201);
+        assertThat(contentQuiz.body()).contains("\"scopeType\":\"CONTENT\"");
+        assertThat(seasonQuiz.statusCode()).isEqualTo(201);
+        assertThat(seasonQuiz.body())
+                .contains("\"scopeType\":\"SEASON\"")
+                .contains("\"seasonId\":\"" + series.seasonId() + "\"");
+        assertThat(episodeQuiz.statusCode()).isEqualTo(201);
+        assertThat(episodeQuiz.body())
+                .contains("\"scopeType\":\"EPISODE\"")
+                .contains("\"episodeId\":\"" + series.episodeId() + "\"");
+
+        HttpResponse<String> listResponse = sendGet(
+                "/api/v1/admin/quizzes?contentId=" + series.contentId(),
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        assertThat(listResponse.statusCode()).isEqualTo(200);
+        assertThat(listResponse.body())
+                .contains("Dizi Geneli", "Sezon Quizi", "Bölüm Quizi")
+                .contains("\"questionCount\":0");
+    }
+
+    @Test
+    void quizScopeCannotReferenceAnotherContentsSeason() throws Exception {
+        SeriesFixture firstSeries = createSeriesContent("Birinci Dizi");
+        SeriesFixture secondSeries = createSeriesContent("İkinci Dizi");
+
+        HttpResponse<String> response = createScopedQuiz(
+                firstSeries.contentId(), "EPISODE", secondSeries.seasonId(),
+                secondSeries.episodeId(), "Yanlış Bağlantı"
+        );
+
+        assertThat(response.statusCode()).isEqualTo(404);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM quiz_definitions WHERE content_id = ?::uuid",
+                Integer.class, firstSeries.contentId()
+        )).isZero();
+    }
+
+    @Test
     void postgresqlConstraintsRejectDuplicateOrdersAndCorrectOptions() {
         UUID contentId = UUID.randomUUID();
         UUID quizId = UUID.randomUUID();
@@ -378,22 +534,27 @@ class QuizAuthoringIntegrationTest {
                 """,
                 versionId, quizId, Timestamp.from(now)
         );
-        jdbcTemplate.update(
-                """
-                INSERT INTO quiz_questions
-                    (id, quiz_version_id, question_order, prompt, difficulty)
-                VALUES (?, ?, 1, 'Question', 'EASY')
-                """,
-                questionId, versionId
-        );
-        jdbcTemplate.update(
-                """
-                INSERT INTO quiz_answer_options
-                    (id, question_id, option_order, option_text, is_correct)
-                VALUES (?, ?, 1, 'A', true)
-                """,
-                UUID.randomUUID(), questionId
-        );
+        transactionTemplate.executeWithoutResult(ignored -> {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO quiz_questions
+                        (id, quiz_version_id, question_order, prompt, difficulty)
+                    VALUES (?, ?, 1, 'Question', 'MEDIUM')
+                    """,
+                    questionId, versionId
+            );
+            for (int optionOrder = 1; optionOrder <= 4; optionOrder++) {
+                jdbcTemplate.update(
+                        """
+                        INSERT INTO quiz_answer_options
+                            (id, question_id, option_order, option_text, is_correct)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        UUID.randomUUID(), questionId, optionOrder,
+                        "Option " + optionOrder, optionOrder == 1
+                );
+            }
+        });
 
         assertThatThrownBy(() -> jdbcTemplate.update(
                 """
@@ -407,10 +568,33 @@ class QuizAuthoringIntegrationTest {
                 """
                 INSERT INTO quiz_answer_options
                     (id, question_id, option_order, option_text, is_correct)
-                VALUES (?, ?, 2, 'B', true)
+                VALUES (?, ?, 5, 'B', true)
                 """,
                 UUID.randomUUID(), questionId
         )).isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThatThrownBy(() -> transactionTemplate.executeWithoutResult(ignored -> {
+            UUID incompleteQuestionId = UUID.randomUUID();
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO quiz_questions
+                        (id, quiz_version_id, question_order, prompt, difficulty)
+                    VALUES (?, ?, 2, 'Incomplete question', 'MEDIUM')
+                    """,
+                    incompleteQuestionId, versionId
+            );
+            for (int optionOrder = 1; optionOrder <= 3; optionOrder++) {
+                jdbcTemplate.update(
+                        """
+                        INSERT INTO quiz_answer_options
+                            (id, question_id, option_order, option_text, is_correct)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        UUID.randomUUID(), incompleteQuestionId, optionOrder,
+                        "Option " + optionOrder, optionOrder == 1
+                );
+            }
+        })).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private String createContent(String title) throws Exception {
@@ -440,6 +624,54 @@ class QuizAuthoringIntegrationTest {
                 "EDITOR"
         ).statusCode()).isEqualTo(200);
         return contentId;
+    }
+
+    private SeriesFixture createSeriesContent(String title) throws Exception {
+        HttpResponse<String> contentResponse = sendJson(
+                "POST", "/api/v1/admin/contents",
+                "{\"title\":\"" + title + "\",\"contentType\":\"SERIES\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        String contentId = json(contentResponse).get("id").stringValue();
+        HttpResponse<String> seasonResponse = sendJson(
+                "POST", "/api/v1/admin/contents/" + contentId + "/seasons",
+                "{\"seasonNumber\":1,\"title\":\"Birinci Sezon\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        String seasonId = json(seasonResponse).get("seasons").get(0).get("id").stringValue();
+        HttpResponse<String> episodeResponse = sendJson(
+                "POST", "/api/v1/admin/contents/" + contentId + "/seasons/"
+                        + seasonId + "/episodes",
+                "{\"episodeNumber\":1,\"title\":\"İlk Bölüm\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        String episodeId = json(episodeResponse).get("seasons").get(0)
+                .get("episodes").get(0).get("id").stringValue();
+        UUID mediaAssetId = insertMediaAsset();
+        sendJson(
+                "PUT", "/api/v1/admin/contents/" + contentId + "/cover",
+                "{\"mediaAssetId\":\"" + mediaAssetId
+                        + "\",\"alternativeText\":\"Dizi kapak görseli\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
+        sendJson("POST", "/api/v1/admin/contents/" + contentId + "/publish", null,
+                EDITOR_ACTOR_ID, "EDITOR");
+        return new SeriesFixture(contentId, seasonId, episodeId);
+    }
+
+    private HttpResponse<String> createScopedQuiz(
+            String contentId, String scopeType, String seasonId,
+            String episodeId, String title
+    ) throws Exception {
+        String scopeFields = "\"scopeType\":\"" + scopeType + "\""
+                + (seasonId == null ? "" : ",\"seasonId\":\"" + seasonId + "\"")
+                + (episodeId == null ? "" : ",\"episodeId\":\"" + episodeId + "\"");
+        return sendJson(
+                "POST", "/api/v1/admin/quizzes",
+                "{\"contentId\":\"" + contentId + "\"," + scopeFields
+                        + ",\"title\":\"" + title + "\"}",
+                EDITOR_ACTOR_ID, "EDITOR"
+        );
     }
 
     private UUID insertMediaAsset() {
@@ -483,7 +715,9 @@ class QuizAuthoringIntegrationTest {
                 {"questionOrder":1,"prompt":"Geleneksel spor hangisidir?","difficulty":"EASY",
                  "answerOptions":[
                    {"optionOrder":1,"text":"Cirit","correct":true},
-                   {"optionOrder":2,"text":"Buz hokeyi","correct":false}
+                   {"optionOrder":2,"text":"Buz hokeyi","correct":false},
+                   {"optionOrder":3,"text":"Futbol","correct":false},
+                   {"optionOrder":4,"text":"Tenis","correct":false}
                  ]}
                 """,
                 EDITOR_ACTOR_ID,
@@ -526,5 +760,8 @@ class QuizAuthoringIntegrationTest {
     }
 
     private record QuizIdentifiers(String quizId, String versionId) {
+    }
+
+    private record SeriesFixture(String contentId, String seasonId, String episodeId) {
     }
 }

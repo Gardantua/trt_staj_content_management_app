@@ -19,6 +19,7 @@ class QuizCompletedIntegrationEventV1Test {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 200,
+                200,
                 Instant.parse("2026-08-04T10:15:30.123456789Z")
         );
 
@@ -27,7 +28,7 @@ class QuizCompletedIntegrationEventV1Test {
 
         assertThat(first).isEqualTo(repeated);
         assertThat(first.eventId()).isNotEqualTo(attemptId);
-        assertThat(first.xpPolicyVersion()).isEqualTo("SCORE_MATCH_V1");
+        assertThat(first.xpPolicyVersion()).isEqualTo("FIRST_COMPLETION_SCORE_V2");
         assertThat(first.occurredAt()).isEqualTo(
                 completion.completedAt().truncatedTo(ChronoUnit.MICROS)
         );
@@ -35,14 +36,15 @@ class QuizCompletedIntegrationEventV1Test {
     }
 
     @Test
-    void eventCarriesOnlyServerFinalizedScore() {
+    void eventCarriesServerFinalizedScoreAndEarnedXp() {
         QuizCompletedIntegrationEventV1 event = QuizCompletedIntegrationEventV1.from(
                 new QuizAttemptCompleted(
                         UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                        UUID.randomUUID(), 100, Instant.now()
+                        UUID.randomUUID(), 100, 0, Instant.now()
                 )
         );
 
         assertThat(event.finalScore()).isEqualTo(100);
+        assertThat(event.earnedXp()).isZero();
     }
 }

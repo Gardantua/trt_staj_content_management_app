@@ -13,7 +13,11 @@ public interface ContentCatalogRepository {
 
     Optional<Content> findPublishedById(UUID contentId);
 
-    PageResult<AdminContentSummary> findAllForAdministration(int page, int size);
+    PageResult<AdminContentSummary> findAllForAdministration(
+            String normalizedTitleQuery,
+            int page,
+            int size
+    );
 
     PageResult<ContentSummary> findPublished(int page, int size);
 

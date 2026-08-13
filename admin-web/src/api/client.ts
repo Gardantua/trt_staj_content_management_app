@@ -1,4 +1,5 @@
 import type { LocalActor } from "../auth/actor";
+import { CsrfTokenClient } from "./csrf";
 
 export interface ApiError {
   code: string;
@@ -48,10 +49,14 @@ export async function readApiError(response: Response): Promise<ApiRequestError>
 }
 
 export class ApiClient {
+  private readonly csrfTokenClient: CsrfTokenClient;
+
   constructor(
-    private readonly actor: LocalActor,
+    private readonly actor: LocalActor | null = null,
     private readonly baseUrl = import.meta.env.VITE_API_BASE_URL ?? ""
-  ) {}
+  ) {
+    this.csrfTokenClient = new CsrfTokenClient(baseUrl);
+  }
 
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
@@ -59,14 +64,17 @@ export class ApiClient {
     if (init.body !== undefined) {
       headers.set("Content-Type", "application/json");
     }
-    if (this.actor.id) {
+    if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
     }
+    if (!this.actor?.id) await this.csrfTokenClient.protect(headers, init.method);
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}${path}`, { ...init, headers });
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init, headers, credentials: "same-origin"
+      });
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
@@ -87,14 +95,17 @@ export class ApiClient {
 
   async requestForm<T>(path: string, formData: FormData, init: Omit<RequestInit, "body" | "headers"> = {}): Promise<T> {
     const headers = new Headers({ Accept: "application/json" });
-    if (this.actor.id) {
+    if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
     }
+    if (!this.actor?.id) await this.csrfTokenClient.protect(headers, init.method);
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}${path}`, { ...init, body: formData, headers });
+      response = await fetch(`${this.baseUrl}${path}`, {
+        ...init, body: formData, headers, credentials: "same-origin"
+      });
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
@@ -111,5 +122,23 @@ export class ApiClient {
       return undefined as T;
     }
     return response.json() as Promise<T>;
+  }
+
+  async requestBlob(path: string): Promise<Blob> {
+    const headers = new Headers();
+    if (this.actor?.id) {
+      headers.set("X-Test-Actor-Id", this.actor.id);
+      headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
+    }
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        headers, credentials: "same-origin"
+      });
+    } catch {
+      throw new ApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel alınamadı.", traceId: "unavailable", status: 0 });
+    }
+    if (!response.ok) throw await readApiError(response);
+    return response.blob();
   }
 }

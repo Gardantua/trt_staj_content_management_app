@@ -73,6 +73,11 @@ public class MediaService implements MediaReferenceVerifier {
         return new MediaContent(mediaAsset.mimeType(), mediaBinaryStorage.read(mediaAsset.storageKey()));
     }
 
+    @Transactional(readOnly = true)
+    public MediaAssetPage listImages(int page, int size) {
+        return mediaAssetRepository.findPage(page, size);
+    }
+
     @Override
     @Transactional(readOnly = true)
     public void requireImage(UUID mediaAssetId) {

@@ -28,4 +28,11 @@ public class PublishedQuizQueryService {
                 .map(PublishedQuizDetails::from)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<PublishedQuizDetails> listAll() {
+        return quizCatalogRepository.findAllWithPublishedVersion().stream()
+                .map(PublishedQuizDetails::from)
+                .toList();
+    }
 }

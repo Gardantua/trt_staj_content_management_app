@@ -10,8 +10,10 @@ import com.trt.contentengagement.quiz.domain.Question;
 import com.trt.contentengagement.quiz.domain.Quiz;
 import com.trt.contentengagement.quiz.domain.QuizVersion;
 import com.trt.contentengagement.quiz.domain.QuizVersionStatus;
+import com.trt.contentengagement.quiz.domain.QuizRuleViolationException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -54,6 +56,13 @@ public class JpaQuizCatalogAdapter implements QuizCatalogRepository {
     }
 
     @Override
+    public List<Quiz> findByContentId(UUID contentId) {
+        return springDataQuizRepository.findByContentIdOrderByUpdatedAtDesc(contentId).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<Quiz> findWithPublishedVersionById(UUID quizId) {
         return springDataQuizRepository
                 .findDistinctByIdAndVersionsStatus(quizId, QuizVersionStatus.PUBLISHED)
@@ -73,13 +82,36 @@ public class JpaQuizCatalogAdapter implements QuizCatalogRepository {
     }
 
     @Override
+    public List<Quiz> findAllWithPublishedVersion() {
+        return springDataQuizRepository
+                .findDistinctByVersionsStatusOrderByUpdatedAtDesc(QuizVersionStatus.PUBLISHED)
+                .stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
     public Optional<Quiz> findByVersionId(UUID versionId) {
         return springDataQuizRepository.findDistinctByVersionsId(versionId).map(this::toDomain);
     }
 
+    @Override
+    public void delete(Quiz quiz) {
+        try {
+            springDataQuizRepository.deleteById(quiz.id());
+            springDataQuizRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new QuizRuleViolationException(
+                    "QUIZ_DELETE_HAS_GAMEPLAY_HISTORY",
+                    "A quiz with gameplay history cannot be permanently deleted."
+            );
+        }
+    }
+
     private JpaQuizEntity toEntity(Quiz quiz) {
         JpaQuizEntity quizEntity = new JpaQuizEntity(
-                quiz.id(), quiz.contentId(), quiz.createdAt(), quiz.updatedAt()
+                quiz.id(), quiz.contentId(), quiz.scopeType(), quiz.seasonId(),
+                quiz.episodeId(), quiz.createdAt(), quiz.updatedAt()
         );
         quiz.versions().forEach(version -> {
             JpaQuizVersionEntity versionEntity = new JpaQuizVersionEntity(
@@ -108,8 +140,9 @@ public class JpaQuizCatalogAdapter implements QuizCatalogRepository {
 
     private Quiz toDomain(JpaQuizEntity quizEntity) {
         return Quiz.rehydrate(
-                quizEntity.id(), quizEntity.contentId(), quizEntity.createdAt(),
-                quizEntity.updatedAt(),
+                quizEntity.id(), quizEntity.contentId(), quizEntity.scopeType(),
+                quizEntity.seasonId(), quizEntity.episodeId(),
+                quizEntity.createdAt(), quizEntity.updatedAt(),
                 quizEntity.versions().stream().map(this::toDomain).toList()
         );
     }

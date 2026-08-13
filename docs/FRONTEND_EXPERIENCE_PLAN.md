@@ -46,6 +46,9 @@ için daha sonra React Native, Flutter veya native istemcide tekrar üretilebili
 
 ## Sonraki onay gerektiren iş
 
-Yol haritasındaki sonraki bağımsız dilim medya yükleme ve içerik kapağı
-bağlamadır. Bu yenileme o dilimi başlatmaz; poster alanı gerçek kapak API'si
-geldiğinde yalnızca sunum katmanında değiştirilecektir.
+10C medya/kapak ve 10D quiz yazarlığı aynı açık nötr yüzey, koyu metin ve mint
+eylem diliyle tamamlandı. İlk uygulamadaki ortak görsel kütüphanesi 11.08.2026
+bakım değişikliğinde kaldırıldı; kapak ve soru görselleri ilgili formdan doğrudan
+yüklenir. Quiz alanı içerik detayının doğal devamıdır ve mobilde tek sütuna
+iner. Yol haritasındaki sonraki bağımsız dilim 10E yayın kontrolüdür. Uygunluk
+özeti, yayınlama ve arşivleme bu görsel revizyonun parçası değildir.

@@ -12,6 +12,9 @@ import com.trt.contentengagement.quiz.domain.QuizVersion;
 public record QuizDetails(
         UUID id,
         UUID contentId,
+        String scopeType,
+        UUID seasonId,
+        UUID episodeId,
         Instant createdAt,
         Instant updatedAt,
         List<VersionDetails> versions
@@ -19,7 +22,8 @@ public record QuizDetails(
 
     public static QuizDetails from(Quiz quiz) {
         return new QuizDetails(
-                quiz.id(), quiz.contentId(), quiz.createdAt(), quiz.updatedAt(),
+                quiz.id(), quiz.contentId(), quiz.scopeType().name(),
+                quiz.seasonId(), quiz.episodeId(), quiz.createdAt(), quiz.updatedAt(),
                 quiz.versions().stream().map(VersionDetails::from).toList()
         );
     }

@@ -4,6 +4,9 @@
 
 Accepted
 
+Quiz başına ödül uygunluğu ADR-0026 ile değiştirilmiştir; append-only ledger ve
+attempt idempotency kararları geçerlidir.
+
 ## Bağlam
 
 Tamamlanan bir quiz attempt'i kullanıcıya yalnız bir kez XP vermelidir. Aynı

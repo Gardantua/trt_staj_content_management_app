@@ -1,873 +1,311 @@
-# Güncel Proje Durumu
+# Güncel Proje Durumu - Kısa Referans
 
-Son güncelleme: 10.08.2026
+## 13.08.2026 cevaptan sonra doğru cevap metni gösterimi
+
+- Kullanıcı soruyu yanlış cevapladığında veya süre dolduğunda çıkan `AnswerReveal` (puan/sonuç) kartına **doğru şıkkın metni** (`correctOptionText`) eklendi.
+- Kullanıcı isteği üzerine `Açıklama:` bölümü kaldırıldı; sonuç ekranında yalnızca kazanılan puan ve yanlış/timeout durumlarında doğru cevabın metni gösterilir.
+- Güvenlik kuralı korundu: Doğru cevap bilgisi soru çözülmeden önce istemciye **gönderilmez**; yalnızca server-authoritative olarak cevap/timeout kaydedildikten sonra `AnswerFeedback` DTO'su ile dönülür.
+- Backend testleri: `GameplayIntegrationTest` dahil olmak üzere `130/130` backend testi geçti.
+- Frontend testleri: `11` test dosyasında `47/47` test geçti; `tsc --noEmit` strict kontrolü ve Vite production build'i başarıyla tamamlandı.
+- Bilinen konu: Tarayıcıda görsel inceleme yapılmadı; bu proje kuralı gereği ayrı açık izin ister.
+- Sıradaki tek iş: Kullanıcının yeni soruları ve quizleri deneyimlemesi.
+
+## 13.08.2026 quiz cevap sonrası sayaç durdurma
+
+- Kullanıcı bir şıkkı seçtiği anda, cevap isteği işlenirken ve cevap sonucu gösterilirken görünür geri sayım durur.
+- Kullanıcı sonraki soruya geçtiğinde, sunucunun döndürdüğü yeni soru deadline'ı ile sayaç yeniden başlar.
+- Sunucu deadline'ı, timeout ve puanlama kuralları değişmedi; bu yalnızca istemci ekranının doğru quiz durumunu yansıtmasıdır.
+- `npm run test`: 11 dosya, 46 test başarılı. `questionTimerDeadline` testi cevap gönderimi/sonucu boyunca sayacın durduğunu, aktif yeni soruda yeniden başladığını korur.
+- `npm run build`: TypeScript strict kontrolü ve Vite production build başarılı. Mevcut büyük PDF bundle uyarısı sürüyor.
+- Bilinen konu: Tarayıcıda görsel inceleme yapılmadı; bu proje kuralı gereği ayrı açık izin ister.
+- Sıradaki tek iş: Kullanıcının seçeceği sonraki ürün veya production hazırlığı işi.
+
+## 13.08.2026 sonuç ekranı sırasında soru süresini koruma ve DATA_INTEGRITY_CONFLICT düzeltmesi
+
+- Cevap ya da timeout sonrasında attempt `AWAITING_NEXT_QUESTION` durumuna geçer; bu sırada sonraki soru için deadline yoktur.
+- Kullanıcı `Sonraki soruya geç` düğmesine bastığında yeni endpoint sunucu saatinden yeni 30 saniyelik deadline üretir. Böylece sonuç kartında geçirilen süre sonraki sorudan düşmez.
+- `AWAITING_NEXT_QUESTION` durumunun 22 karakter olması ancak veritabanı `status` sütununun `VARCHAR(20)` ile sınırlı olması nedeniyle ortaya çıkan `DATA_INTEGRITY_CONFLICT` hatası, yeni bir `V18__increase_attempt_status_length.sql` migration dosyası oluşturularak düzeltildi.
+- Sütun uzunluğu 30 karaktere çıkarıldı ve ilgili ORM varlığı (`JpaQuizAttemptEntity`) bu uzunluğu kullanacak şekilde güncellendi.
+- Backend testleri `GameplayIntegrationTest` dahil olmak üzere tamamlandı ve `AWAITING_NEXT_QUESTION` durumu sorunsuzca kaydedildi. `V17__pause_timer_until_next_question.sql` içindeki constraint kontrolleri korunmaktadır.
+- Frontend `npm run test`: 11 dosya, 47 test başarılı. `npm run build`: başarılı; mevcut büyük PDF bundle uyarısı sürüyor.
+
+Son kısa durum güncellemesi: 13.08.2026
+Son ayrıntılı geçmiş kaydı: 11.08.2026
 
 ## Genel durum
 
-Projenin Aşama 0 proje temeli, Aşama 1 kimlik/erişim sınırı, Aşama 2 içerik
-kataloğu, Aşama 3 quiz authoring/sürümleme, Aşama 4 gameplay, Aşama 4.1
-erişilebilir medya, Aşama 5 PostgreSQL XP ledger ve Aşama 6 güvenilir
-mesajlaşma, Aşama 7 PostgreSQL leaderboard, Aşama 8 Redis leaderboard read
-model ve Aşama 9 production hazırlığı tamamlandı. OpenTelemetry W3C trace
-zinciri, Prometheus/Grafana/Tempo, rate limiting, güvenlik/yük/kesinti testleri,
-backup/restore provası ve operasyon politikaları hazırdır. `Content`
-aggregate'ine ek olarak `Quiz` aggregate'i; draft/published/archived sürüm
-yaşam döngüsü, soru/seçenek yönetimi, doğru cevap güvenliği, `STANDARD_V1`
-politika kimliği, Flyway V3 constraint'leri, EDITOR/ADMIN yönetim API'leri,
-güvenli kullanıcı DTO'su, kalıcı admin audit ve ArchUnit sınırlarıyla hazırdır.
-`QuizAttempt` aggregate'i; sahiplik, standart/uzatılmış sunucu deadline'ı, sıralı
-tek cevap, idempotency, semantik doğru şık geri bildirimi ve `STANDARD_V1`
-sunucu puanlamasıyla hazırdır. Değişmez görsel kimliği, kapak fallback'i ve
-eşdeğer erişilebilir soru metni sözleşmesi uygulanmıştır. `XpTransaction`
-append-only ledger'ı; skorla birebir `SCORE_MATCH_V1`, attempt başına tek ödül,
-kullanıcı özeti ve audit edilen yönetici düzeltmeleriyle hazırdır. Attempt ve
-Outbox aynı transaction'da kesinleşir; RabbitMQ consumer'ı Inbox ile XP'yi
-idempotent ve asenkron üretir. Henüz kalıcı kullanıcı tablosu veya production kimlik
-sağlayıcısı yazılmadı.
-Global ve içerik bazlı `ALL_TIME` leaderboard XP ledger toplamından,
-deterministik tie-break ile hesaplanır; Top N yanında mevcut kullanıcının sırası
-da okunabilir. Redis bu PostgreSQL sonucundan atomik nesiller halinde yeniden
-kurulur; boşluk veya kesintide sorgu PostgreSQL'e düşer.
+Çekirdek backend roadmap'i Aşama 0-9 ve web/ürün dilimleri Aşama 10A-10AA
+tamamlanmıştır. Sistem; içerik ve quiz yayınlama, server-authoritative gameplay,
+XP, RabbitMQ mesajlaşması, PostgreSQL/Redis leaderboard, admin web, kullanıcı webi
+ve yerel hesap/oturum akışlarını içerir.
 
-Aşama 10A ile aynı repoda ayrı React/TypeScript `admin-web` uygulaması eklendi.
-EDITOR/ADMIN yerel aktörü; draft dahil sayfalı içerik listesi, içerik
-oluşturma/düzenleme, sezon/bölüm yönetimi, yayınlanmış içerik değişmezliği ve
-backend code/trace ID hata sunumuyla görünürdür. Production kimlik sağlayıcısı
-henüz belli olmadığı için bu arayüz local-only geliştirme sınırındadır.
-Mevcut akışın görsel yenilemesinde yalın, editoryal bir içerik stüdyosu dili;
-açık nötr yüzeyler, mint vurgu, poster benzeri taslak kartları ve mobilde tek
-sütuna inen düzen uygulandı. Bu yenileme yeni bir API veya ürün
-modülü eklemez.
-10C medya ve kapak bağlama dilimiyle admin, JPEG/PNG dosyasını mevcut medya
-endpoint'ine multipart olarak yükleyebilir; dönen değişmez medya kimliğini
-alternatif metinle taslak içeriğe kapak olarak bağlayabilir. Böylece publish
-önkoşulu arayüzden tamamlanır. Dosya türü, boyutu, imzası ve çözülebilir olması
-istemci tarafından değil backend tarafından otoritatif olarak doğrulanır.
-Kullanıcı tarafı da aynı Vite çalışma zamanında ayrı `user.html` giriş noktası
-olarak eklendi. Yalnız yayınlanmış katalog, içerik detayı, dizi bölümleri ve
-quiz özeti okunur. Kullanıcı ayrıca backend'in sunucu otoriteli attempt/cevap
-akışıyla quiz çözebilir; sonuç, XP özeti ve global leaderboard ekranları da
-aynı dilime eklendi. Yerel UUID kapısı yalnız development kimliği üretir;
-production login değildir.
+## 12.08.2026 leaderboard kullanıcı adı sunumu
 
-Hedef klasörde bulunan uzun mimari rapor teknik referans olarak korunmaktadır.
-Bu dosya günlük geliştirme bağlamına doğrudan yapıştırılmamalıdır.
+- Leaderboard dış API satırlarına nullable `displayName` alanı eklendi. Sıralama ve XP
+  verisi yine leaderboard servisinden gelir; adlar monolith'in sahip olduğu yerel hesap
+  kayıtlarından, cevap hazırlanırken tek toplu sorguyla eklenir.
+- `xp.changed.v1` olayına kullanıcı adı eklenmedi. Böylece kişisel sunum verisi RabbitMQ
+  ve leaderboard servisinde kopyalanmaz; ileride ad değişikliği olursa güncel hesap adı
+  doğrudan gösterilebilir.
+- Frontend UUID kısaltması yerine `displayName` gösterir. Yerel hesabı bulunmayan eski
+  demo/test kimlikleri için UUID sızdırmadan kişinin kendi satırında `Sen`, diğer
+  satırlarda `Kullanıcı` yedeği kullanılır.
+- PostgreSQL kullanan `LeaderboardIntegrationTest` içindeki `7/7` test geçti; test dış
+  API'nin lider ve mevcut kullanıcı için doğru hesap adını verdiğini kanıtlar.
+- Frontend `10/10` test dosyasında `41/41` geçti; strict TypeScript production build'i
+  tamamlandı. Yeni frontend testi hesap adı ve güvenli yedek davranışını korur.
+- Tam backend `./mvnw.cmd verify` doğrulamasında `125/125` test geçti; mimari sınır
+  testleri ve çalıştırılabilir JAR üretimi de başarılı oldu.
+- Alternatif olarak kullanıcı adını XP olayına eklemek daha bağımsız bir okuma cevabı
+  sağlardı; ancak adın iki sistemde tutulması ve eski kalması nedeniyle seçilmedi.
+- Bilinen konu: Local hesap kaydı olmayan tarihî actor kimliklerinde gerçek ad bilinemez;
+  bu satırlar güvenli genel etiketle görünür.
+- Sıradaki tek iş: Çalışan backend/frontend süreçlerini yeniden başlatıp profil
+  leaderboard'unda UUID yerine kayıt sırasında girilen kullanıcı adını manuel görmek.
 
-## Tamamlananlar
+## 12.08.2026 Aşama 11 leaderboard mikroservisi
 
-- Admin ihtiyaç haritası ve teslim sırası `docs/ADMIN_WEB_PLAN.md` içinde
-  kaydedildi. Bu turda yalnız 10C medya/kapak dilimi uygulandı; quiz yazarlığı,
-  yayın kontrolü ve operasyon araçları sonraki ayrı adaylar olarak kaldı.
-- Taslak içerik detayına iki adımlı kapak akışı eklendi: JPEG/PNG dosyası
-  yükleniyor, açıklayıcı alternatif metin giriliyor ve dönen medya kimliği
-  kapağa bağlanıyor. Mevcut kapağın alternatif metni de aynı ekrandan
-  güncellenebiliyor. `ADR-0020` bu sınırı ve alternatiflerini kaydeder.
-- Yeni taslak formuna kullanıcıya görünen başlık/açıklama ile admin notu
-  ayrımını açıklayan kısa rehber ve alan bazlı örnek metinler eklendi. Formun
-  quiz veya soru kaydetmediği; bu arayüzde quiz authoring ekranı bulunmadığı
-  açıkça belirtildi.
-- 10.08.2026 tasarım iyileştirmesinde admin arayüzünden tüm gradyen ve turuncu
-  vurgu kaldırıldı; açık nötr çalışma yüzeyleri ile mint ana eylem rengi
-  uygulandı.
-- Kullanıcı arayüzü, özgün **Hikâye İzi** anlatımıyla yenilendi. Ana sayfadaki
-  numaralı yönlendirme ve boş dekoratif şekil kaldırıldı; ana, profil ve
-  sıralama başlıkları ortak tipografik hiyerarşiye taşındı. Yerel platform
-  görselleri üretim paketine dahil edildi; bu sunum değişikliği backend
-  sözleşmesini, skor/süre otoritesini veya ürün kapsamını değiştirmez.
-- `admin-web` için `npm run test` 11/11 testle geçti; `npm run build` TypeScript
-  strict kontrolü ve iki giriş noktalı production paketlemesiyle başarılı oldu.
+- Çekirdek uygulama modüler monolith kalırken leaderboard ayrı
+  `leaderboard-service` Spring Boot uygulamasına çıkarıldı.
+- Monolith XP ledger'ın kalıcı sahibidir. Her yeni XP transaction'ı ile sürümlü
+  `xp.changed.v1` olayı aynı PostgreSQL transaction'ında Outbox'a yazılır.
+- Servis olayı kendi RabbitMQ kuyruğundan tüketir; `event_id` primary key ve
+  `transaction_id` unique constraint ile duplicate teslimat ikinci XP etkisi
+  üretmez.
+- Servis monolith tablolarını okumaz. Kendi PostgreSQL projeksiyonundan toplam XP,
+  ilk XP zamanı ve UUID tie-break'iyle global/içerik sıralaması üretir.
+- Redis ayrı servisin yeniden oluşturulabilir read model'idir; Redis kesintisinde
+  servis kendi PostgreSQL'ine düşer.
+- Dış leaderboard API'si değişmedi. `LEADERBOARD_REMOTE_ENABLED=true` ile monolith
+  internal servise yönlenir; eski yerel modül kontrollü rollback için geçici olarak
+  korunur.
+- Mevcut XP geçmişi ADMIN yetkili `replay-xp-events` endpoint'iyle idempotent olarak
+  Outbox'a alınabilir. Bu, RabbitMQ'nun geçmiş event log'u olmaması nedeniyle gereken
+  bootstrap yoludur.
+- Compose'a ayrı leaderboard PostgreSQL (`5434`), Redis (`6381`) ve servis (`8082`)
+  eklendi. Kalıcı karar ADR-0031'de kayıtlıdır.
+- Leaderboard servisinde PostgreSQL, gerçek RabbitMQ ve gerçek Redis kullanan `4/4`
+  test geçti. Monolith hedefli event/messaging testlerinde `5/5`, düzeltilen gameplay
+  Outbox sözleşmesi testinde `1/1` test geçti.
+- Tam monolith `./mvnw verify` doğrulaması `125/125` geçti ve çalıştırılabilir JAR
+  üretildi. İlk koşudaki eski Outbox toplam-satır beklentisi olay türlerine bağlanarak
+  düzeltildi; quiz ve XP olaylarının ayrı ayrı tek kayıt olduğu kanıtlandı.
+- Bilinen konu: Production internal API ağ politikası/servis kimliği ve büyük veri
+  için batch/cursor replay bu yerel öğrenme aşamasının dışındadır.
+- Sıradaki tek iş: XP replay → remote bayrağı → eski/yeni sonuç eşitliği manuel
+  kontrolü. Eşitlik görülmeden eski monolith leaderboard kodu silinmez.
 
-- Ürün fikri değerlendirildi.
-- İlk kullanım senaryosu fan/bölüm quizi olarak seçildi.
-- Proje, "İçerik Etkileşim Backend Platformu" olarak konumlandırıldı.
-- MVP dışındaki özellikler ayrıldı.
-- Modüler monolith başlangıç yaklaşımı seçildi.
-- PostgreSQL, RabbitMQ ve Redis'in görevleri ayrıştırıldı.
-- Başlangıç dokümanları oluşturuldu.
-- Uzun DOCX mimari raporu ile kısa çalışma belgelerinin kararları karşılaştırıldı.
-- MVP akışı `yayınla → başlat → cevapla → tamamla → XP ver → sırala` olarak
-  sadeleştirildi.
-- Her geliştirme aşamasına açık test yaklaşımı ve öğrenme çıktısı eklendi.
-- Kullanıcıya sistemi öğretme biçimi `README.md` ve `AGENTS.md` içinde çalışma
-  kuralına dönüştürüldü.
-- Bilgisayardaki geliştirme araçları envanteri çıkarıldı.
-- Git 2.51.0 ve VS Code'un kurulu olduğu doğrulandı.
-- Eclipse Temurin JDK 21.0.11 LTS kullanıcıya özel olarak kuruldu.
-- JDK ZIP paketinin SHA-256 değeri Adoptium'un yayımladığı checksum ile
-  eşleştirildi.
-- Kullanıcı seviyesinde `JAVA_HOME` ve `PATH` Java 21 için ayarlandı.
-- Docker Desktop Windows x64 kurulum dosyası resmi Docker adresinden indirildi
-  ve Docker Inc. dijital imzası doğrulandı.
-- Yarım ve imzasız kalan Docker indirme dosyası silindi.
-- WSL 2 kullanıcı tarafından etkinleştirildi; WSL 2.7.11 ve varsayılan sürüm 2
-  olarak doğrulandı.
-- Backend lead'e sunulabilecek sade proje anlatımı `docs/PROJECT_PITCH.md`
-  dosyasına kaydedildi.
-- Projede kullanılan ve projeden bağımsız backend teknolojilerini açıklayan,
-  karşılaştıran ve uygulamalı sorular içeren
-  `docs/bwl.md` çalışma defteri oluşturuldu.
-- `docs/bwl.md` içindeki programlama dilleri bölümü; çalışma zamanı, tip ve nesne
-  modeli, hata yönetimi, bellek yönetimi ve concurrency yaklaşımlarıyla
-  derinleştirildi.
-- Java'yı temel dilden backend düşüncesine kadar sistemli biçimde öğrenmek için
-  OOP, encapsulation, inheritance/composition, collections, generics, JVM
-  belleği, concurrency ve test konularını içeren `docs/java.md` çalışma kitabı
-  oluşturuldu.
-- Akademik proje ister belgesi düzeninde; kapsam, kullanıcı/yönetici akışları,
-  modüler mimari, veri modeli, teknoloji gerekçeleri, bütün geliştirme
-  aşamalarının kabul kriterleri ve test yaklaşımlarını içeren
-  `docs/PROJECT_SPECIFICATION.md` hazırlandı.
-- Aynı içerik, örnek Yazılım Laboratuvarı proje belgesinin sade ve numaralı
-  teslim biçimine uygun olarak
-  `output/pdf/TRT_Icerik_Etkilesim_Backend_Proje_Dokumani.pdf` dosyasına
-  dönüştürüldü.
-- Harici mimari eleştiri; modül iletişimi, concurrency, transaction, rich domain
-  model, Flyway ve test stratejisi açısından mevcut planla karşılaştırıldı.
-- Kimlik ve erişim temeli content/gameplay çalışmalarından önceye alındı.
-- XP iş kuralı RabbitMQ'dan ayrıldı: önce PostgreSQL ledger, sonra ayrı
-  mesajlaşma aşaması olarak planlandı.
-- Leaderboard iş kuralları Redis'ten ayrıldı: önce PostgreSQL doğruluk ve
-  performans ölçümü, sonra ihtiyaç varsa Redis read model olarak planlandı.
-- Domain event, integration event ve Spring process-içi event davranışlarının
-  farkı mimari belgeye eklendi.
-- Attempt için sunucu `Clock` kaynağı, UTC deadline, expire, sahiplik ve politika
-  sürümleme karar noktaları yol haritasına eklendi.
-- ArchUnit'in boş iskelet yerine gerçek modül sınırları oluştuğunda küçük kural
-  setiyle kullanılması planlandı.
-- Büyük tablo migration yaklaşımı, kapasite modeli, backup/restore, KVKK ve veri
-  saklama konuları ilgili ileri aşamalara eklendi.
-- İş davranışını altyapıdan önce kanıtlama kararı
-  `ADR-0002-davranis-once-altyapi-sonra.md` olarak kaydedildi.
-- Açıklayıcı değişken, metot ve sınıf adları kullanılması; yeni aşamaya
-  geçmeden önce yazılan kodun çalışma biçiminin ve testlerinin kullanıcıya
-  anlatılması kalıcı çalışma kuralı hâline getirildi.
-- Eksik veya taşınmış dosyaların izinsiz yeniden oluşturulmaması ve PDF
-  sayfalarını görsele çevirme, OCR ya da görsel inceleme gibi işlemlerden önce
-  kullanıcıdan açık izin alınması çalışma kurallarına eklendi.
-- Git deposu `main` başlangıç dalıyla oluşturuldu.
-- Java 21, Spring Boot 4.1.0, Maven Wrapper ve PostgreSQL 17 teknoloji temeli
-  seçildi; gerekçeleri `ADR-0003-asama-0-teknoloji-temeli.md` içine kaydedildi.
-- Minimal Spring Boot 4.1.0 uygulama iskeleti ve Maven bağımlılık yönetimi
-  oluşturuldu.
-- Yalnız PostgreSQL içeren `compose.yaml` eklendi; RabbitMQ ve Redis eklenmedi.
-- Flyway ve iş tablosu oluşturmayan `V1__baseline.sql` migration'ı eklendi.
-- Actuator health endpoint, kararlı API hata zarfı ve `X-Trace-Id` filtresi
-  eklendi.
-- Testcontainers ile gerçek PostgreSQL kullanan application, Flyway, health ve
-  hata zarfı integration testleri yazıldı.
-- GitHub Actions için Java 21 üzerinde `bash ./mvnw --batch-mode verify` çalıştıran
-  başlangıç CI pipeline'ı eklendi.
-- Windows'ta çalışan mevcut PostgreSQL `5432` portunu kullandığı için Docker
-  PostgreSQL host portu `5433` olarak seçildi.
-- Mevcut başka bir uygulama `8080` portunu kullandığı için backend varsayılan
-  portu `8081` olarak seçildi.
-- Kullanıcı düzeyindeki `JAVA_HOME` Java 21'e ayarlandı; Java 21 ve Docker CLI
-  yolları kullanıcı `PATH` değerinin başına eklendi.
-- README'ye doğrulanmış PostgreSQL başlatma, test, uygulama çalıştırma ve health
-  kontrol komutları eklendi.
-- VS Code için PlantUML eklentisi kuruldu.
-- Çalışma zamanı bileşenlerini, backend modül/katmanlarını ve planlanan
-  PostgreSQL veri modelini ayrı ve okunabilir sayfalarda gösteren
-  `docs/diagrams/system-architecture.puml` oluşturuldu.
-- PlantUML kaynağından üç adet ölçeklenebilir SVG diyagram
-  `docs/diagrams/rendered/` altında üretildi. RabbitMQ ve Redis mevcut bileşen
-  gibi değil, gelecek aşama olarak işaretlendi.
-- Üç diyagram da geniş yatay akış yerine yukarıdan aşağı okunacak biçimde
-  düzenlendi; backend diyagramındaki çapraz modül okları, bilgi kaybetmeden dikey
-  modül kataloğu ve iletişim örnekleri olarak sadeleştirildi.
-- Stajdan sorumlu mühendis RabbitMQ kullanımını proje gereksinimi olarak
-  bildirdi. RabbitMQ'nun Aşama 6'da uygulanacağı ve çekirdek iş davranışından
-  önce eklenmeyeceği `ADR-0004-rabbitmq-kurum-gereksinimi.md` ile kaydedildi.
-- `docs/README.md`, temel Markdown belgeleri ile PlantUML/SVG diyagramlarının
-  GitHub üzerindeki giriş dizini olarak oluşturuldu.
-- GitHub CLI 2.94.0 kullanıcı hesabına kuruldu ve `Gardantua` hesabıyla giriş
-  doğrulandı.
-- Yerel Git deposu
-  `https://github.com/Gardantua/trt_staj_content_management_app` adresine
-  `origin` olarak bağlandı.
-- Kaynak kodu, proje belgeleri ve `docs/diagrams/rendered/` altındaki üç SVG
-  diyagram ilk commit ile public GitHub reposunun `main` dalına gönderildi.
-- Spring Security bağımlılığı ve stateless API güvenlik zinciri eklendi.
-- Health ve info endpoint'leri açık bırakılırken `/api/**` yolları kimlik
-  doğrulaması gerektirecek biçimde kapatıldı.
-- Identity domain dilinde `USER`, `EDITOR` ve `ADMIN` rolleri modellendi.
-- `CurrentActor`, `CurrentActorProvider` ve `GetCurrentActorUseCase` ile
-  application katmanının HTTP header'larından ve Spring Security ayrıntısından
-  bağımsız aktör sözleşmesi oluşturuldu.
-- Yalnız `local` ve `test` profillerinde çalışan geçici test-header
-  authentication adapter'ı eklendi; varsayılan profil fail-closed kaldı.
-- Kimlik ve yetki hataları `AUTHENTICATION_REQUIRED`,
-  `AUTHENTICATION_INVALID` ve `ACCESS_DENIED` kodlarıyla mevcut trace ID'li hata
-  zarfına bağlandı.
-- `GET /api/v1/identity/me` endpoint'i doğrulanmış aktör kimliğini ve rollerini
-  göstermek için eklendi.
-- Yerel parola deposu oluşturulmadı ve Spring'in rastgele geliştirme parolasını
-  loglaması engellendi.
-- Windows Maven Wrapper'ın normal `.m2` klasöründe null junction hedefi nedeniyle
-  çökmesine yol açan kontrol düzeltildi.
-- Aşama 1'in geçici kimlik sınırı `ADR-0005-asama-1-gecici-kimlik.md` ile
-  kaydedildi.
-- Redis'in Aşama 8'de zorunlu öğrenme bileşeni olması
-  `ADR-0006-redis-ogrenme-gereksinimi.md` ile kaydedildi; RabbitMQ'nun Aşama
-  6'daki zorunluluğu ADR-0004 ile korunuyor.
-- Aşama 2 `Content`, `Season` ve `Episode` saf domain modeli ile tamamlandı.
-- İçerik hiyerarşisi `Content` aggregate root'u üzerinden değiştiriliyor.
-- Flyway `V2__content_catalog.sql`; içerik, sezon, bölüm ve admin audit tabloları
-  ile unique, foreign key, check constraint ve listeleme index'lerini ekledi.
-- EDITOR/ADMIN için içerik, sezon ve bölüm CRUD API'leri ile publish use case'i
-  eklendi; normal USER yönetim yollarında `403 ACCESS_DENIED` alır.
-- Normal kullanıcı API'si yalnız `PUBLISHED` içeriği, `page`/`size` pagination ve
-  en fazla 100 kayıt sınırıyla döndürür.
-- İçerik değişikliği ve admin audit kaydı aynı transaction'da yazılır; audit
-  aktörü request body'den değil doğrulanmış `CurrentActorProvider` bağlamından
-  alınır.
-- Domain'in Spring/JPA'dan ve content modülünün identity infrastructure'dan
-  bağımsızlığı iki ArchUnit testiyle korunur.
-- Aggregate, yayınlama, audit ve pagination kararları
-  `ADR-0007-asama-2-content-aggregate.md` ile kaydedildi.
-- Aşama 3 `Quiz`, `QuizVersion`, `Question` ve `AnswerOption` saf domain modeli
-  ile tamamlandı; `Quiz` aggregate root olarak sürüm ağacını korur.
-- İlk quiz sürümü draft oluşturulur; yayın için en az bir soru, her soruda en az
-  iki seçenek ve tam bir doğru seçenek gerekir.
-- Yayınlanan ve arşivlenen sürümler yerinde değiştirilemez; yeni düzenleme aktif
-  yayın sürümünü yeni kimliklerle kopyalayan bir sonraki draft sürümünü üretir.
-- Yeni draft yayımlandığında önceki aktif sürüm arşivlenir; açık archive use
-  case'i aktif yayını kullanıcı sorgusundan kaldırır.
-- Puanlama davranışı Aşama 4'e bırakıldı; korunacak politika sınırı
-  `STANDARD_V1` olarak quiz sürümünde sabitlendi.
-- Flyway `V3__quiz_authoring.sql`; quiz, sürüm, soru ve seçenek tablolarını;
-  foreign key, check, sıra unique, tek draft ve tek doğru seçenek index'lerini
-  ekledi.
-- EDITOR/ADMIN quiz/sürüm/soru yönetim ve publish/archive API'leri eklendi;
-  normal USER yönetim yollarında `403 ACCESS_DENIED` alır.
-- Kullanıcı API'si yalnız aktif yayın sürümünü döndürür; kullanıcı DTO'sunda
-  doğru cevabı gösterebilecek `correct` alanı bulunmaz.
-- Quiz application servisi içerik varlığını content modülünün
-  `ContentReferenceVerifier` portundan doğrular; content infrastructure'a
-  doğrudan bağımlı değildir.
-- Admin audit portu ve JPA adapter'ı content paketinden gerçek sahibi olan
-  `admin` modülüne taşındı; content ve quiz değişiklikleri audit ile aynı
-  transaction'da kesinleşir.
-- Doğru cevap değişikliğinde partial unique index korunurken Hibernate yazma
-  sırası çakışmasını önlemek için eski doğru bayrakları aynı transaction'da
-  temizlenir; aynı sıra numaralı seçenek kimliği korunur.
-- Quiz sürümleme kararları
-  `ADR-0008-asama-3-quiz-surumleme.md` ile kaydedildi.
-- Aşama 4 `QuizAttempt`, `SubmittedAnswer`, ACTIVE/COMPLETED/EXPIRED durum
-  makinesi ve `QuizAttemptCompleted` domain event'i ile tamamlandı.
-- Attempt yayınlanmış quiz/politika sürümünü sabitler; `STANDARD_V1` beş dakika
-  ve doğru başına 100 puan uygular.
-- Cevap kalıcılaştırıldıktan sonra doğru seçenek aynı response'ta açıklanır ve
-  sıradaki soru açılır; son cevap attempt'i otomatik tamamlar.
-- Aynı kullanıcı/quiz için tek aktif attempt vardır; completed/expired attempt
-  sonrasında tekrar çözmeye izin verilir.
-- Flyway `V4__gameplay_attempts.sql`, attempt/answer tablolarını ve aynı soru,
-  idempotency ve tek aktif attempt constraint'lerini ekledi.
-- Start, get, answer ve complete API'leri eklendi; aktör request body yerine
-  `CurrentActorProvider` bağlamından alınır.
-- Gameplay kararları `ADR-0009-asama-4-gameplay.md` ile kaydedildi.
-- Kullanıcı her soruda soruya özel görsel veya içerik kapağı görmek; görme,
-  işitme, motor ve bilişsel farklılıklar için erişilebilirlik temelini backend
-  sözleşmesine almak istedi.
-- Aşama 4 ile XP arasına `Aşama 4.1 - Erişilebilir medya ve kapsayıcı
-  gameplay sözleşmesi` ayrı ek seviye olarak eklendi.
-- WCAG 2.2 AA mühendislik hedefi; değişmez medya, kapak fallback'i, cevabı
-  sızdırmayan eşdeğer soru sunumu, semantik feedback ve herkese açık en az
-  on kat uzun süre modu kararları
-  `ADR-0010-erisilebilir-medya-ve-gameplay.md` ile kaydedildi.
-- Aşama 4.1 `media` modülü, yerel dosya storage adapter'ı ve Flyway
-  `V5__accessible_media_and_timing.sql` migration'ıyla tamamlandı.
-- JPEG/PNG yüklemede 5 MB, 4096×4096, dosya imzası, çözülebilir içerik ve
-  SHA-256 bütünlük kontrolleri eklendi; yalnız EDITOR/ADMIN yazabilir.
-- Yayınlanan içerikte kapak ve alternatif metin zorunlu oldu. Soruya özel
-  `INFORMATIVE`/`DECORATIVE` görsel sözleşmesi ve cevabı sızdırmayan eşdeğer
-  `accessiblePrompt` publish kuralı eklendi.
-- Soruya özel görsel yoksa içerik kapağı quiz sürümüne sabitlenir; gameplay
-  response'u çözümlenmiş görseli ve `CORRECT`/`INCORRECT` durumunu döndürür.
-- Herkese açık `STANDARD_V1` (5 dakika) ve `EXTENDED_V1` (50 dakika) süre
-  politikaları attempt'e sabitlenir; sağlık/engel bilgisi saklanmaz ve skor
-  hesabı değişmez.
-- Aşama 5 `gamification` modülü, `XpTransaction` domain modeli ve Flyway
-  `V6__xp_ledger.sql` migration'ıyla tamamlandı.
-- `SCORE_MATCH_V1`, tamamlanan attempt'in kesin skorunu XP'ye birebir çevirir;
-  sıfır skorlu tamamlanma da işlenen kaynağı gösteren tek ledger kaydı bırakır.
-- Aşama 5'te attempt'in tamamlanması ile XP ekleme aynı PostgreSQL transaction'ında
-  çalışarak iş kuralının doğruluğunu kanıtladı; Aşama 6 bu senkron sınırı Outbox
-  ve idempotent consumer ile değiştirdi.
-- Kullanıcı XP özeti API'si ile yalnız ADMIN'e açık, özgün kazancı değiştirmeden
-  imzalı yeni kayıt ve audit üreten düzeltme API'si eklendi.
-- XP ledger ve transaction sınırı kararları
-  `ADR-0011-postgresql-xp-ledger.md` ile kaydedildi.
-- Aşama 6'da Flyway `V7__transactional_outbox_and_inbox.sql`, sürümlü
-  `quiz.completed` integration event'i, Transactional Outbox publisher'ı ve
-  Inbox korumalı XP consumer'ı eklendi.
-- RabbitMQ direct exchange, dayanıklı XP queue'su, üç denemeli artan gecikme,
-  dead-letter queue, publisher confirm, trace header'ları ve temel Micrometer
-  sayaçlarıyla yapılandırıldı.
-- Broker kesintisi attempt'i bozmaz; bekleyen Outbox olayı broker geri geldiğinde
-  yayımlanır. Duplicate teslimat Inbox ve XP ledger tekillikleriyle korunur.
-- Mesajlaşma ve transaction kararları
-  `ADR-0012-transactional-outbox-rabbitmq.md` ile kaydedildi.
-- Aşama 7 `leaderboard` modülü, global/içerik API'leri ve Flyway
-  `V8__postgresql_leaderboard.sql` migration'ıyla tamamlandı.
-- XP satırları içerik aidiyeti taşır. Migration eski kayıtları kaynak attempt ve
-  özgün adjustment ilişkisinden geri doldurur; PostgreSQL trigger'ı yeni
-  satırların kullanıcı/içerik kaynağını doğrular.
-- Sıra toplam XP azalan, ilk XP zamanı artan, kullanıcı UUID'si artan olarak
-  `ROW_NUMBER` ile hesaplanır. Top N dışında kalan current user ayrıca döner;
-  yüzdelik üretilmez.
-- Leaderboard kuralları ve alternatifleri
-  `ADR-0013-postgresql-leaderboard-kurallari.md` ile kaydedildi.
-- Aşama 8'de Redis 8.2 sorted set read model, beş saniyelik kontrollü refresh,
-  ADMIN rebuild, atomik generation işaretçisi ve PostgreSQL fallback eklendi.
-- Redis skoru toplam XP yerine PostgreSQL'in benzersiz pozisyonudur; XP ve ilk
-  işlem zamanı hash metadata'sında tutulur. Böylece eşitlik sırası değişmez.
-- API okuma kaynağını `dataSource`, projeksiyon zamanını
-  `projectionGeneratedAt` ile görünür kılar; hit/fallback Micrometer sayaçları
-  eklendi.
-- Redis kararları ve alternatifleri
-  `ADR-0014-redis-leaderboard-read-model.md` ile kaydedildi.
-- Aşama 9'un ilk artımında Spring Boot OpenTelemetry HTTP trace'leri,
-  Prometheus registry/scrape endpoint'i, HTTP p95/p99 histogramları ve
-  Outbox/consumer Observation'ları eklendi.
-- İstemci `X-Trace-Id` korelasyon değeri `requestTraceId` alanına ayrıldı;
-  gerçek OpenTelemetry `traceId/spanId` değerlerinin üzerine yazılması önlendi.
-- Compose `observability` profiline OpenTelemetry Collector, Tempo,
-  Prometheus ve provision edilmiş operasyon dashboard'uyla Grafana eklendi.
-- Gözlemlenebilirlik kararı ve alternatifleri
-  `ADR-0015-opentelemetry-prometheus-observability.md` ile kaydedildi.
-- W3C `traceparent`/`tracestate` Outbox V9 migration'ında nullable saklanır;
-  publisher ve RabbitMQ consumer aynı dağıtık trace'i sürdürür. Eski context'siz
-  Outbox satırının yayımlanabilirliği rolling-deploy testiyle korunur.
-- `/api/**` için IP anahtarlı, bounded bellek kullanan token bucket eklendi;
-  `429`, kararlı hata kodu, `Retry-After` ve RateLimit header'ları test edildi.
-- CI'a transitive CycloneDX SBOM + commit SHA'sına sabitlenmiş OSV-Scanner,
-  Gitleaks ve haftalık Dependabot kontrolleri eklendi.
-- k6 baseline/ramp/spike/soak profilleri eklendi. Gerçek PostgreSQL ve uygulama
-  üzerinde bir dakikalık 10 istek/s baseline 601 istekte %0 hata ve 0 dropped
-  iteration ile geçti; p95 `15,75 ms`, p99 `332,82 ms` ölçüldü.
-- PostgreSQL pause/recovery testi commit edilmiş veriyi korudu; `pg_dump` çıktısı
-  ayrı disposable veritabanına restore edilip Flyway geçmişi ve marker okundu.
-  Mevcut RabbitMQ ve Redis testleri broker recovery ile PostgreSQL fallback'i
-  yeniden doğrular.
-- Expand-contract, migration kilit/rollback yaklaşımı, DLQ replay, ilk
-  `RPO ≤ 15 dk` / `RTO ≤ 60 dk`, retention/KVKK/audit sınırları
-  `docs/OPERATIONS.md` ve ADR-0016'da kaydedildi.
-- Aşama 0–9 boyunca karşılaşılan ortam, framework, veri bütünlüğü,
-  concurrency, erişilebilirlik, Outbox/RabbitMQ, leaderboard, trace, yük,
-  güvenlik taraması ve disaster-recovery problemleri;
-  kök neden, çözüm, test kanıtı ve rapor çıkarımıyla
-  `docs/DEVELOPMENT_CHALLENGES.md` günlüğünde toplandı.
-- Aşama 10A `admin-web` uygulaması React, TypeScript ve Vite ile ayrı frontend
-  olarak kuruldu; quiz, medya yükleme, XP ve leaderboard kapsam dışında tutuldu.
-- Admin içerik listesi draft kayıtları da döndüren hafif ve sayfalı
-  `GET /api/v1/admin/contents` sözleşmesiyle tamamlandı; hiyerarşi detay
-  endpoint'inde kaldı.
-- İçerik oluşturma/düzenleme, dizi sezon/bölüm işlemleri, publish isteği,
-  published değişmezliği, local rol göstergesi ve code/trace ID hata sunumu
-  erişilebilir native kontrollerle uygulandı.
-- Ayrı frontend, local-only kimlik ve admin liste DTO kararı ADR-0017 ile
-  kaydedildi.
-- Aşama 10B kullanıcı web kontrolünde belgelenmiş yerel UUID kabulü, oturumdan
-  çıkış, yetkili medya istekleri, süre dolunca cevap kilidi ve ağ hatasında aynı
-  idempotent cevabın güvenli yeniden denenmesi tamamlandı. İçerik detayı, quiz
-  listesi yüklenemese de erişilebilir kalır.
+## 12.08.2026 şifre sıfırlama ve MailerSend
 
-## Henüz tamamlanmayanlar
+- Giriş ekranına `Şifremi unuttum` akışı, e-posta isteme görünümü ve bağlantıdan
+  açılan yeni şifre görünümü eklendi.
+- Backend genel `202` cevaplı istek endpoint'i ve tek kullanımlık reset endpoint'i
+  sunar; kayıtlı hesap olup olmadığı istemciye açıklanmaz.
+- 256 bit rastgele token'ın yalnız SHA-256 özeti PostgreSQL'de tutulur. Token 30
+  dakika geçerlidir, ikinci kullanım engellenir ve yeni istek eski aktif token'ı
+  geçersiz kılar.
+- Yeni şifre bcrypt sınırından kaydedilir. Ham token, API/Secret Key, şifre veya
+  e-posta adresi loglanmaz.
+- E-posta MailerSend'in standart SMTP relay'i üzerinden gönderilir. SMTP username,
+  SMTP password ve doğrulanmış domain altındaki gönderen adres yalnız ortam
+  değişkenlerinden okunur.
+- Alternatif MailerSend HTTP API'si sağlayıcıya özel bağımlılık; RabbitMQ/Outbox ise bu
+  tek akış için ek event ve worker maliyeti doğuracağı için seçilmedi. Karar
+  ADR-0030'da kayıtlıdır.
+- Frontend `40/40` testi ve strict TypeScript production build geçti.
+- PostgreSQL Testcontainers kullanan `AccountAuthenticationIntegrationTest` içindeki
+  `4/4` test geçti. Şifre sıfırlama testi genel cevabı, token özetini, tek kullanımı,
+  eski şifrenin reddini ve yeni şifrenin kabulünü kanıtlar.
+- `./mvnw verify` sonucu backend paketinin tamamında `124/124` test geçti; çalıştırılabilir
+  JAR üretildi. Bu sonuç yeni mail bağımlılığı ve migration'ın mevcut PostgreSQL,
+  RabbitMQ, Redis, güvenlik ve modül sınırı testlerini bozmadığını kanıtlar.
+- SMTP sağlayıcısı Mailjet'ten MailerSend'e çevrildikten sonra backend derlemesi
+  yeniden geçti ve çalışma alanında Mailjet yapılandırma referansı kalmadığı doğrulandı.
+- Bilinen sorun: Merkezi session store olmadığı için önceden açık diğer oturumlar
+  şifre değişiminde otomatik kapanmaz. Gerçek MailerSend teslim testi, kullanıcı
+  SMTP bilgilerini terminal ortamına ekledikten sonra yapılmalıdır.
+- Sıradaki tek iş: Doğrulanmış MailerSend domaini ve terminal ortam değişkenleriyle
+  tek bir gerçek alıcıya uçtan uca sıfırlama e-postası göndermek.
 
-- Java/Spring Boot seçiminin backend lead veya kurum standardıyla doğrulanması
-- Kurumun production kimlik sağlayıcısının ve OIDC/JWT claim sözleşmesinin
-  öğrenilmesi
-- Production kimlik entegrasyonuyla doğrulanmış KVKK silme/anonimleştirme
-  iş akışının ve hukuk onaylı retention sürelerinin uygulanması
-- Admin web için production OIDC/JWT login, hosting, CORS ve CSRF sözleşmesi
-- Medya yükleme/kapak bağlama, quiz authoring, XP ve leaderboard admin ekranları
+## 12.08.2026 Tabii esintili giriş ekranı
 
-## Mevcut teknoloji temeli
+- Kullanıcı giriş/kayıt ekranı; Tabii logolu üst alan, koyu medya zemini, ortalanmış
+  yarı saydam hesap kartı ve Tabii yeşili ana aksiyonla sade biçimde yenilendi.
+- Mevcut e-posta/şifre, hesap oluşturma ve sunucu oturumu davranışı değiştirilmedi;
+  backend'de karşılığı olmayan şifre sıfırlama veya sosyal giriş eklenmedi.
+- Yeni frontend paketi ya da tasarım sistemi eklenmedi. Mevcut React bileşeni,
+  mevcut medya dosyaları ve CSS kullanıldı.
+- `npm run test` sonucu 10 test dosyasında `39/39` test geçti. Bu testler mevcut
+  kullanıcı akışındaki API ve iş kuralı yardımcılarının bozulmadığını gösterir.
+- `npm run build` strict TypeScript kontrolü ve Vite production build ile geçti.
+- Karar: Bu değişiklik yalnız sunum katmanıdır; kimlik doğrulama sınırı ADR-0029'daki
+  yerel hesap ve HttpOnly sunucu oturumu olarak kalır. Hazır UI kütüphanesi daha hızlı
+  ortak bileşen sağlayabilirdi, fakat tek ekran için bağımlılık ve soyutlama maliyeti
+  doğuracağı için seçilmedi.
+- Öğrenilen kavram: Görsel yenileme ile kimlik doğrulama davranışı ayrı tutulduğunda
+  UI değişirken güvenlik ve oturum sözleşmesi sabit kalabilir. Kullanıcıyla mobil ve
+  masaüstü görünümün görsel olarak doğrulanması gerekir.
+- Bilinen sorun: Proje kuralı gereği ayrıca açık izin alınmadan sonuç ekranının
+  tarayıcı tabanlı görsel kalite incelemesi yapılmadı.
+- Sıradaki tek iş: Kullanıcı izin verirse giriş ve kayıt modlarını masaüstü/mobil
+  genişliklerde görsel olarak kontrol edip yalnız gözlenen yerleşim kusurlarını düzeltmek.
 
-- Java 21 + Spring Boot 4.1.0
-- PostgreSQL 17.5
-- Maven Wrapper
-- Flyway
-- Docker Compose
-- Testcontainers
-- Spring Security
-- Spring AMQP ve RabbitMQ 4.1
-- Spring Data Redis ve Redis 8.2
-- OpenTelemetry/OTLP, Prometheus, Tempo ve Grafana
-- Admin web için React 19, TypeScript, Vite ve Vitest
+## 12.08.2026 dokümantasyon arşivleme
 
-Bu seçimler `ADR-0003` ile gerekçelendirilmiştir; kurum standardı farklıysa
-yeniden değerlendirilir.
+- Uzun `README.md`, `docs/ARCHITECTURE.md`, `docs/ROADMAP.md` ve
+  `docs/CURRENT_STATE.md` dosyaları değiştirilmeden
+  `docs/archive/2026-08-11/` altında korundu.
+- Günlük AI görevlerinde okunacak kısa sürümler aynı yollarla yeniden oluşturuldu.
+- Eski ayrıntılar kaybolmadı; gerektiğinde arşiv bağlantılarından açılabilir.
 
-## Yerel geliştirme ortamı
+## Tamamlanan başlıca davranışlar
 
-### Hazır
+- İçerik ve quiz sürümleri yayınlanmadan kullanıcıya görünmez.
+- Yayınlanmış quiz sürümü değişmez; düzenleme yeni draft sürümü üretir.
+- Kullanıcı attempt'i, cevabı ve timeout'u sunucu saatiyle doğrulanır.
+- Aynı soru ikinci kez cevaplanamaz; tekrar komutlar idempotent işlenir.
+- Skor her doğru cevap için 10'dur; yanlış ve timeout 0 puandır.
+- Quiz başına yalnız ilk tamamlamada XP ödülü vardır.
+- İlk tamamlaması 0 puan olan kullanıcı için de tek `amount = 0` ledger kaydı tutulur.
+- Attempt ve Outbox aynı PostgreSQL transaction'ında kesinleşir.
+- RabbitMQ duplicate teslimatları Inbox ve unique kurallarıyla ikinci XP üretmez.
+- Redis leaderboard PostgreSQL'den yeniden kurulabilir ve kesintide fallback vardır.
+- Kullanıcı hesabı bcrypt parola özeti ve HttpOnly, SameSite=Strict sunucu oturumu kullanır.
+- Admin web gerçek sunucu oturumunu kullanır; local/test actor yalnız API test ve
+  yerel geliştirme adaptörü olarak production dışında kalır.
 
-- Eclipse Temurin JDK 21.0.11 LTS
-- Git 2.51.0
-- VS Code
-- WSL 2.7.11
-- Docker Desktop 4.84.0
-- Docker Engine 29.6.2
-- Docker Compose 5.3.1
-- Maven Wrapper
-- `5433` host portunda sağlıklı PostgreSQL 17.5 geliştirme container'ı
-- `5673` AMQP ve `15673` yönetim portlarında RabbitMQ geliştirme container'ı
-- `6380` host portunda Redis 8.2 geliştirme container'ı
+## Teknoloji temeli
 
-### Bilinçli olarak ayrıca kurulmadı
+- Java 21, Spring Boot 4.1.0, Maven Wrapper
+- PostgreSQL 17.5 ve Flyway
+- RabbitMQ 4.1 ve Spring AMQP
+- Redis 8.2 ve Spring Data Redis
+- Testcontainers, OpenTelemetry, Prometheus, Grafana, Tempo
+- React 19, TypeScript, Vite ve Vitest
 
-- Global Maven/Gradle: Build tool seçildikten sonra proje içindeki wrapper
-  kullanılacak.
-- Windows PostgreSQL: PostgreSQL, Docker Compose ile container olarak
-  çalıştırılacak.
+## Bilinen açık konular
 
-### Terminal notu
+- Kurumun production OIDC/JWT, issuer/audience ve rol claim sözleşmesi.
+- Hedef Oracle dağıtımı, domain/DNS, sunucu secret erişimi, otomatik dış backup ve
+  ileride gerekirse object storage/CDN.
+- KVKK silme/anonimleştirme ve hukuk onaylı retention süreleri.
+- Gerçek trafik hedefleri, production SLO ve Redis fallback alarm eşikleri.
+- Çok editörlü quiz draft düzenlemesi için optimistic locking.
+- Dönemsel leaderboard, hile/diskalifiye, profil adı/avatar ve sosyal özellikler.
 
-Kullanıcı düzeyindeki `JAVA_HOME` ve `PATH` güncellendi. Değişikliğin normal
-terminale yansıması için yeni terminal açılmalı; `java -version`,
-`docker version` ve `docker compose version` yeniden çalıştırılmalıdır.
+## Test ve doğrulama özeti
 
-## Bu görevde yapılan doğrulamalar
-
-- Markdown belgeleri ve ADR içerikleri UTF-8 olarak okundu.
-- DOCX raporundaki 231 paragraf ve 34 tablo yapısal olarak incelendi.
-- Belgeler arasında MVP sınırı, modüler monolith, PostgreSQL doğru kaynak,
-  ertelenmiş RabbitMQ/Redis ve test stratejisi tutarlılığı kontrol edildi.
-- Backend çalışma defterindeki 24 bölüm, 112 kontrol/alıştırma maddesi, README
-  bağlantısı ve proje kapsam kuralları doğrulandı.
-- Genişletilen dil karşılaştırmalarının ve 21 ana bölüm ile 129
-  kontrol/alıştırma maddesi içeren Java çalışma kitabının başlık yapısı, iç
-  bağlantıları ve kontrol soruları doküman düzeyinde doğrulandı.
-- Proje ister PDF'sinin bütün sayfaları görsel olarak render edildi; Türkçe
-  karakterler, sayfa numaraları, başlık geçişleri, madde hizaları ve metin
-  taşmaları kontrol edildi.
-- Güncellenen resmî proje tanımı yeniden PDF'e dönüştürüldü. 11 sayfanın tamamı
-  yeniden render edilip başlıklar, etiketler, Türkçe karakterler, kenar
-  taşmaları ve sayfa numaraları görsel olarak kontrol edildi.
-- PDF metin kontrolünde yeni kimlik, PostgreSQL XP, RabbitMQ, PostgreSQL
-  leaderboard ve Redis read model aşamalarının bulunduğu; bozuk karakter
-  oluşmadığı doğrulandı.
-- Uygulama kodu bulunmadığı için build veya otomatik test çalıştırılmadı.
-- Güncellenen roadmap aşamalarının her birinde kabul kriteri, test yaklaşımı ve
-  öğrenme çıktısı bulunduğu doküman düzeyinde kontrol edildi.
-- README, proje özeti, mimari, yol haritası, resmî proje tanımı ve ADR'ler
-  arasında kimlik sırası ile PostgreSQL/RabbitMQ/Redis sınırı karşılaştırıldı.
-- `README.md` ile `AGENTS.md` içindeki öğretici çalışma, isimlendirme, aşama
-  geçişi ve görsel işleme kurallarının birbiriyle uyumlu olduğu kontrol edildi.
-- DOCX görsel render denemesi, ortamda LibreOffice bulunmadığı için
-  tamamlanamadı; DOCX üzerinde değişiklik yapılmadı.
-- Docker Desktop 4.84.0, Engine 29.6.2 ve Compose 5.3.1 çalışır durumda
-  doğrulandı.
-- Java 21.0.11 doğrudan kurulum yolundan doğrulandı.
-- `.\mvnw.cmd --batch-mode verify` son çalıştırmada başarıyla tamamlandı:
-  3 test çalıştı, 0 failure, 0 error, 0 skipped.
-- Testcontainers 2.0.5 gerçek PostgreSQL 17.5 container'ı başlattı.
-- Flyway, boş veritabanına `V1 - baseline` migration'ını başarıyla uyguladı.
-- Health testi `UP`, hata zarfı testi `RESOURCE_NOT_FOUND` ve aynı
-  `X-Trace-Id` değerini doğruladı.
-- `docker compose up --detach --wait` sonucunda geliştirme PostgreSQL'i
-  `5433 -> 5432` eşlemesiyle healthy durumuna geldi.
-- Paketlenen uygulama yerel PostgreSQL'e bağlanarak `8081` portunda açıldı;
-  `http://127.0.0.1:8081/actuator/health` yanıtı `UP` olarak doğrulandı ve
-  uygulama doğrulama sonrasında kapatıldı.
-- İlk build'de Spring Initializr metadata'sının ürettiği
-  `4.1.0.RELEASE` etiketi Maven Central'da bulunamadı; gerçek artifact sürümü
-  `4.1.0` olarak düzeltilip yeniden test edildi.
-- Host `5432` portunun mevcut Windows PostgreSQL süreci, `8080` portunun da
-  başka bir uygulama tarafından kullanıldığı saptandı; mevcut süreçlere
-  dokunulmadan proje portları ayrıldı.
-- Hosted CI çalıştırılmadı; henüz uzak Git deposu bulunmuyor.
-- PlantUML kaynağı, kurulan eklentinin kendi `plantuml.jar` motoruyla
-  `-checkonly` kullanılarak doğrulandı; sözdizimi hatası bulunmadı.
-- Aynı doğrulanmış kaynaktan `runtime_architecture.svg`,
-  `backend_code_structure.svg` ve `planned_database_model.svg` başarıyla
-  üretildi. Kullanıcı isteği diyagrama dönüştürmeyi kapsadığı için render
-  gerçekleştirildi; ayrıca bir görsel kalite incelemesi yapılmadı.
-- Son yerleşim ölçümleri sırasıyla `854x1036`, `831x1034` ve `1407x2078`
-  pikseldir; üç SVG'nin de yüksekliği genişliğinden fazladır.
-- GitHub'a gönderim öncesi `.\mvnw.cmd --batch-mode verify` Java 21 ve Docker
-  Desktop üzerinde yeniden çalıştırıldı: 3 test geçti, 0 failure, 0 error ve
-  0 skipped.
-- `docs/README.md` içindeki yerel doküman ve diyagram bağlantılarının hedefleri
-  kontrol edildi; çalışma alanında bulunmayan `docs/bwl.md` yeniden
-  oluşturulmadı ve bozuk bağlantı dizine eklenmedi.
-- PDF ve DOCX dosyaları mevcut halleriyle GitHub'a gönderildi; bu görevde
-  yeniden üretilmedi, görsele dönüştürülmedi ve görsel kalite incelemesi
-  yapılmadı.
-- GitHub Actions `Backend CI` çalışması `30543010143`, `main` dalındaki
-  `ef3ae6f` commit'i için başarıyla tamamlandı. Ubuntu ortamında repository
-  checkout, Java 21 kurulumu ve `mvnw verify` adımlarının tamamı geçti.
-- Aşama 1 için `.\mvnw.cmd --batch-mode clean test` Java 21 ve çalışan Docker
-  Engine ile başarıyla tamamlandı: 8 test geçti, 0 failure, 0 error, 0 skipped.
-- Son teslim doğrulamasında `.\mvnw.cmd --batch-mode verify` başarıyla
-  tamamlandı; aynı 8 test yeniden geçti ve çalıştırılabilir Spring Boot JAR'ı
-  üretildi.
-- Testcontainers gerçek PostgreSQL 17.5 container'ını başlattı ve Flyway
-  baseline migration'ı temiz veritabanına uygulandı.
-- Aşama 0 health, migration ve trace ID/hata zarfı testlerinin güvenlik
-  değişikliğinden sonra da geçtiği doğrulandı.
-- Kimliksiz korunan isteğin `401 AUTHENTICATION_REQUIRED` döndürdüğü test edildi.
-- `USER`, `EDITOR` ve `ADMIN` test kimliklerinin farklı aktör ve rol olarak
-  çözüldüğü test edildi.
-- Geçersiz test kimliğinin `401 AUTHENTICATION_INVALID` döndürdüğü; hassas header
-  değerinin response veya güvenlik loguna taşınmadığı doğrulandı.
-- `USER` aktörünün editor korumalı use case'e erişiminin
-  `403 ACCESS_DENIED` ile reddedildiği doğrulandı.
-- Request body içinde gönderilen farklı aktör kimliğinin yok sayıldığı ve
-  application use case'inin yalnız doğrulanmış security actor'ünü kullandığı
-  doğrulandı.
-- Spring Boot 4.1'in Jackson 3 `tools.jackson` paketini kullandığı bağımlılık
-  ağacıyla doğrulandı; eski Jackson 2 bağımlılığı eklenmedi.
-- İlk artımlı derleme çıktısındaki eksik-tip bytecode kalıntısı `clean` build ile
-  giderildi; temiz build başarıyla sonuçlandı.
-- Docker Desktop 4.84.0 ve Engine 29.6.2 yeniden başlatıldı; Compose PostgreSQL
-  `5433 -> 5432` eşlemesiyle healthy duruma geldi.
-- Aşama 1 teslim noktası `clean verify` ile yeniden doğrulandı: 8 test geçti,
-  0 failure, 0 error, 0 skipped ve çalıştırılabilir JAR üretildi.
-- Aşama 2 test çalışmasında toplam 21 test geçti: 8 temel/identity integration,
-  6 content PostgreSQL/API integration, 5 saf domain unit ve 2 ArchUnit testi.
-- Flyway V1 ve V2 migration'ları iki ayrı geçici PostgreSQL 17.5 container'ında
-  temiz şemaya uygulandı; Hibernate `ddl-auto=validate` ile şemayı doğruladı.
-- PostgreSQL unique constraint testi aynı içerikte sezon ve aynı sezonda bölüm
-  numarası tekrarını veri katmanında reddetti.
-- Uçtan uca API testi create → season → episode → publish → USER read akışını ve
-  aynı transaction sınırındaki editör audit kayıtlarını doğruladı.
-- Draft yayın filtresi, USER yönetim yasağı, validation/pagination sınırları ve
-  update/delete davranışları API testleriyle doğrulandı.
-- Paketlenen JAR Compose PostgreSQL'e bağlanarak `8081` portunda başlatıldı;
-  health `UP`, yerel Flyway V2 kaydı `2:true` ve varsayılan profilde test
-  header'larıyla content erişimi `401` olarak doğrulandı. Uygulama kontrolden
-  sonra kapatıldı; PostgreSQL container'ı healthy durumda bırakıldı.
-- GitHub Actions `Backend CI` çalışması `30705476787`, pull request dalındaki
-  Aşama 1 ve Aşama 2 commit'leri için başarıyla tamamlandı. Ubuntu ortamında
-  checkout, Java 21 kurulumu ve build/integration test adımlarının tamamı geçti.
-- Aşama 3 geliştirmesi öncesi mevcut teslim noktası yeniden doğrulandı: 21 test
-  geçti, 0 failure, 0 error ve 0 skipped.
-- Quiz saf domain adımı 6 unit testle doğrulandı: yayın bütünlüğü, doğru cevap,
-  değişmezlik, yeni draft kopyası, eski sürümün arşivlenmesi ve sıra tekilliği.
-- Quiz PostgreSQL/API integration testleri 8 senaryoda geçti: author/publish,
-  audit, draft filtresi, yetki, yeni sürüm, doğru cevap sızmaması, soru
-  update/delete, açık archive ve gerçek constraint davranışları.
-- Quiz domain'inin Spring/JPA'dan, quiz modülünün diğer modüllerin
-  infrastructure paketlerinden bağımsızlığı 2 ArchUnit testiyle doğrulandı.
-- Flyway V1, V2 ve V3 migration'ları üç ayrı geçici PostgreSQL 17.5
-  container'ında temiz şemaya başarıyla uygulandı; Hibernate şemayı doğruladı.
-- Doğru seçeneği A'dan B'ye değiştiren gerçek PostgreSQL testi, seçenek kimliği
-  koruma ve tek-doğru partial unique index davranışını birlikte kanıtladı.
-- Kullanıcı quiz contract testi response içinde `correct` ve `isCorrect`
-  alanlarının bulunmadığını doğruladı.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması başarıyla tamamlandı: toplam
-  37 test geçti, 0 failure, 0 error, 0 skipped ve çalıştırılabilir JAR üretildi.
-- Gameplay saf domain kuralları 5 unit testle; durum makinesi, deadline,
-  sunucu skoru, cevap değişmezliği, idempotency ve tamamlanma olayıyla doğrulandı.
-- Gameplay API/PostgreSQL akışı 3 integration testte; doğru cevap sızmaması,
-  cevap sonrası açıklama, sıradaki soru, sahiplik ve idempotency ile doğrulandı.
-- Paralel aynı-soru testinde PostgreSQL unique constraint yalnız bir answer
-  satırını kabul etti ve diğer istek `409` aldı.
-- Gameplay modül sınırı 2 ArchUnit testiyle doğrulandı.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 47 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped; Flyway V1–V4 ve JAR paketleme geçti.
-- Aşama 4.1 medya API testleri gerçek PostgreSQL ile görsel yükleme/okuma,
-  yetki, MIME imzası uyuşmazlığı ve 5 MB sınırını doğruladı.
-- Quiz domain ve contract testleri bilgilendirici görsel metinlerinin zorunlu
-  olduğunu, doğru cevabı sızdıramadığını ve admin/gameplay alanlarının
-  kalıcılaştırılıp güvenli kullanıcı sözleşmesine taşındığını doğruladı.
-- Gameplay integration testi `EXTENDED_V1` seçiminin 50 dakikalık deadline
-  ürettiğini ve attempt satırında sürümlü olarak saklandığını doğruladı.
-- Media domain'inin framework'ten ve media modülünün identity infrastructure'dan
-  bağımsızlığı iki ArchUnit testiyle korundu.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 57 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped; Flyway V1–V5 ve çalıştırılabilir JAR paketleme geçti.
-- Aşama 5 saf domain testleri skorun XP'ye birebir çevrilmesini, sıfır skorlu
-  ledger kaydını ve geçmişi değiştirmeyen pozitif/negatif düzeltmeleri doğruladı.
-- Gameplay/PostgreSQL integration testleri son cevap ile XP'nin aynı transaction
-  içinde kesinleştiğini, tekrar ve paralel complete isteklerinin tek kayıt
-  ürettiğini ve XP hatasında attempt/cevap değişikliklerinin geri alındığını
-  doğruladı.
-- XP API testleri kullanıcı özetini, yalnız ADMIN'in düzeltme yapabildiğini,
-  aynı düzeltme referansının idempotent olduğunu ve audit kaydını doğruladı.
-- Gamification domain'inin framework'ten, modülün diğer modüllerin infrastructure
-  katmanlarından bağımsızlığı ArchUnit testleriyle korundu.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 66 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped; Flyway V1–V6 temiz PostgreSQL şemasına uygulandı
-  ve çalıştırılabilir JAR paketlendi.
-- Aşama 6 PostgreSQL integration testleri attempt ile Outbox olayının aynı
-  transaction'da kesinleştiğini; Outbox çakışmasının son cevap ve completion'ı
-  geri aldığını; consumer hatasının ise tamamlanmış attempt'i bozmadığını
-  doğruladı.
-- Duplicate ve paralel complete senaryoları tek Outbox olayı üretti. Aynı event
-  iki kez işlendiğinde Inbox ve XP kaynak unique constraint'leri tek XP ledger
-  kaydı bıraktı.
-- Gerçek RabbitMQ Testcontainers testleri publish/consume akışını, broker
-  kesintisinde Outbox retry'sını ve broker geri geldiğinde teslimatı doğruladı.
-  Geçersiz mesaj üç denemeden sonra dead-letter queue'ya taşındı.
-- Messaging application katmanının RabbitMQ/JDBC ayrıntılarından ve gameplay'in
-  messaging infrastructure paketinden bağımsızlığı ArchUnit testleriyle korundu.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 74 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped; Flyway V1–V7 temiz PostgreSQL şemasına
-  uygulandı, gerçek RabbitMQ testleri geçti ve çalıştırılabilir JAR paketlendi.
-- Aşama 7 API/PostgreSQL testleri global ve içerik toplamını, adjustment
-  etkisini, tekrar çözme toplamını, deterministik tie-break'i, current user'ın
-  Top N dışındaki sırasını, yayın/yetki/limit sınırlarını ve boş sonucu doğruladı.
-- Veri bütünlüğü testi yanlış içerik veya kullanıcıya bağlanan XP satırını
-  PostgreSQL trigger'ının reddettiğini kanıtladı.
-- 2.000 kullanıcılık örneklemde içerik Top N sorgusu yaklaşık 5,45 ms p95,
-  `EXPLAIN ANALYZE` yürütmesi 1,67 ms ölçüldü; içerik leaderboard indeksi
-  kullanıldı.
-- Leaderboard domain'inin framework'ten ve modülün diğer modüllerin
-  infrastructure paketlerinden bağımsızlığı iki ArchUnit testiyle korundu.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 83 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped; Flyway V1–V8, gerçek PostgreSQL/RabbitMQ
-  senaryoları ve çalıştırılabilir JAR paketleme geçti.
-- Aşama 8 gerçek Redis/PostgreSQL testleri iki kaynağın sıralama eşitliğini,
-  Top N dışındaki current user'ı, cache silme ve tekrarlı rebuild'i, stale veri
-  penceresini, ADMIN rebuild yetkisini ve Redis container kesintisindeki
-  PostgreSQL fallback'i doğruladı.
-- 2.000 kullanıcı ve 25 okuma örneğinde PostgreSQL global Top N p95 yaklaşık
-  4,0 ms, toplu hash okuması sonrası Redis p95 yaklaşık 7,1 ms ölçüldü. İlk
-  Redis N+1 uygulaması yaklaşık 16,8 ms idi; optimizasyon etkisi ayrıca kaydedildi.
-- Son `.\mvnw.cmd verify` çalışması toplam 89 testle başarılı oldu: 0 failure,
-  0 error, 0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ 4.1 ve Redis 8.2
-  Testcontainers senaryoları, ArchUnit sınırları ve JAR paketleme geçti.
-- Geliştirme zorlukları günlüğü görevi yalnız Markdown belge ve bağlantı
-  değişikliği içerdiği için uygulama testleri yeniden çalıştırılmadı; belge
-  biçimi ve yerel bağlantılar ayrıca kontrol edildi.
-- Aşama 9 gözlemlenebilirlik artımında ana kod ve 20 test kaynağı Java 21 ile
-  başarıyla derlendi.
-- Prometheus integration testi gerçek HTTP isteğinden sonra
-  `http_server_requests_seconds_count` ve application label'ını scrape
-  endpoint'inde doğruladı. Spring Boot test profilinin exporter'ları varsayılan
-  kapatması testte açık yapılandırmayla görünür hale getirildi.
-- RabbitMQ integration testi Outbox publish ve XP consumer işlemlerinin
-  `messaging.outbox.publish` ile `messaging.quiz.completed.consume` timer'larını
-  ürettiğini doğruladı.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması toplam 90 testle başarılı oldu:
-  0 failure, 0 error, 0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ 4.1 ve Redis
-  8.2 Testcontainers senaryoları geçti ve çalıştırılabilir JAR paketlendi.
-- Kullanılmayan OTLP metric exporter'ı kapatıldıktan sonra dokuz foundation
-  integration testi yeniden geçti; Prometheus scrape ve uygulama context'i
-  son yapılandırmayla doğrulandı.
-- Compose, Collector, Tempo, Prometheus ve Grafana provisioning YAML dosyaları
-  SnakeYAML ile; Grafana dashboard JSON dosyası JSON parser ile sözdizimsel
-  olarak doğrulandı. Observability container profili bu görevde uçtan uca
-  başlatılmadı.
-- Aşama 9 final `clean verify` çalışması 97 testle geçti: 0 failure, 0 error,
-  0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ 4.1 ve Redis 8.2 kesinti/geri
-  dönüş senaryoları, Flyway V1–V9 ve çalıştırılabilir JAR paketleme doğrulandı.
-- 05.08.2026 k6 baseline testi, `preAllocatedVUs` değeri yerel Docker zamanlama
-  dalgalanmalarında iki iteration düşürmesin diye 10'dan 20'ye çıkarıldıktan
-  sonra `clean -Pload-test -Dtest=Stage9K6LoadTest test` komutuyla geçti.
-  600/600 istek başarılı, 0 dropped iteration, p95 `12,42 ms` ve p99
-  `958,31 ms` ölçüldü; HTTP hata oranı `%0` kaldı ve k6 eşikleri sağlandı.
-- CycloneDX SBOM + OSV ilk taramada 164 bileşende 4 düzeltilebilir bulgu yakaladı.
-  Netty `4.2.16.Final`, PostgreSQL JDBC `42.7.12` ve Jackson `3.1.5` patch
-  sürümlerine yükseltildikten sonra tekrar tarama `No issues found` sonucu verdi.
-- Aşama 9 sonrası dokümantasyon tutarlılığı düzeltmesinde
-  `DEVELOPMENT_CHALLENGES.md` günlüğüne trace, k6, SBOM/OSV, PostgreSQL
-  outage/restore ve rate limiter kayıtları eklendi; `PROJECT_BRIEF.md`,
-  `ARCHITECTURE.md` ve `PROJECT_SPECIFICATION.md` tamamlanan Aşama 9, 97 test ve
-  sırada zorunlu aşama kalmadığı bilgisiyle eşitlendi. Uygulama kodu değişmediği
-  için testler yeniden çalıştırılmadı; stale durum ifadeleri, Markdown bağlantıları
-  ve diff biçimi kontrol edildi.
-- Aşama 10A hedefli `ContentCatalogIntegrationTest` gerçek PostgreSQL 17.5 ve
-  Flyway V1–V9 ile 7 testte geçti; draft admin listesi, pagination, EDITOR
-  erişimi ve USER reddi doğrulandı.
-- `admin-web` içinde `npm run test` 4/4 testle; local rol koruması ve backend
-  code/trace ID hata ayrıştırmasını doğruladı. `npm run build` TypeScript strict
-  kontrolü ve Vite production build'iyle geçti; `npm install` audit sonucu
-  0 vulnerability idi.
-- `admin-web` görsel yenilemesi, katalog ve içerik detay akışını yeni API
-  eklemeden editoryal tasarım diline taşıdı. `docs/FRONTEND_EXPERIENCE_PLAN.md`
-  tasarım kararlarını, mobil daralma davranışını ve medya yükleme/kapak bağlama
-  diliminin hâlâ ayrı onay gerektirdiğini kaydeder.
-- Yenileme sonrası `npm run test` 4/4 testle geçti; `npm run build` TypeScript
-  strict kontrolü ve Vite production build'iyle başarıyla tamamlandı. Yerel
-  Vite sunucusu HTTP 200 verdi ve doğrulama sonunda kapatıldı. Bu çalışma
-  ortamında tarayıcı otomasyonu izin nedeniyle açılamadığından ekran görüntülü
-  görsel inceleme yapılamadı.
-- Aşama 10B kullanıcı kataloğu, aynı Vite uygulamasına ayrı `user.html` giriş
-  noktası olarak eklendi. Public katalog, içerik detayı ve içerik bazlı quiz
-  listesi yalnız kullanıcı API yollarını kullanır; taslak, doğru cevap ve
-  puanlama sonucu istemciye eklenmedi.
-- `PublicApi` unit testi yayınlanmış katalog isteğinin `/api/v1/contents`
-  yoluna USER header ile gittiğini doğruladı. `npm run test` 5/5 testle,
-  `npm run build` ise iki HTML giriş noktasıyla başarıyla tamamlandı.
-- Kullanıcı flow'u local deneme oturumu, standart/uzatılmış quiz süresi,
-  server deadline sayacı, cevap geri bildirimi, sonuç, XP profil özeti ve
-  global leaderboard ile tamamlandı. Cevap yeniden denemesinde aynı
-  `Idempotency-Key` korunur; istemci doğru cevabı, skoru veya süreyi üretmez.
-- `PublicApi` testi answer isteğinin caller-provided idempotency anahtarını ve
-  aynı soru/şık payload'ını taşıdığını doğruladı. `npm run test` 6/6 testle,
-  `npm run build` iki giriş noktasıyla başarıyla tamamlandı.
-- Kullanıcı web sağlamlaştırması sonrası `npm run test` 4 dosyada 9/9 testle
-  geçti. Yeni testler proje dokümanındaki UUID biçimini ve korumalı medya
-  isteğinde USER kimlik header'larının taşındığını kanıtladı. `npm run build`
-  TypeScript strict kontrolü ve iki giriş noktalı Vite üretim derlemesiyle
-  geçti. Sayfa 390×844 mobil görünümde tarayıcıyla kontrol edildi; belgelenmiş
-  UUID ile yerel giriş ve `Çıkış` akışı çalıştı. Backend çalışmadığı için katalog
-  verisi yerine beklenen güvenli API hata kartı görüldü.
-- Çalışan Vite geliştirme sunucusu tarayıcıda incelendi: anlamlı içerik ve yeni
-  draft formu render edildi, form etiketleri bulundu, Vite hata katmanı ve
-  console error görülmedi. Backend kapalıyken 502 yanıtı güvenli hata kartında
-  gösterildi.
-- Son `.\mvnw.cmd --batch-mode verify` çalışması 98 testle geçti: 0 failure,
-  0 error, 0 skipped. Gerçek PostgreSQL 17.5, RabbitMQ ve Redis Testcontainers
-  senaryoları, ArchUnit sınırları, Flyway V1–V9 ve JAR paketleme doğrulandı.
-
-## Öğrenme odağı
-
-Aşama 4, sunucu otoriteli sistemde istemcinin yalnız niyet bildirdiğini
-gösterir: kullanıcı option ID gönderir; deadline, sıra, doğruluk ve puan sunucu
-tarafından belirlenir. Cevap transaction içinde değişmezleşmeden doğru seçenek
-açıklanmaz. Idempotency aynı isteğin tekrarını, unique constraint ise farklı
-paralel isteklerin veri yarışını çözer; bunlar aynı problem değildir.
-
-Aşama 4.1, klasik alt metnin görsel tanıma sorularında tek başına
-yeterli olmadığını gösterir: fazla açıklama cevabı sızdırır, az açıklama ise
-eşdeğer deneyim sağlamaz. Bu nedenle medya alternatifi ile cevabı sızdırmayan
-eşdeğer erişilebilir soru metni ayrı kavramlardır. Storage portu dosyanın nereye
-yazıldığıyla iş kurallarını ayırır. Erişilebilir süre tercihi hassas engel/sağlık
-verisi toplamadan herkese açık uygulanır.
-
-Aşama 5, toplam XP alanını doğrudan güncellemek ile işlem defteri tutmak
-arasındaki farkı gösterir. Ledger her kazanç ve düzeltmeyi yeni bir olgu olarak
-saklar; toplam sonradan bu imzalı kayıtların toplamından hesaplanır. Idempotency
-aynı iş kaynağını yeniden oynatmayı güvenli kılar, veritabanı unique constraint'i
-paralel yazma yarışını durdurur ve ortak PostgreSQL transaction'ı attempt ile XP
-arasında yarım sonuç kalmasını engeller.
-
-Aşama 6, bir veritabanı yazımı ile broker publish işlemini doğrudan peş peşe
-yapmanın dual-write riski oluşturduğunu gösterir. Outbox iş sonucu ile olay
-kaydını tek transaction'da kesinleştirir; publisher olayı sonradan taşır.
-RabbitMQ at-least-once teslim ettiği için consumer Inbox ve ledger tekilliğiyle
-idempotent olmalıdır. XP özeti artık eventual consistency gösterir: sonuçtaki
-beklenen XP hemen bilinir, ledger toplamı consumer çalışınca güncellenir.
-
-Aşama 7, leaderboard iş kuralı ile hızlandırıcı veri yapısının ayrı problemler
-olduğunu gösterir. Önce PostgreSQL ledger toplamı, kapsam ve tie-break kesinleşir;
-sonra Redis aynı sonucu yeniden üretir. `ROW_NUMBER` benzersiz pozisyon verir,
-indeks aday satırları bulmayı hızlandırır, `EXPLAIN ANALYZE` ise veritabanının
-gerçekte seçtiği planı ve ölçülen süreyi gösterir.
-
-Aşama 8, cache/read model ile doğru kaynağın aynı şey olmadığını gösterir.
-Redis silinebilir ve yeniden üretilebilir; PostgreSQL ledger kaybedilemez.
-Eventual consistency, projeksiyon yenilenene kadar sonucun kısa süreli eski
-olabilmesidir. Atomik generation işaretçisi yarım rebuild'in okunmasını önler;
-fallback ise Redis kesintisini veri kaybına veya API kesintisine dönüştürmez.
-Sorted set kullanmak tek başına performans garantisi değildir: ayrı metadata
-okumaları N+1 ağ turu oluşturdu, toplu hash okuması gecikmeyi belirgin düşürdü.
-
-Aşama 9 metric ile trace'in farklı soruları cevapladığını gösterir. Metric düşük
-cardinality ile eğilim ve alarm üretir; trace tek bir isteğin span akışını
-açıklar. Kullanıcıdan gelen korelasyon kimliği gerçek trace kimliği değildir.
-W3C context parent-child ilişkisini asenkron sınırda korur. Token bucket burst
-ile sürdürülebilir hızı ayırır. SLI ölçüm, SLO hedef; RPO kabul edilen veri kaybı
-penceresi, RTO geri dönüş hedefidir. Yük testinde istek sayısı tek başına yeterli
-değildir: p95/p99, hata ve dropped iteration birlikte değerlendirilir.
-
-Aşama 10A, tarayıcıdaki rol kontrolünün yalnız kullanıcı deneyimi olduğunu;
-gerçek authorization'ın backend'de kalması gerektiğini gösterir. Liste ekranı
-aggregate'in sezon/bölüm ağacını her satırda taşımayan özet DTO kullanır, detay
-ekranı ise tam yönetim sözleşmesini okur. Vite proxy yerel same-origin kolaylığı
-sağlar; production CORS/CSRF ve OIDC kararının yerine geçmez.
-
-Aşama 10B, kullanıcı ve yönetici deneyimlerinin aynı backend'i kullanmasına
-rağmen aynı ekran akışında olmak zorunda olmadığını gösterir. Kullanıcı
-sayfasının yalnız yayınlanmış kaynakları okuması draft görünürlüğü sınırını;
-quiz başlangıcından sonra server-authoritative attempt sözleşmesini kullanması
-ise doğru cevap, süre ve skor güvenlik sınırını korur. Idempotency anahtarı,
-ağ hatasında aynı cevap niyetinin ikinci bir kalıcı sonuç üretmemesini sağlar.
+- Java 21 ile tam backend paketi `129/129`, leaderboard servisi `4/4` geçti.
+- Frontend testleri `44/44`, TypeScript strict kontrolü ve production build geçti.
+- PostgreSQL, RabbitMQ ve Redis Testcontainers senaryoları kullanıldı.
+- PDF dosya üretimi doğrulandı; PDF sayfalarının görsel kalite incelemesi kullanıcı izni olmadığı için yapılmadı.
+- Yerel k6 ve operasyon doğrulamaları başlangıç ölçümüdür; production kapasite garantisi değildir.
 
 ## Sıradaki tek iş
 
-Aşama 10C ile yeni draft'ın kapak/publish önkoşulu arayüzden tamamlanabilir.
-Sıradaki tek aday, `docs/ADMIN_WEB_PLAN.md` içindeki 10D quiz yazarlığı
-dilimidir: içerikle ilişkili veya genel quiz taslağı, soru ve şık yönetimi.
-Kullanıcı açıkça onaylamadan bu dilime veya production OIDC/profile/social
-özelliklerine başlanmamalıdır.
+Yeni bir roadmap dilimi seçilene kadar yeni özellik eklenmeyecek. Sıradaki operasyon
+adımı Oracle VM'de production Compose smoke testi ve ilk dış backup/restore provasıdır.
 
-## Yeni Codex görevi için kısa komut
+## Yeni görev için kısa bağlam
 
 ```text
-Repo içindeki AGENTS.md ve docs/ altındaki proje belgelerini oku. Aşama 0–9 ile
-Aşama 10A/10B/10C'nin tamamlandığını CURRENT_STATE, ROADMAP, ADR-0017 ve
-ADR-0020 üzerinden doğrula. Kullanıcı quiz yazarlığı dilimini açıkça seçmeden
-XP, leaderboard veya başka admin ekranı ekleme.
+AGENTS.md ile kısa README, PROJECT_BRIEF, ARCHITECTURE, ROADMAP ve CURRENT_STATE
+dosyalarını oku. Aşama 0-12 tamamlandı. Kullanıcı yeni bir roadmap dilimi seçmeden
+XP, leaderboard, production kimliği veya sosyal özellik ekleme.
 ```
 
-## Bilinen riskler
+## Arşiv
 
-- RabbitMQ ve Redis kullanımı zorunlu; dil, framework ve diğer kurum teknoloji
-  standartları henüz bütünüyle bilinmiyor.
-- GitHub Actions başarılı çalışıyor; kullanılan `actions/checkout@v4` ve
-  `actions/setup-java@v4` sürümleri Node.js 20 deprecation uyarısı veriyor ve
-  ayrı bir bakım görevinde güncel major sürümleri değerlendirilmeli.
-- Kapsamın canlı TV, eğitim ve sosyal özelliklerle erken büyüme riski var.
-- Redis read modelinin PostgreSQL doğru kaynak gibi kullanılma riski rebuild,
-  sonuç eşitliği ve kesinti/fallback testleriyle korunur; üretimde stale pencere
-  ve fallback oranı için alarm eşikleri henüz belirlenmedi.
-- Gerçek TRT/tabii sistemlerine entegrasyon yetkisi veya sözleşmesi henüz yok.
-- Production authentication yöntemi, kurum kimlik sağlayıcısı, issuer/audience
-  ve rol claim eşlemesi henüz belli değil. Geçici header adapter'ı production'da
-  etkin değildir.
-- `admin-web` local actor header'ları production login değildir. Gerçek hosting
-  topolojisi belli olunca OIDC, CORS, CSRF ve secret/config dağıtımı ayrıca
-  tasarlanıp test edilmelidir.
-- Admin kapak akışı yerel backend'in medya endpoint'ini kullanır; production
-  object storage/CDN, telif/kullanım hakkı ve doğrudan görsel önizleme kararı
-  henüz verilmedi. Dosya storage yazımı ile PostgreSQL metadata kaydı atomik
-  değildir; sahipsiz dosya temizliği ayrı production dayanıklılık işidir.
-- Mockito/Byte Buddy, Java 21 test koşusunda gelecekte varsayılan olarak
-  engellenecek dinamik agent yükleme uyarısı veriyor; testler bugün geçiyor,
-  ayrı bir test-tooling bakım görevinde explicit agent yapılandırması
-  değerlendirilmeli.
-- Attempt otomatik expire ve puanlama sürümü ürün kararları ilgili aşamalarda
-  kesinleştirilmelidir.
-- `SCORE_MATCH_V1` bugün XP'yi sunucu skoruna eşitler. Ürün ileride taban XP,
-  bonus veya çarpan isterse yeni politika sürümü gerekir.
-- ADMIN düzeltmesi toplam XP'yi sıfırın altına indirebilir; bu yetkili ve audit
-  edilen davranış gerçek operasyon politikası belirlenirken yeniden
-  değerlendirilmelidir.
-- XP özeti RabbitMQ consumer'ı çalışana kadar kısa süreli eski değer dönebilir;
-  frontend sonuç yanıtındaki beklenen XP ile ledger toplamını farklı anlamlarda
-  sunmalıdır.
-- DLQ replay ve retention politikası belgelendi; otomatik purge/anonimleştirme
-  işleri production kimlik ve hukuk sözleşmesi gelene kadar uygulanmadı.
-- Production RabbitMQ bağlantısında kurum secret yönetimi, TLS, kullanıcı
-  yetkileri ve queue alarm eşikleri henüz belirlenmedi.
-- Publisher confirm beklerken Outbox satır kilidi tutulur; gerçek trafik hedefi
-  ortaya çıktığında Outbox birikimi ve publish gecikmesi ölçülmelidir.
-- Kurumun production media storage/CDN, görsel kullanım hakkı ve zorunlu
-  erişilebilirlik standardı henüz bilinmiyor. Mevcut yerel dosya adapter'ı
-  geliştirme içindir; production kararı geldiğinde port arkasında değiştirilmelidir.
-- Dosya storage yazımı ile PostgreSQL transaction'ı atomik değildir; metadata
-  veya audit yazımı sonradan başarısız olursa sahipsiz dosya temizliği ayrı bir
-  production dayanıklılık görevi olarak ele alınmalıdır.
-- Dönemsel leaderboard, hile/diskalifiye, görünen ad/avatar ve arkadaş kapsamı
-  henüz yoktur; bunlar ayrı ürün ve veri sözleşmesi gerektirir.
-- 2.000 kullanıcı ölçümü yalnız yerel başlangıç karşılaştırmasıdır; gerçek veri
-  dağılımı ve trafik hedefiyle production kapasite garantisi sayılmaz.
-- `docs/PROJECT_SPECIFICATION.md` Aşama 7 ile güncellendi; Aşama 8 kaynak
-  Markdown belgeleri güncellendi. Türetilmiş PDF ve
-  uzun DOCX bu görevde yeniden üretilmedi veya görsel olarak incelenmedi.
-- Aynı quiz draft'ını eşzamanlı düzenleyen birden fazla editör için optimistic
-  locking henüz yoktur; gerçek çok-editör ihtiyacı oluşursa Aşama 3 aggregate
-  yazma yarışları ayrı concurrency testleriyle ele alınmalıdır.
-- Aşama 9'un 10 istek/s baseline sınırı geçti; gerçek trafik hedefi bilinmediği
-  için ilk SLO değerleri production kapasite garantisi değildir.
-- Windows güç tasarrufu ve yerel Docker/WSL zamanlaması k6 p99 ve
-  `dropped_iterations` değerlerini etkileyebilir. Performans karşılaştırması,
-  güç modu `En iyi performans` ayarında ve ağır arka plan işleri kapalıyken
-  tekrarlanmalıdır; bu durum uygulama davranışından ayrı test ortamı riskidir.
-- Yerel dashboard'daki 100 ms–2 s bucket'ları ölçüm başlangıcıdır; ürün SLO'su
-  veya kapasite garantisi değildir.
-- Outbox W3C context'i taşır; nullable kolonlar eski satır uyumluluğunu korur.
-- `/actuator/prometheus` yalnız `observability` profilinde açılır; production
-  scraper ağı, kimliği ve retention/maliyet politikası henüz belirlenmedi.
-- Önceki durum kaydında oluşturulduğu belirtilen `docs/PROJECT_PITCH.md` ve
-  `docs/java.md` dosyaları mevcut çalışma alanında bulunmuyor. Yanlış hedefe
-  yönlendirmemek için README ve `bwl.md` içindeki bozuk bağlantılar kaldırıldı.
-  Dosyalar ayrı bir görevde yedekten geri getirilmeli veya yeniden
-  oluşturulmalıdır.
+[Ayrıntılı current state geçmişi](archive/2026-08-11/CURRENT_STATE.md)
+
+## 12.08.2026 kod öğrenme haritası - başlangıç ve gamification dilimi
+
+- `docs/LEARNING_MAP` altında gerçek kaynak yollarını aynalayan açıklama alanı
+  oluşturuldu. Açıklama dosyaları derlemeye girmez ve çalışan kodun yerine geçmez.
+- İlk dilim, Spring Boot başlangıç sınıfı ile gamification modülünün API, application,
+  domain, port, PostgreSQL adapter ve test kanıtlarını kapsar.
+- `XpController` ve `XpService` metotları gerçek dosyadaki sırayla; amaç, girdi,
+  çıktı, bağımlılık, hata davranışı, transaction ve sistem akışındaki yer bilgileriyle
+  açıklandı.
+- Karar: Yaklaşık 250 Java ve TypeScript dosyasının tamamını tek seferde ikinci kez yazmak yerine,
+  gerçek koddan kopma riskini azaltmak için use-case bazlı ve küçük öğrenme dilimleri
+  kullanılacak. Her açıklama gerçek kaynak yolunu gösterecek.
+- Alternatif birebir yalancı kod kopyası daha tanıdık bir görünüm sağlayabilirdi;
+  ancak davranış değiştiğinde sessizce eski kalma ve gerçek kodla iki ayrı doğru kaynak
+  oluşturma riski nedeniyle seçilmedi.
+- Test çalıştırılmadı; üretim kodu, yapılandırma ve test kodu değişmedi. Yeni Markdown
+  yollarının ve başlıklarının varlığı dosya kontrolüyle doğrulanacaktır.
+- Öğrenilen kavram: Controller HTTP sınırıdır, service kullanım senaryosu ve transaction
+  sınırıdır, domain geçerli XP işlemini tanımlar, repository portu JDBC ayrıntısını
+  application katmanından ayırır.
+- Bilinen konu: Harita henüz bütün modülleri kapsamaz. Açıklama ile kod çelişirse çalışan
+  kod ve testler doğru kaynaktır.
+- Sıradaki tek iş: Kullanıcı bir sonraki öğrenme dilimini seçerse ana kullanıcı akışını
+  takip eden `quiz keşfi -> attempt başlat -> cevapla -> tamamla` zincirini aynı biçimde
+  açıklamak.
+
+## 12.08.2026 quiz erişilebilirlik metni görünürlüğü
+
+- Kullanıcı quiz ekranında `accessiblePrompt` artık sorunun altında görünür paragraf olarak gösterilmiyor.
+- Backend/API alanı, admin soru formu ve cevap anahtarlı PDF akışı korunuyor; yalnızca normal quiz görünümü sadeleştirildi.
+- `npm run test`: 10 dosya, 41 test başarılı.
+- `npm run build`: TypeScript strict kontrolü ve Vite production build başarılı.
+- Görsel tarayıcı incelemesi yapılmadı; proje kuralı gereği bunun için ayrıca açık izin gerekir.
+
+## 12.08.2026 quiz soru puntosu
+
+- Kullanıcı quiz ekranındaki soru başlığı küçültüldü; masaüstünde yaklaşık `1.8rem`, küçük ekranlarda yaklaşık `1.2rem` sınırında çalışır.
+- Değişiklik yalnızca `admin-web/src/user/user-styles.css` içindeki sunum stilini etkiler; soru verisi, gameplay ve erişilebilirlik sözleşmeleri korunur.
+- `npm run test`: 10 dosya, 41 test başarılı.
+- `npm run build`: TypeScript strict kontrolü ve Vite production build başarılı; mevcut büyük PDF bundle uyarısı devam ediyor.
+
+## 12.08.2026 quiz kartlarında kazanılan XP
+
+- Kullanıcının tamamladığı quizler için son tamamlanmış denemenin `earnedXp` değeri backend'den okunuyor.
+- Quiz kartlarında yalnızca `Kazanılan XP: …` gösteriliyor; skor bilgisi karta veya XP özet endpoint'ine eklenmiyor.
+- Hiç çözülmemiş quizlerde XP satırı görünmüyor; tekrar çözümden gelen `0 XP` değeri görünür kalıyor.
+- Yeni `GET /api/v1/me/quiz-results` endpoint'i yalnızca oturum sahibinin quiz sonuç özetlerini döndürüyor.
+- Backend gameplay entegrasyon testleri `12/12`, frontend testleri `43/43` geçti; production build başarılı.
+- Build sırasında mevcut büyük PDF bundle uyarısı devam ediyor.
+
+## 12.08.2026 eski backend ile quiz keşfi uyumluluğu
+
+- Yeni XP özet endpoint'i henüz yeniden başlatılmamış eski backend'de bulunamadığında kullanıcı quiz sayfası artık tamamen hata ekranına düşmüyor.
+- XP bilgisi endpoint mevcutsa gösteriliyor; eski backend ile yalnızca XP satırı geçici olarak boş kalıyor.
+- Çalışan `8081` backend'i Java 21 ile yeniden başlatıldı ve `GET /api/v1/me/quiz-results` isteği `200 []` döndürdü.
+
+## 12.08.2026 tek sunucu production hazırlığı
+
+- Oracle Always Free A1 hedefi için backend, frontend ve leaderboard servisi ayrı
+  container'lara; PostgreSQL, RabbitMQ, Redis ve medya kalıcı/geçici volume sınırlarına
+  yerleştirilen `compose.production.yaml` hazırlandı. İnternete yalnız Caddy `80/443`
+  portlarını yayımlar.
+- Caddy kullanıcı uygulamasını `/`, yönetim uygulamasını `/admin`, backend API'sini
+  aynı origin altında `/api` yolunda sunar ve HTTPS sertifikasını yönetir.
+- Production profili güvenli HttpOnly oturum cookie'si ve SPA CSRF cookie/header
+  doğrulaması kullanır. Token olmadan yazma isteği reddedilir. Local/test geçici actor
+  kolaylığı production'da bulunmaz.
+- Admin web artık gerçek backend oturumunu ve backend'den gelen `ADMIN/EDITOR`
+  rollerini kullanır. Herkese açık kayıt yalnız `USER` üretmeye devam eder.
+- İlk `ADMIN`, yalnız sistemde hiç admin yokken ve başlangıç bayrağı açıkken bir kez
+  oluşturulur. Parola bcrypt özetiyle saklanır; başarılı ilk girişten sonra bayrak
+  kapatılıp başlangıç parolası ortam dosyasından silinmelidir.
+- Tek sunucu seçimi ücretsiz ve sade başlangıç sağlar; karşılığı tek hata noktasıdır.
+  Keycloak/OIDC daha güçlü merkezi kimlik sunar ama ilk demo için ek kaynak ve bakım
+  getirir. Karar ADR-0032'de kayıtlıdır.
+- `./mvnw.cmd verify`: monolith `129/129` test geçti ve çalıştırılabilir JAR üretildi.
+- `./mvnw.cmd -f leaderboard-service/pom.xml test`: servis `4/4` test geçti.
+- Frontend Vitest `44/44` geçti; strict TypeScript ve Vite production build başarılı.
+  Mevcut büyük PDF bundle uyarısı devam ediyor.
+- İş kuralı/test eşleşmesi: ilk admin tekliği ve parola özeti
+  `InitialAdminBootstrapIntegrationTest`; CSRF reddi/kabulü
+  `CsrfProtectionIntegrationTest`; dış port sınırı
+  `ProductionComposeConfigurationTest`; istemci token header'ı frontend CSRF testiyle
+  korunur.
+- Bilinen konular: Yerel makinede Docker CLI PATH'te olmadığı için production
+  image'ları ve tam Compose kümesi burada ayağa kaldırılmadı. Oracle VM/DNS/firewall,
+  MailerSend doğrulanmış domain, gerçek HTTPS smoke testi ve ayrı konuma otomatik
+  backup/restore henüz yapılmadı. Backend restartında bellek içi oturumlar kaybolur.
+- Sıradaki tek iş: Oracle VM'yi hazırlayıp production Compose'u hedefte çalıştırmak;
+  kullanıcı/admin/şifre sıfırlama/leaderboard smoke testleri ile ilk şifreli dış
+  yedek ve restore provasını tamamlamak.

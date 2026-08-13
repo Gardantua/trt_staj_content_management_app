@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import type { ContentDraftInput, ContentType } from "../domain/content";
+import type { ContentInput, ContentType } from "../domain/content";
 
 interface ContentFormProps {
-  initialValue?: ContentDraftInput;
+  initialValue?: ContentInput;
   includeContentType: boolean;
   submitLabel: string;
-  onSubmit: (input: ContentDraftInput) => Promise<void>;
+  onSubmit: (input: ContentInput) => Promise<void>;
 }
 
 export function ContentForm({ initialValue, includeContentType, submitLabel, onSubmit }: ContentFormProps) {
@@ -51,7 +51,7 @@ export function ContentForm({ initialValue, includeContentType, submitLabel, onS
             <option value="SERIES">Dizi</option>
             <option value="FILM">Film</option>
           </select>
-          <p className="field-help">Dizi seçildiğinde taslak kaydedildikten sonra sezon ve bölüm eklenebilir.</p>
+          <p className="field-help">Dizi seçildiğinde kayıt açıldıktan sonra sezon ve bölümleri ekleyebilirsiniz.</p>
         </div>
       )}
       <div className="form-actions"><button className="button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? "Kaydediliyor…" : submitLabel}</button></div>

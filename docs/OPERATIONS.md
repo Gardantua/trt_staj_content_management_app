@@ -4,6 +4,50 @@ Bu belge Aşama 9'un çalıştırılabilir kontrollerini ve ilk mühendislik hed
 tek yerde toplar. Gerçek trafik, kurum altyapısı ve hukuk onayı gelmeden aşağıdaki
 sayısal hedefler production garantisi sayılmaz.
 
+## Tek sunucuda ilk canlı kurulum
+
+Hedef Linux sunucuda Docker Engine, Compose eklentisi, domainin sunucu IP'sine DNS
+kaydı ve firewall'da yalnız `22`, `80`, `443` gerekir. `22` mümkünse yalnız yönetici
+IP'sine sınırlandırılır. Veritabanı, RabbitMQ, Redis ve iki Java servisi internete
+port yayımlamaz.
+
+1. `.env.production.example` dosyasını `.env.production` adıyla kopyala; farklı,
+   uzun parolaları ve MailerSend'in doğrulanmış domain bilgilerini gir.
+2. `INITIAL_ADMIN_ENABLED=true` bırakıp güçlü, benzersiz ilk admin parolası belirle.
+3. Uygulamayı başlat:
+
+```text
+docker compose --env-file .env.production -f compose.production.yaml up -d --build
+```
+
+4. `https://DOMAIN/actuator/health` yerine dışarıdan yalnız uygulama akışlarını;
+   sunucuda ise `docker compose ... ps` ve backend healthcheck durumunu kontrol et.
+   Kullanıcı sayfası `https://DOMAIN/`, yönetici sayfası `https://DOMAIN/admin` olur.
+5. İlk admin girişi başarılı olunca `INITIAL_ADMIN_ENABLED=false` yap,
+   `INITIAL_ADMIN_PASSWORD` değerini dosyadan sil ve backend'i yeniden oluştur:
+
+```text
+docker compose --env-file .env.production -f compose.production.yaml up -d backend
+```
+
+İlk admin mekanizması sistemde bir `ADMIN` varsa ikinci admin oluşturmaz. Yeni admin
+yetkilendirme ihtiyacı için ileride denetimli bir yönetici ekranı/API'si tasarlanır;
+doğrudan veritabanı güncellemesi normal operasyon değildir. `.env.production`
+Git'e eklenmez, dosya erişimi yalnız sunucu yöneticisiyle sınırlandırılır.
+
+### Canlıya çıkmadan önce zorunlu smoke kontrolleri
+
+- Kullanıcı kayıt, giriş, çıkış ve şifre sıfırlama e-postası
+- `/admin` girişinde USER'ın reddi, ADMIN'in içerik ekranına erişimi
+- Quiz tamamlama, XP olayı ve leaderboard'un beklenen kısa gecikmeyle güncellenmesi
+- Backend/leaderboard health, Caddy HTTPS yenilemesi ve container restart davranışı
+- İki PostgreSQL ile medya volume'unun ayrı konuma şifreli yedeği ve boş hedefe
+  gerçek restore provası
+
+Bu Compose tek sunucu maliyetini düşürür fakat yüksek erişilebilir değildir. Backend
+yeniden başlarsa bellek içi oturumlar kaybolur ve kullanıcı yeniden giriş yapar.
+Redis kaybı kabul edilir; PostgreSQL ve medya kaybı kabul edilmez.
+
 ## SLI ve ilk SLO sınırları
 
 SLI ölçülen göstergedir; SLO bu göstergenin hedeflenen sınırıdır. HTTP istekleri
@@ -32,7 +76,9 @@ alanlarını gösterir.
 ## Rate limiting ve güven sınırı
 
 Her uygulama örneği, uzak IP başına sürekli doldurulan token bucket kullanır.
-Varsayılan sınır dakikada 60 istek ve 60 token burst kapasitesidir. Limit aşımı
+Varsayılan sınır dakikada 300 istek ve 300 token burst kapasitesidir. Bu değer,
+aynı IP kotasını paylaşan admin liste/detay ve medya isteklerinin normal editör
+akışını kesmemesi için 10.08.2026'da 60'tan 300'e yükseltildi. Limit aşımı
 kararlı `RATE_LIMIT_EXCEEDED` hata kodu, `429`, `Retry-After` ve RateLimit
 header'ları üretir. Uygulama proxy header'larına doğrudan güvenmez; production
 load balancer gerçek istemci adresini güvenilir ağ sınırında normalize etmelidir.

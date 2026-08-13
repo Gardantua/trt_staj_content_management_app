@@ -118,6 +118,30 @@ class MediaIntegrationTest {
     }
 
     @Test
+    void editorCanListPreviouslyUploadedImagesForReuse() throws Exception {
+        JsonNode firstUpload = objectMapper.readTree(
+                upload(ONE_PIXEL_PNG, "image/png", EDITOR_ID, "EDITOR").body()
+        );
+        JsonNode secondUpload = objectMapper.readTree(
+                upload(ONE_PIXEL_PNG, "image/png", EDITOR_ID, "EDITOR").body()
+        );
+
+        HttpRequest request = authenticatedRequest(
+                "/api/v1/admin/media/images?page=0&size=24", EDITOR_ID, "EDITOR"
+        ).GET().build();
+        HttpResponse<String> response = httpClient.send(
+                request, HttpResponse.BodyHandlers.ofString()
+        );
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body())
+                .contains(firstUpload.get("id").stringValue())
+                .contains(secondUpload.get("id").stringValue())
+                .contains("\"totalItems\":2")
+                .contains("\"contentUrl\"");
+    }
+
+    @Test
     void oversizedUploadReturnsStablePayloadTooLargeError() throws Exception {
         byte[] oversizedContent = new byte[5 * 1024 * 1024 + 1];
         System.arraycopy(ONE_PIXEL_PNG, 0, oversizedContent, 0, ONE_PIXEL_PNG.length);

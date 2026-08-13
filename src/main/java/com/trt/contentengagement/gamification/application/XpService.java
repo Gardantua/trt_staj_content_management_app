@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.trt.contentengagement.admin.application.AdminAuditLog;
 import com.trt.contentengagement.gamification.domain.GamificationRuleViolationException;
 import com.trt.contentengagement.gamification.domain.XpReason;
+import com.trt.contentengagement.gamification.domain.XpPolicyVersion;
 import com.trt.contentengagement.gamification.domain.XpTransaction;
 import com.trt.contentengagement.identity.application.CurrentActorProvider;
 import com.trt.contentengagement.quiz.application.QuizContentReferenceProvider;
@@ -19,6 +20,7 @@ public class XpService {
     private final CurrentActorProvider currentActorProvider;
     private final AdminAuditLog adminAuditLog;
     private final QuizContentReferenceProvider quizContentReferenceProvider;
+    private final XpTransactionEventOutbox xpTransactionEventOutbox;
     private final Clock clock;
 
     public XpService(
@@ -26,12 +28,14 @@ public class XpService {
             CurrentActorProvider currentActorProvider,
             AdminAuditLog adminAuditLog,
             QuizContentReferenceProvider quizContentReferenceProvider,
+            XpTransactionEventOutbox xpTransactionEventOutbox,
             Clock clock
     ) {
         this.xpLedgerRepository = xpLedgerRepository;
         this.currentActorProvider = currentActorProvider;
         this.adminAuditLog = adminAuditLog;
         this.quizContentReferenceProvider = quizContentReferenceProvider;
+        this.xpTransactionEventOutbox = xpTransactionEventOutbox;
         this.clock = clock;
     }
 
@@ -40,12 +44,13 @@ public class XpService {
             UUID userId,
             UUID quizId,
             UUID attemptId,
-            int finalScore,
+            int awardedXp,
+            XpPolicyVersion policyVersion,
             Instant completedAt
     ) {
         UUID contentId = quizContentReferenceProvider.requireContentId(quizId);
         XpTransaction candidate = XpTransaction.forQuizCompletion(
-                userId, contentId, attemptId, finalScore, completedAt
+                userId, contentId, attemptId, awardedXp, policyVersion, completedAt
         );
         XpTransaction stored = xpLedgerRepository.appendIfAbsent(candidate);
         if (!sameCompletion(stored, candidate)) {
@@ -53,6 +58,9 @@ public class XpService {
                     "XP_SOURCE_CONFLICT",
                     "The attempt already produced a different XP transaction."
             );
+        }
+        if (stored.id().equals(candidate.id())) {
+            xpTransactionEventOutbox.stage(stored);
         }
         return stored;
     }
@@ -67,6 +75,13 @@ public class XpService {
     public XpSummary currentUserSummary() {
         UUID userId = currentActorProvider.getCurrentActor().actorId();
         return xpLedgerRepository.summarize(userId);
+    }
+
+    @Transactional
+    public int replayLeaderboardEvents() {
+        var transactions = xpLedgerRepository.findAllForLeaderboardProjection();
+        transactions.forEach(xpTransactionEventOutbox::stage);
+        return transactions.size();
     }
 
     @Transactional
@@ -94,6 +109,7 @@ public class XpService {
             );
         }
         if (stored.id().equals(candidate.id())) {
+            xpTransactionEventOutbox.stage(stored);
             adminAuditLog.record(
                     actorId, "XP_ADJUSTMENT_CREATED", "XP_TRANSACTION",
                     stored.id(), stored.occurredAt()

@@ -4,6 +4,9 @@
 
 Accepted
 
+Tekrar attempt'lerin XP uygunluğu ADR-0026 ile değiştirilmiştir. Leaderboard'un
+yalnız PostgreSQL XP ledger toplamını kullanması kararı geçerlidir.
+
 ## Bağlam
 
 Leaderboard yalnız “XP'ye göre sırala” sorgusu değildir. Tekrar çözülen quizlerin
@@ -20,8 +23,8 @@ Kalıcı kullanıcı profili ve arkadaş sistemi ise MVP'de bulunmamaktadır.
 - Global sıralama kullanıcının bütün XP işlemlerinin toplamıdır.
 - İçerik sıralaması yalnız ilgili `contentId` aidiyetindeki XP işlemlerinin
   toplamıdır. Yönetici düzeltmesi özgün quiz kazancının içerik aidiyetini taşır.
-- Tekrar çözülen bütün tamamlanmış attempt'ler, XP ledger'a girdikleri ölçüde
-  toplama katılır. “En iyi attempt” seçilmez.
+- Aynı quizin yalnız ilk tamamlanması XP ledger'a girer; sonraki alıştırma
+  attempt'leri toplama katılmaz. “En iyi attempt” seçilmez.
 - Sıra deterministik olarak şu anahtarlarla hesaplanır:
   1. toplam XP azalan,
   2. ilk XP işlem zamanı artan,

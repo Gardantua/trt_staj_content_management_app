@@ -4,6 +4,9 @@
 
 Accepted
 
+`earnedXp` hesaplama politikası ADR-0026 ile `FIRST_COMPLETION_SCORE_V2` olarak
+değiştirilmiştir; Outbox/Inbox teslimat kararları geçerlidir.
+
 ## Bağlam
 
 Aşama 5'te quiz attempt'i ile XP aynı PostgreSQL transaction'ında senkron
@@ -16,8 +19,9 @@ için ikinci XP riskini doğurur.
 ## Karar
 
 - Gameplay'in process-içi `QuizAttemptCompleted` domain olayı ile broker'a
-  taşınan `quiz.completed` integration event'i ayrıdır. Dış sözleşme sürümü
-  `v1`'dir.
+  taşınan `quiz.completed` integration event'i ayrıdır. Güncel dış sözleşme `v2`,
+  ilk-tamamlama ödül hakkını açıkça taşır; consumer `v1` olaylarını geriye uyumlu
+  okumaya devam eder.
 - Attempt sonucu ve `outbox_events` satırı aynı PostgreSQL transaction'ında
   yazılır. RabbitMQ bu transaction'ın doğru kaynağı değildir.
 - Event kimliği attempt kimliğinden deterministik üretilir. Aynı attempt yeniden

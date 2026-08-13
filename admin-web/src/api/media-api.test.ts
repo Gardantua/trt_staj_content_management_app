@@ -3,7 +3,7 @@ import { ApiClient } from "./client";
 import { MediaApi } from "./media-api";
 
 describe("MediaApi", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
   it("sends the image as multipart data without overriding its boundary", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
@@ -25,5 +25,33 @@ describe("MediaApi", () => {
     expect((request.headers as Headers).get("X-Test-Actor-Roles")).toBe("EDITOR");
     expect(request.body).toBeInstanceOf(FormData);
     expect((request.body as FormData).get("file")).toBeInstanceOf(Blob);
+  });
+
+  it("downloads the same protected image once during the admin session", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new Blob(["image"], { type: "image/png" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValueOnce("blob:first").mockReturnValueOnce("blob:second");
+    const api = new MediaApi(new ApiClient({ id: "editor-1", roles: ["EDITOR"] }));
+
+    const urls = await Promise.all([
+      api.loadImageObjectUrl("/api/v1/media/media-1/content"),
+      api.loadImageObjectUrl("/api/v1/media/media-1/content")
+    ]);
+
+    expect(urls).toEqual(["blob:first", "blob:second"]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not cache a failed image request so refresh can retry it", async () => {
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new TypeError("network down"))
+      .mockResolvedValueOnce(new Response(new Blob(["image"], { type: "image/png" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:retry");
+    const api = new MediaApi(new ApiClient({ id: "editor-1", roles: ["EDITOR"] }));
+
+    await expect(api.loadImageObjectUrl("/api/v1/media/media-1/content")).rejects.toMatchObject({ code: "NETWORK_UNAVAILABLE" });
+    await expect(api.loadImageObjectUrl("/api/v1/media/media-1/content")).resolves.toBe("blob:retry");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

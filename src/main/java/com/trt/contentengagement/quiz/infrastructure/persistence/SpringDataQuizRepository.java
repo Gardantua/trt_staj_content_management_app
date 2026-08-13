@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 interface SpringDataQuizRepository extends JpaRepository<JpaQuizEntity, UUID> {
 
+    List<JpaQuizEntity> findByContentIdOrderByUpdatedAtDesc(UUID contentId);
+
     Optional<JpaQuizEntity> findDistinctByIdAndVersionsStatus(
             UUID quizId,
             QuizVersionStatus status
@@ -16,6 +18,10 @@ interface SpringDataQuizRepository extends JpaRepository<JpaQuizEntity, UUID> {
 
     List<JpaQuizEntity> findDistinctByContentIdAndVersionsStatusOrderByCreatedAtAsc(
             UUID contentId,
+            QuizVersionStatus status
+    );
+
+    List<JpaQuizEntity> findDistinctByVersionsStatusOrderByUpdatedAtDesc(
             QuizVersionStatus status
     );
 

@@ -14,28 +14,38 @@ class QuizAttemptTest {
     private static final UUID QUESTION_ID = UUID.randomUUID();
     private static final UUID CORRECT_OPTION_ID = UUID.randomUUID();
     private static final UUID WRONG_OPTION_ID = UUID.randomUUID();
+    private static final UUID THIRD_OPTION_ID = UUID.randomUUID();
+    private static final UUID FOURTH_OPTION_ID = UUID.randomUUID();
     private final QuestionAnswerKey answerKey = new QuestionAnswerKey(
-            QUESTION_ID, 1, List.of(CORRECT_OPTION_ID, WRONG_OPTION_ID), CORRECT_OPTION_ID
+            QUESTION_ID, 1,
+            List.of(CORRECT_OPTION_ID, WRONG_OPTION_ID, THIRD_OPTION_ID, FOURTH_OPTION_ID),
+            CORRECT_OPTION_ID
     );
 
     @Test
     void acceptedAnswerImmediatelyRevealsCorrectOptionAndAwardsServerScore() {
         QuizAttempt attempt = attempt();
         QuizAttempt.AnswerResult result = attempt.submitAnswer(
-                answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 2
+                answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 2,
+                START.plusSeconds(35)
         );
         assertThat(result.correct()).isTrue();
         assertThat(result.correctOptionId()).isEqualTo(CORRECT_OPTION_ID);
-        assertThat(result.awardedPoints()).isEqualTo(100);
-        assertThat(attempt.score()).isEqualTo(100);
+        assertThat(result.awardedPoints()).isEqualTo(10);
+        assertThat(attempt.score()).isEqualTo(10);
     }
 
     @Test
     void sameQuestionCannotBeAnsweredTwice() {
         QuizAttempt attempt = attempt();
-        attempt.submitAnswer(answerKey, WRONG_OPTION_ID, "answer-1", START.plusSeconds(5), 2);
+        attempt.submitAnswer(
+                answerKey, WRONG_OPTION_ID, "answer-1", START.plusSeconds(5), 2,
+                START.plusSeconds(35)
+        );
+        attempt.startNextQuestion(START.plusSeconds(10), START.plusSeconds(40));
         assertThatThrownBy(() -> attempt.submitAnswer(
-                answerKey, CORRECT_OPTION_ID, "answer-2", START.plusSeconds(6), 2
+                answerKey, CORRECT_OPTION_ID, "answer-2", START.plusSeconds(12), 2,
+                START.plusSeconds(42)
         )).isInstanceOf(GameplayRuleViolationException.class)
                 .hasMessage("The question already has a submitted answer.");
     }
@@ -44,42 +54,85 @@ class QuizAttemptTest {
     void repeatedIdempotencyKeyReturnsSameAnswerButRejectsDifferentPayload() {
         QuizAttempt attempt = attempt();
         QuizAttempt.AnswerResult first = attempt.submitAnswer(
-                answerKey, WRONG_OPTION_ID, "same-key", START.plusSeconds(5), 2
+                answerKey, WRONG_OPTION_ID, "same-key", START.plusSeconds(5), 2,
+                START.plusSeconds(35)
         );
         QuizAttempt.AnswerResult repeated = attempt.submitAnswer(
-                answerKey, WRONG_OPTION_ID, "same-key", START.plusSeconds(8), 2
+                answerKey, WRONG_OPTION_ID, "same-key", START.plusSeconds(8), 2,
+                START.plusSeconds(38)
         );
         assertThat(repeated).isEqualTo(first);
         assertThatThrownBy(() -> attempt.submitAnswer(
-                answerKey, CORRECT_OPTION_ID, "same-key", START.plusSeconds(9), 2
+                answerKey, CORRECT_OPTION_ID, "same-key", START.plusSeconds(9), 2,
+                START.plusSeconds(39)
         )).isInstanceOf(GameplayRuleViolationException.class)
                 .hasMessageContaining("different answer");
     }
 
     @Test
-    void deadlineExpiresAttemptAndRejectsAnswer() {
+    void deadlineTimesOutCurrentQuestionAndWaitsForThePlayerToOpenTheNextQuestion() {
         QuizAttempt attempt = attempt();
-        assertThat(attempt.expireIfDeadlineReached(START.plusSeconds(300))).isTrue();
-        assertThat(attempt.status()).isEqualTo(AttemptStatus.EXPIRED);
-        assertThatThrownBy(() -> attempt.submitAnswer(
-                answerKey, CORRECT_OPTION_ID, "late", START.plusSeconds(301), 2
-        )).isInstanceOf(GameplayRuleViolationException.class);
+        QuizAttempt.AnswerResult result = attempt.timeoutQuestion(
+                answerKey, "timeout-1", START.plusSeconds(30), 2, START.plusSeconds(60)
+        );
+        assertThat(result.selectedOptionId()).isNull();
+        assertThat(result.correct()).isFalse();
+        assertThat(attempt.status()).isEqualTo(AttemptStatus.AWAITING_NEXT_QUESTION);
+        assertThat(attempt.deadline()).isNull();
+    }
+
+    @Test
+    void nextQuestionTimerStartsOnlyWhenThePlayerContinues() {
+        QuizAttempt attempt = attempt();
+        attempt.submitAnswer(
+                answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 2,
+                START.plusSeconds(35)
+        );
+
+        assertThat(attempt.status()).isEqualTo(AttemptStatus.AWAITING_NEXT_QUESTION);
+        assertThat(attempt.deadline()).isNull();
+
+        attempt.startNextQuestion(START.plusSeconds(8), START.plusSeconds(38));
+
+        assertThat(attempt.status()).isEqualTo(AttemptStatus.ACTIVE);
+        assertThat(attempt.deadline()).isEqualTo(START.plusSeconds(38));
     }
 
     @Test
     void lastAnswerCompletesAttemptAndProducesDomainEvent() {
         QuizAttempt attempt = attempt();
-        attempt.submitAnswer(answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 1);
+        attempt.submitAnswer(
+                answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 1,
+                START.plusSeconds(35)
+        );
+        attempt.recordEarnedXp(10);
         QuizAttemptCompleted event = attempt.completionEvent();
         assertThat(attempt.status()).isEqualTo(AttemptStatus.COMPLETED);
         assertThat(event.attemptId()).isEqualTo(attempt.id());
-        assertThat(event.score()).isEqualTo(100);
+        assertThat(event.score()).isEqualTo(10);
+        assertThat(event.earnedXp()).isEqualTo(10);
+    }
+
+    @Test
+    void completedPracticeAttemptCanRecordZeroXpButCannotChangeThatDecision() {
+        QuizAttempt attempt = attempt();
+        attempt.submitAnswer(
+                answerKey, CORRECT_OPTION_ID, "answer-1", START.plusSeconds(5), 1,
+                START.plusSeconds(35)
+        );
+
+        attempt.recordEarnedXp(0);
+
+        assertThat(attempt.earnedXp()).isZero();
+        assertThatThrownBy(() -> attempt.recordEarnedXp(10))
+                .isInstanceOf(GameplayRuleViolationException.class)
+                .hasMessageContaining("already recorded");
     }
 
     private QuizAttempt attempt() {
         return QuizAttempt.start(
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                "STANDARD_V1", "STANDARD_V1", START, START.plusSeconds(300)
+                "STANDARD_V1", "QUESTION_30_SECONDS_V1", START, START.plusSeconds(30)
         );
     }
 }

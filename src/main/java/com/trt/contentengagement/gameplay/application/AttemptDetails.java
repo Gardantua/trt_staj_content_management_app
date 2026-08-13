@@ -11,7 +11,7 @@ public record AttemptDetails(
         UUID attemptId, UUID quizId, UUID quizVersionId, String status,
         String timingPolicyVersion,
         int score, Integer earnedXp,
-        Instant startedAt, Instant deadline, Instant completedAt,
+        Instant startedAt, Instant questionDeadline, Instant completedAt,
         int answeredQuestionCount, int totalQuestionCount,
         QuestionView currentQuestion, List<AnswerFeedback> submittedAnswers
 ) {
@@ -22,16 +22,24 @@ public record AttemptDetails(
     public static AttemptDetails from(
             QuizAttempt attempt, GameplayQuizSnapshot snapshot, Integer earnedXp
     ) {
-        QuestionView current = attempt.status().name().equals("ACTIVE")
+        QuestionView current = (attempt.status().name().equals("ACTIVE")
+                || attempt.status().name().equals("AWAITING_NEXT_QUESTION"))
                 && attempt.answers().size() < snapshot.questions().size()
                 ? QuestionView.from(snapshot.questions().get(attempt.answers().size())) : null;
         List<AnswerFeedback> feedback = attempt.answers().stream().map(answer -> {
             GameplayQuizSnapshot.QuestionSnapshot question = snapshot.questions().stream()
                     .filter(candidate -> candidate.questionId().equals(answer.questionId()))
                     .findFirst().orElseThrow();
+            GameplayQuizSnapshot.OptionSnapshot correctOption = question.options().stream()
+                    .filter(candidate -> candidate.optionId().equals(question.correctOptionId()))
+                    .findFirst().orElse(null);
+            String correctOptionText = correctOption != null ? correctOption.text() : null;
+            String explanation = question.accessiblePrompt();
             return new AnswerFeedback(
                     answer.questionId(), answer.selectedOptionId(), answer.correct(),
-                    question.correctOptionId(), answer.awardedPoints()
+                    answer.selectedOptionId() == null ? "TIMED_OUT"
+                            : answer.correct() ? "CORRECT" : "INCORRECT",
+                    question.correctOptionId(), correctOptionText, explanation, answer.awardedPoints()
             );
         }).toList();
         return new AttemptDetails(
@@ -70,7 +78,8 @@ public record AttemptDetails(
     public record OptionView(UUID optionId, int optionOrder, String text) { }
     public record AnswerFeedback(
             UUID questionId, UUID selectedOptionId, boolean correct,
-            String resultStatus, UUID correctOptionId, int awardedPoints
+            String resultStatus, UUID correctOptionId, String correctOptionText,
+            String explanation, int awardedPoints
     ) {
         public AnswerFeedback(
                 UUID questionId, UUID selectedOptionId, boolean correct,
@@ -78,7 +87,17 @@ public record AttemptDetails(
         ) {
             this(
                     questionId, selectedOptionId, correct,
-                    correct ? "CORRECT" : "INCORRECT", correctOptionId, awardedPoints
+                    correct ? "CORRECT" : "INCORRECT", correctOptionId, null, null, awardedPoints
+            );
+        }
+
+        public AnswerFeedback(
+                UUID questionId, UUID selectedOptionId, boolean correct,
+                String resultStatus, UUID correctOptionId, int awardedPoints
+        ) {
+            this(
+                    questionId, selectedOptionId, correct,
+                    resultStatus, correctOptionId, null, null, awardedPoints
             );
         }
     }

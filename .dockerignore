@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.vscode
+build
+docs
+leaderboard-service
+ops
+target
+tmp
+*.pdf

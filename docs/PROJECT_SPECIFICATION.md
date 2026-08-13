@@ -571,7 +571,7 @@ Bu aşamada RabbitMQ kullanılmaz.
 ### 5.8. Aşama 6 - Güvenilir Mesajlaşma ve RabbitMQ
 
 Durum: Tamamlandı. Çalışan gameplay ve PostgreSQL XP davranışı sürümlü
-`quiz.completed` v1 olayı, Transactional Outbox, RabbitMQ ve idempotent Inbox
+`quiz.completed` v2 olayı (v1 geriye uyumlu), Transactional Outbox, RabbitMQ ve idempotent Inbox
 consumer ile asenkronlaştırılmıştır. Sonuç yanıtındaki `earnedXp` kesin skordan
 hemen hesaplanır; XP özeti kısa süreli eventual consistency gösterebilir.
 

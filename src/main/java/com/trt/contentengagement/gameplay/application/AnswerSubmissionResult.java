@@ -1,5 +1,6 @@
 package com.trt.contentengagement.gameplay.application;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record AnswerSubmissionResult(
@@ -8,5 +9,6 @@ public record AnswerSubmissionResult(
         String attemptStatus,
         int score,
         Integer earnedXp,
+        Instant questionDeadline,
         AttemptDetails.QuestionView nextQuestion
 ) { }

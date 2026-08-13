@@ -35,10 +35,10 @@ public record Question(
                 answerOptions,
                 "answerOptions must not be null"
         ));
-        if (answerOptions.size() > 6) {
+        if (answerOptions.size() != 4) {
             throw new QuizRuleViolationException(
-                    "QUIZ_TOO_MANY_OPTIONS",
-                    "A question cannot contain more than six answer options."
+                    "QUIZ_REQUIRES_FOUR_OPTIONS",
+                    "Every question must contain exactly four answer options."
             );
         }
         if (answerOptions.stream().filter(AnswerOption::correct).count() > 1) {
@@ -104,12 +104,6 @@ public record Question(
     }
 
     void validateForPublication() {
-        if (answerOptions.size() < 2) {
-            throw new QuizRuleViolationException(
-                    "QUIZ_QUESTION_REQUIRES_OPTIONS",
-                    "Every published question requires at least two answer options."
-            );
-        }
         if (answerOptions.stream().filter(AnswerOption::correct).count() != 1) {
             throw new QuizRuleViolationException(
                     "QUIZ_QUESTION_REQUIRES_CORRECT_OPTION",

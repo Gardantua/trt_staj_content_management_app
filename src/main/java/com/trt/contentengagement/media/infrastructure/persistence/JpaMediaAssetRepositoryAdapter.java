@@ -4,7 +4,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.trt.contentengagement.media.application.MediaAssetRepository;
+import com.trt.contentengagement.media.application.MediaAssetPage;
 import com.trt.contentengagement.media.domain.MediaAsset;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -28,6 +31,18 @@ public class JpaMediaAssetRepositoryAdapter implements MediaAssetRepository {
     @Override
     public Optional<MediaAsset> findById(UUID mediaAssetId) {
         return repository.findById(mediaAssetId).map(this::toDomain);
+    }
+
+    @Override
+    public MediaAssetPage findPage(int page, int size) {
+        var result = repository.findAll(PageRequest.of(
+                page, size, Sort.by(Sort.Direction.DESC, "createdAt")
+        ));
+        return new MediaAssetPage(
+                result.getContent().stream().map(this::toDomain).toList(),
+                result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.getTotalPages()
+        );
     }
 
     private MediaAsset toDomain(JpaMediaAssetEntity entity) {

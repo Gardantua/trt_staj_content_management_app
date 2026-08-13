@@ -1,27 +1,33 @@
 import { ApiClient } from "./client";
-import type { Content, ContentDraftInput, ContentPage, CoverBindingInput, EpisodeInput, SeasonInput } from "../domain/content";
+import type { Content, ContentInput, ContentPage, CoverBindingInput, EpisodeInput, SeasonInput, SeasonPlanInput } from "../domain/content";
 
 export class ContentApi {
   constructor(private readonly client: ApiClient) {}
 
-  list(page: number, size: number): Promise<ContentPage> {
-    return this.client.request(`/api/v1/admin/contents?page=${page}&size=${size}`);
+  list(page: number, size: number, query = ""): Promise<ContentPage> {
+    const parameters = new URLSearchParams({ page: String(page), size: String(size) });
+    if (query.trim()) parameters.set("query", query.trim());
+    return this.client.request(`/api/v1/admin/contents?${parameters.toString()}`);
   }
 
   get(contentId: string): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}`);
   }
 
-  create(input: ContentDraftInput): Promise<Content> {
+  create(input: ContentInput): Promise<Content> {
     return this.client.request("/api/v1/admin/contents", { method: "POST", body: JSON.stringify(input) });
   }
 
-  update(contentId: string, input: Pick<ContentDraftInput, "title" | "description">): Promise<Content> {
+  update(contentId: string, input: Pick<ContentInput, "title" | "description">): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}`, { method: "PUT", body: JSON.stringify(input) });
   }
 
   publish(contentId: string): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}/publish`, { method: "POST" });
+  }
+
+  deleteContent(contentId: string): Promise<void> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}`, { method: "DELETE" });
   }
 
   setCover(contentId: string, input: CoverBindingInput): Promise<Content> {
@@ -30,6 +36,10 @@ export class ContentApi {
 
   addSeason(contentId: string, input: SeasonInput): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}/seasons`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  addSeasonPlan(contentId: string, input: SeasonPlanInput): Promise<Content> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/season-plan`, { method: "POST", body: JSON.stringify(input) });
   }
 
   updateSeason(contentId: string, seasonId: string, input: SeasonInput): Promise<Content> {

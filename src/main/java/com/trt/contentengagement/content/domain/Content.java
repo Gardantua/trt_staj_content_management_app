@@ -97,21 +97,26 @@ public class Content {
     }
 
     public void updateDetails(String title, String description, Instant changedAt) {
-        ensureDraft();
         this.title = ContentText.requireTitle(title);
         this.description = ContentText.normalizeDescription(description);
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
     public void setCover(UUID mediaAssetId, String alternativeText, Instant changedAt) {
-        ensureDraft();
         this.coverMediaId = Objects.requireNonNull(mediaAssetId, "mediaAssetId must not be null");
         this.coverAlternativeText = normalizeCoverAlternativeText(mediaAssetId, alternativeText);
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
     public Season addSeason(int seasonNumber, String title, Instant changedAt) {
-        ensureSeriesDraft();
+        ensureSeries();
+        if (publicationStatus == PublicationStatus.PUBLISHED
+                && seasonNumber <= seasons.stream().mapToInt(Season::seasonNumber).max().orElse(0)) {
+            throw new ContentRuleViolationException(
+                    "PUBLISHED_SEASON_MUST_APPEND",
+                    "A new season must be added after every published season."
+            );
+        }
         if (seasons.stream().anyMatch(season -> season.seasonNumber() == seasonNumber)) {
             throw new ContentRuleViolationException(
                     "SEASON_NUMBER_DUPLICATE",
@@ -164,8 +169,17 @@ public class Content {
             String description,
             Instant changedAt
     ) {
-        ensureSeriesDraft();
-        Episode episode = requireSeason(seasonId).addEpisode(episodeNumber, title, description);
+        ensureSeries();
+        Season season = requireSeason(seasonId);
+        if (publicationStatus == PublicationStatus.PUBLISHED
+                && episodeNumber <= season.episodes().stream()
+                        .mapToInt(Episode::episodeNumber).max().orElse(0)) {
+            throw new ContentRuleViolationException(
+                    "PUBLISHED_EPISODE_MUST_APPEND",
+                    "A new episode must be added after every published episode in its season."
+            );
+        }
+        Episode episode = season.addEpisode(episodeNumber, title, description);
         updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
         return episode;
     }
@@ -257,6 +271,10 @@ public class Content {
 
     private void ensureSeriesDraft() {
         ensureDraft();
+        ensureSeries();
+    }
+
+    private void ensureSeries() {
         if (contentType != ContentType.SERIES) {
             throw new ContentRuleViolationException(
                     "SEASON_NOT_ALLOWED",

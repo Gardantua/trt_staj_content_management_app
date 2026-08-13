@@ -10,6 +10,15 @@ import org.junit.jupiter.api.Test;
 class TokenBucketRateLimiterTest {
 
     @Test
+    void defaultQuotaSupportsAdminWorkflowBurst() {
+        RateLimitProperties properties = new RateLimitProperties();
+
+        assertThat(properties.getCapacity()).isEqualTo(300);
+        assertThat(properties.getRefillTokens()).isEqualTo(300);
+        assertThat(properties.getRefillPeriod()).isEqualTo(Duration.ofMinutes(1));
+    }
+
+    @Test
     void burstIsAcceptedThenTokensRefillWithMonotonicTime() {
         AtomicLong nanoTime = new AtomicLong();
         RateLimitProperties properties = properties(2, 2, Duration.ofSeconds(10));

@@ -10,6 +10,10 @@ import com.trt.contentengagement.gamification.application.XpTransactionNotFoundE
 import com.trt.contentengagement.gamification.domain.GamificationRuleViolationException;
 import com.trt.contentengagement.media.application.MediaNotFoundException;
 import com.trt.contentengagement.media.domain.MediaRuleViolationException;
+import com.trt.contentengagement.identity.application.AccountEmailAlreadyUsedException;
+import com.trt.contentengagement.identity.application.AccountNotFoundException;
+import com.trt.contentengagement.identity.application.InvalidLoginCredentialsException;
+import com.trt.contentengagement.identity.application.InvalidPasswordResetTokenException;
 import com.trt.contentengagement.messaging.application.OutboxEventConflictException;
 import com.trt.contentengagement.quiz.application.QuizNotFoundException;
 import com.trt.contentengagement.quiz.domain.QuizRuleViolationException;
@@ -106,6 +110,31 @@ public class GlobalExceptionHandler {
         );
 
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(AccountEmailAlreadyUsedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountEmailAlreadyUsed(
+            AccountEmailAlreadyUsedException conflict
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(createErrorResponse(
+                "ACCOUNT_EMAIL_ALREADY_USED", conflict.getMessage()
+        ));
+    }
+
+    @ExceptionHandler({InvalidLoginCredentialsException.class, AccountNotFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleInvalidAccountAuthentication(RuntimeException failure) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(createErrorResponse(
+                "AUTHENTICATION_INVALID", "Email or password is incorrect."
+        ));
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidPasswordResetToken(
+            InvalidPasswordResetTokenException invalidToken
+    ) {
+        return ResponseEntity.badRequest().body(createErrorResponse(
+                "PASSWORD_RESET_TOKEN_INVALID", invalidToken.getMessage()
+        ));
     }
 
     @ExceptionHandler({

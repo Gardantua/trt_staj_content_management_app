@@ -11,6 +11,9 @@ public class Quiz {
 
     private final UUID id;
     private final UUID contentId;
+    private final QuizScopeType scopeType;
+    private final UUID seasonId;
+    private final UUID episodeId;
     private final Instant createdAt;
     private Instant updatedAt;
     private final List<QuizVersion> versions;
@@ -18,15 +21,22 @@ public class Quiz {
     private Quiz(
             UUID id,
             UUID contentId,
+            QuizScopeType scopeType,
+            UUID seasonId,
+            UUID episodeId,
             Instant createdAt,
             Instant updatedAt,
             List<QuizVersion> versions
     ) {
         this.id = Objects.requireNonNull(id, "id must not be null");
         this.contentId = Objects.requireNonNull(contentId, "contentId must not be null");
+        this.scopeType = Objects.requireNonNull(scopeType, "scopeType must not be null");
+        this.seasonId = seasonId;
+        this.episodeId = episodeId;
         this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
         this.updatedAt = Objects.requireNonNull(updatedAt, "updatedAt must not be null");
         this.versions = new ArrayList<>(Objects.requireNonNull(versions, "versions must not be null"));
+        ensureScopeInvariant();
         ensureVersionInvariants();
     }
 
@@ -36,8 +46,24 @@ public class Quiz {
             String description,
             Instant createdAt
     ) {
+        return create(
+                contentId, QuizScopeType.CONTENT, null, null,
+                title, description, createdAt
+        );
+    }
+
+    public static Quiz create(
+            UUID contentId,
+            QuizScopeType scopeType,
+            UUID seasonId,
+            UUID episodeId,
+            String title,
+            String description,
+            Instant createdAt
+    ) {
         return new Quiz(
-                UUID.randomUUID(), contentId, createdAt, createdAt,
+                UUID.randomUUID(), contentId, scopeType, seasonId, episodeId,
+                createdAt, createdAt,
                 List.of(QuizVersion.createFirstDraft(title, description, createdAt))
         );
     }
@@ -45,11 +71,31 @@ public class Quiz {
     public static Quiz rehydrate(
             UUID id,
             UUID contentId,
+            QuizScopeType scopeType,
+            UUID seasonId,
+            UUID episodeId,
             Instant createdAt,
             Instant updatedAt,
             List<QuizVersion> versions
     ) {
-        return new Quiz(id, contentId, createdAt, updatedAt, versions);
+        return new Quiz(
+                id, contentId, scopeType, seasonId, episodeId,
+                createdAt, updatedAt, versions
+        );
+    }
+
+    private void ensureScopeInvariant() {
+        boolean valid = switch (scopeType) {
+            case CONTENT -> seasonId == null && episodeId == null;
+            case SEASON -> seasonId != null && episodeId == null;
+            case EPISODE -> seasonId != null && episodeId != null;
+        };
+        if (!valid) {
+            throw new QuizRuleViolationException(
+                    "QUIZ_SCOPE_INVALID",
+                    "Quiz scope does not match its season and episode references."
+            );
+        }
     }
 
     public QuizVersion createDraftFromPublished(Instant occurredAt) {
@@ -142,6 +188,25 @@ public class Quiz {
         updatedAt = occurredAt;
     }
 
+    public void retire(Instant occurredAt) {
+        List<QuizVersion> publishedVersions = versions.stream()
+                .filter(version -> version.status() == QuizVersionStatus.PUBLISHED)
+                .toList();
+        if (publishedVersions.isEmpty()) {
+            throw new QuizRuleViolationException(
+                    "QUIZ_ACTIVE_VERSION_NOT_FOUND",
+                    "The quiz does not have an active published version."
+            );
+        }
+        publishedVersions.forEach(version -> version.archive(occurredAt));
+        versions.removeIf(version -> version.status() == QuizVersionStatus.DRAFT);
+        updatedAt = occurredAt;
+    }
+
+    public boolean hasPublicationHistory() {
+        return versions.stream().anyMatch(version -> version.status() != QuizVersionStatus.DRAFT);
+    }
+
     public QuizVersion requireVersion(UUID versionId) {
         return versions.stream()
                 .filter(version -> version.id().equals(versionId))
@@ -189,6 +254,9 @@ public class Quiz {
 
     public UUID id() { return id; }
     public UUID contentId() { return contentId; }
+    public QuizScopeType scopeType() { return scopeType; }
+    public UUID seasonId() { return seasonId; }
+    public UUID episodeId() { return episodeId; }
     public Instant createdAt() { return createdAt; }
     public Instant updatedAt() { return updatedAt; }
     public List<QuizVersion> versions() {

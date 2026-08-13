@@ -7,8 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.rate-limit")
 public class RateLimitProperties {
     private boolean enabled = true;
-    private int capacity = 60;
-    private int refillTokens = 60;
+    private int capacity = 300;
+    private int refillTokens = 300;
     private Duration refillPeriod = Duration.ofMinutes(1);
     private int maxTrackedClients = 10_000;
 

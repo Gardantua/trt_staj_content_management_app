@@ -45,6 +45,60 @@ services:
       retries: 10
       start_period: 5s
 
+  leaderboard-postgres:
+    image: postgres:17.5-alpine
+    container_name: content-engagement-leaderboard-postgres
+    environment:
+      POSTGRES_DB: leaderboard
+      POSTGRES_USER: leaderboard
+      POSTGRES_PASSWORD: local_development_password
+    ports:
+      - "5434:5432"
+    volumes:
+      - content-engagement-leaderboard-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leaderboard -d leaderboard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  leaderboard-redis:
+    image: redis:8.2-alpine
+    container_name: content-engagement-leaderboard-redis
+    ports:
+      - "6381:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  leaderboard-service:
+    build:
+      context: ./leaderboard-service
+    container_name: content-engagement-leaderboard-service
+    environment:
+      LEADERBOARD_DATABASE_URL: jdbc:postgresql://leaderboard-postgres:5432/leaderboard
+      LEADERBOARD_DATABASE_USERNAME: leaderboard
+      LEADERBOARD_DATABASE_PASSWORD: local_development_password
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: content_engagement
+      RABBITMQ_PASSWORD: local_development_password
+      LEADERBOARD_REDIS_HOST: leaderboard-redis
+      LEADERBOARD_REDIS_PORT: 6379
+    ports:
+      - "8082:8082"
+    depends_on:
+      leaderboard-postgres:
+        condition: service_healthy
+      leaderboard-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.153.0
     profiles: ["observability"]
@@ -109,6 +163,7 @@ services:
 
 volumes:
   content-engagement-postgres-data:
+  content-engagement-leaderboard-postgres-data:
   content-engagement-prometheus-data:
   content-engagement-tempo-data:
   content-engagement-grafana-data:

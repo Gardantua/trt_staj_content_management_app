@@ -72,6 +72,14 @@ public class JdbcXpLedgerRepositoryAdapter implements XpLedgerRepository, XpLead
     }
 
     @Override
+    public List<XpTransaction> findAllForLeaderboardProjection() {
+        return jdbcTemplate.query(
+                SELECT_COLUMNS + " ORDER BY occurred_at, id",
+                this::mapTransaction
+        );
+    }
+
+    @Override
     public XpSummary summarize(UUID userId) {
         return jdbcTemplate.queryForObject(
                 """

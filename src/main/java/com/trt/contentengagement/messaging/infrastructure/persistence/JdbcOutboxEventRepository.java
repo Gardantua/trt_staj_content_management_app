@@ -151,6 +151,7 @@ public class JdbcOutboxEventRepository implements OutboxEventRepository {
                     && stored.quizId().equals(candidate.quizId())
                     && stored.quizVersionId().equals(candidate.quizVersionId())
                     && stored.finalScore() == candidate.finalScore()
+                    && java.util.Objects.equals(stored.earnedXp(), candidate.earnedXp())
                     && stored.xpPolicyVersion().equals(candidate.xpPolicyVersion());
         } catch (RuntimeException invalidPayload) {
             return false;

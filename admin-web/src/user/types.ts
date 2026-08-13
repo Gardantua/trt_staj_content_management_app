@@ -39,12 +39,31 @@ export interface PublicContent extends PublicContentSummary {
 export interface PublishedQuiz {
   quizId: string;
   contentId: string;
+  scopeType: "CONTENT" | "SEASON" | "EPISODE";
+  seasonId: string | null;
+  episodeId: string | null;
   versionId: string;
   versionNumber: number;
   title: string;
   description: string | null;
   scoringPolicyVersion: string;
   questions: Array<{ id: string }>;
+}
+
+export interface PublishedQuizSummary {
+  quizId: string;
+  contentId: string;
+  scopeType: PublishedQuiz["scopeType"];
+  seasonId: string | null;
+  episodeId: string | null;
+  title: string;
+  description: string | null;
+  questionCount: number;
+}
+
+export interface QuizResultSummary {
+  quizId: string;
+  earnedXp: number | null;
 }
 
 export interface PublicApiError {
@@ -66,10 +85,12 @@ export interface AttemptQuestion {
 
 export interface AnswerFeedback {
   questionId: string;
-  selectedOptionId: string;
+  selectedOptionId: string | null;
   correct: boolean;
-  resultStatus: "CORRECT" | "INCORRECT";
+  resultStatus: "CORRECT" | "INCORRECT" | "TIMED_OUT";
   correctOptionId: string;
+  correctOptionText?: string | null;
+  explanation?: string | null;
   awardedPoints: number;
 }
 
@@ -77,12 +98,12 @@ export interface QuizAttempt {
   attemptId: string;
   quizId: string;
   quizVersionId: string;
-  status: "ACTIVE" | "COMPLETED" | "EXPIRED";
-  timingPolicyVersion: "STANDARD_V1" | "EXTENDED_V1";
+  status: "ACTIVE" | "AWAITING_NEXT_QUESTION" | "COMPLETED" | "EXPIRED";
+  timingPolicyVersion: "QUESTION_30_SECONDS_V1";
   score: number;
   earnedXp: number | null;
   startedAt: string;
-  deadline: string;
+  questionDeadline: string | null;
   completedAt: string | null;
   answeredQuestionCount: number;
   totalQuestionCount: number;
@@ -96,10 +117,11 @@ export interface AnswerSubmissionResult {
   attemptStatus: QuizAttempt["status"];
   score: number;
   earnedXp: number | null;
+  questionDeadline: string | null;
   nextQuestion: AttemptQuestion | null;
 }
 
 export interface XpSummary { userId: string; totalXp: number; transactionCount: number; }
 export interface CurrentActor { actorId: string; roles: string[]; }
-export interface LeaderboardEntry { position: number; userId: string; totalXp: number; firstXpAt: string; currentUser: boolean; }
+export interface LeaderboardEntry { position: number; userId: string; displayName: string | null; totalXp: number; firstXpAt: string; currentUser: boolean; }
 export interface Leaderboard { scope: "GLOBAL" | "CONTENT"; contentId: string | null; period: string; dataSource: "REDIS" | "POSTGRESQL_FALLBACK"; projectionGeneratedAt: string | null; participantCount: number; leaders: LeaderboardEntry[]; currentUser: LeaderboardEntry | null; }

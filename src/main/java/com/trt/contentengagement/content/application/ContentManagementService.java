@@ -50,8 +50,17 @@ public class ContentManagementService {
     }
 
     @Transactional(readOnly = true)
-    public PageResult<AdminContentSummary> listForAdministration(int page, int size) {
-        return contentCatalogRepository.findAllForAdministration(page, size);
+    public PageResult<AdminContentSummary> listForAdministration(
+            String titleQuery,
+            int page,
+            int size
+    ) {
+        String normalizedTitleQuery = titleQuery == null ? "" : titleQuery.strip();
+        return contentCatalogRepository.findAllForAdministration(
+                normalizedTitleQuery,
+                page,
+                size
+        );
     }
 
     @Transactional

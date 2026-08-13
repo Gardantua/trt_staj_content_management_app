@@ -10,11 +10,13 @@ import com.trt.contentengagement.content.application.ContentManagementService;
 import com.trt.contentengagement.content.application.PageResult;
 import com.trt.contentengagement.content.application.EpisodeManagementService;
 import com.trt.contentengagement.content.application.SeasonManagementService;
+import com.trt.contentengagement.content.application.SeasonPlanItem;
 import com.trt.contentengagement.content.domain.ContentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.http.ResponseEntity;
@@ -63,11 +65,12 @@ public class AdminContentController {
 
     @GetMapping
     public AdminContentPageResponse listContents(
+            @RequestParam(defaultValue = "") @Size(max = 200) String query,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
         return AdminContentPageResponse.from(
-                contentManagementService.listForAdministration(page, size)
+                contentManagementService.listForAdministration(query, page, size)
         );
     }
 
@@ -127,6 +130,21 @@ public class AdminContentController {
         return ResponseEntity.created(URI.create(
                 "/api/v1/admin/contents/" + contentId + "/seasons/" + seasonId
         )).body(response);
+    }
+
+    @PostMapping("/{contentId}/season-plan")
+    public ContentResponse addSeasonPlan(
+            @PathVariable UUID contentId,
+            @Valid @RequestBody SeasonPlanRequest request
+    ) {
+        return ContentResponse.from(seasonManagementService.addPlan(
+                contentId,
+                request.seasons().stream()
+                        .map(item -> new SeasonPlanItem(
+                                item.seasonNumber(), item.episodeCount()
+                        ))
+                        .toList()
+        ));
     }
 
     @PutMapping("/{contentId}/seasons/{seasonId}")
@@ -219,6 +237,17 @@ public class AdminContentController {
     public record SeasonRequest(
             @Min(1) @Max(10000) int seasonNumber,
             @NotBlank @Size(max = 200) String title
+    ) {
+    }
+
+    public record SeasonPlanRequest(
+            @NotEmpty @Size(max = 100) List<@Valid SeasonPlanItemRequest> seasons
+    ) {
+    }
+
+    public record SeasonPlanItemRequest(
+            @Min(1) @Max(10000) int seasonNumber,
+            @Min(1) @Max(1000) int episodeCount
     ) {
     }
 

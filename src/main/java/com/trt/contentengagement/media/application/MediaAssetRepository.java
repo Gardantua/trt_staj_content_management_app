@@ -8,4 +8,5 @@ import com.trt.contentengagement.media.domain.MediaAsset;
 public interface MediaAssetRepository {
     MediaAsset save(MediaAsset mediaAsset);
     Optional<MediaAsset> findById(UUID mediaAssetId);
+    MediaAssetPage findPage(int page, int size);
 }

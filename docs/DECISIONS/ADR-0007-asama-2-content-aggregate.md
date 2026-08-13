@@ -20,7 +20,9 @@ açar.
 - Domain modeli Spring ve JPA'dan bağımsız saf Java olarak kalacaktır.
 - JPA entity'leri ve domain modeli infrastructure adapter'ında birbirine
   dönüştürülecektir.
-- İçerik başlangıçta `DRAFT` olur. Yayınlanmış içerik yerinde değiştirilemez.
+- İçerik başlangıçta `DRAFT` olur. Yayınlanmış içerik yapısının değişmezliği
+  ADR-0023 ile daraltılmıştır: metadata ve kapak güncellenebilir; tür ile
+  mevcut sezon/bölümler değişmez kalır; ADR-0027 ile yalnız sona ekleme açılmıştır.
 - `SERIES` en az bir sezon ve her sezon en az bir bölüm içermeden yayınlanamaz.
   `FILM` sezon içeremez.
 - Sezon ve bölüm numarası tekilliği hem domain kuralı hem PostgreSQL unique

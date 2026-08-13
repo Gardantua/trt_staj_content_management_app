@@ -2,6 +2,7 @@ package com.trt.contentengagement.messaging.infrastructure.rabbit;
 
 import com.trt.contentengagement.messaging.application.OutboxEvent;
 import com.trt.contentengagement.messaging.application.RabbitEventGateway;
+import com.trt.contentengagement.messaging.application.XpChangedIntegrationEventV1;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
 import io.micrometer.tracing.propagation.Propagator;
@@ -35,7 +36,7 @@ public class RabbitMqEventGateway implements RabbitEventGateway {
         Boolean confirmed = rabbitTemplate.invoke(operations -> {
             operations.convertAndSend(
                     RabbitMessagingTopology.EVENTS_EXCHANGE,
-                    RabbitMessagingTopology.QUIZ_COMPLETED_ROUTING_KEY,
+                    routingKey(event),
                     event.payload(),
                     message -> {
                         MessageProperties properties = message.getMessageProperties();
@@ -57,6 +58,14 @@ public class RabbitMqEventGateway implements RabbitEventGateway {
         if (!Boolean.TRUE.equals(confirmed)) {
             throw new AmqpException("RabbitMQ did not confirm the outbox event.");
         }
+    }
+
+    private String routingKey(OutboxEvent event) {
+        if (XpChangedIntegrationEventV1.EVENT_TYPE.equals(event.eventType())
+                && event.eventVersion() == XpChangedIntegrationEventV1.EVENT_VERSION) {
+            return RabbitMessagingTopology.XP_CHANGED_ROUTING_KEY;
+        }
+        return RabbitMessagingTopology.QUIZ_COMPLETED_ROUTING_KEY;
     }
 
     private void injectCurrentTrace(MessageProperties properties) {

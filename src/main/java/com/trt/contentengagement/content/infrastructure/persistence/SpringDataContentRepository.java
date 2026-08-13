@@ -22,4 +22,9 @@ interface SpringDataContentRepository extends JpaRepository<JpaContentEntity, UU
             PublicationStatus publicationStatus,
             Pageable pageable
     );
+
+    Page<JpaContentEntity> findAllByTitleContainingIgnoreCase(
+            String titleQuery,
+            Pageable pageable
+    );
 }

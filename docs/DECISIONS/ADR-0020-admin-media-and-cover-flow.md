@@ -22,8 +22,13 @@ edilemiyordu.
   birlikte `PUT /api/v1/admin/contents/{contentId}/cover` isteğine gider.
 - Kullanıcı, mevcut kapağın alternatif metnini yeni dosya yüklemeden de
   güncelleyebilir. Yeni dosya yüklendiğinde yeni medya kimliği bağlanır.
-- UI yalnız taslak içerikte bu işlemleri gösterir. Dosya doğrulaması ve publish
+- UI'nin yalnız taslak içerikte bu işlemleri göstermesi ADR-0023 ile
+  değiştirilmiştir; yayımlanmış içeriğin kapağı ve metadata'sı da güncellenebilir.
+  Dosya doğrulaması ve publish
   yetkisi backend'de kalır.
+- Admin ve kullanıcı istemcileri aynı `contentUrl` için binary blob isteğini oturum boyunca paylaşır.
+  Her render kendi kısa ömürlü object URL'sini kullanır; başarısız indirme cache'den
+  çıkarılarak sonraki denemenin ağa gitmesine izin verilir.
 
 ## Gerekçe
 

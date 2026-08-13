@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
 import com.trt.contentengagement.gameplay.domain.QuizAttemptCompleted;
+import com.trt.contentengagement.gamification.application.XpService;
 import com.trt.contentengagement.messaging.application.OutboxEvent;
 import com.trt.contentengagement.messaging.application.OutboxEventRepository;
 import com.trt.contentengagement.messaging.application.OutboxPublisher;
@@ -77,6 +78,7 @@ class MessagingIntegrationTest {
     private final RabbitAdmin rabbitAdmin;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
+    private final XpService xpService;
 
     @Autowired
     MessagingIntegrationTest(
@@ -86,7 +88,8 @@ class MessagingIntegrationTest {
             RabbitTemplate rabbitTemplate,
             RabbitAdmin rabbitAdmin,
             ObjectMapper objectMapper,
-            MeterRegistry meterRegistry
+            MeterRegistry meterRegistry,
+            XpService xpService
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.outboxEventRepository = outboxEventRepository;
@@ -95,6 +98,7 @@ class MessagingIntegrationTest {
         this.rabbitAdmin = rabbitAdmin;
         this.objectMapper = objectMapper;
         this.meterRegistry = meterRegistry;
+        this.xpService = xpService;
     }
 
     @BeforeEach
@@ -105,8 +109,8 @@ class MessagingIntegrationTest {
         jdbcTemplate.update("DELETE FROM outbox_events");
         jdbcTemplate.update("DELETE FROM xp_transactions");
         jdbcTemplate.update("DELETE FROM gameplay_answers");
+        jdbcTemplate.update("DELETE FROM gameplay_quiz_reward_claims");
         jdbcTemplate.update("DELETE FROM gameplay_attempts");
-        jdbcTemplate.update("DELETE FROM quiz_answer_options");
         jdbcTemplate.update("DELETE FROM quiz_questions");
         jdbcTemplate.update("DELETE FROM quiz_versions");
         jdbcTemplate.update("DELETE FROM quiz_definitions");
@@ -147,6 +151,21 @@ class MessagingIntegrationTest {
                 Boolean.class,
                 event.eventId()
         )).isTrue();
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'xp.changed'",
+                Integer.class
+        )).isEqualTo(1);
+        String xpChangedPayload = jdbcTemplate.queryForObject(
+                "SELECT payload::text FROM outbox_events WHERE event_type = 'xp.changed'",
+                String.class
+        );
+        assertThat(objectMapper.readTree(xpChangedPayload).get("amount").intValue())
+                .isEqualTo(200);
+        assertThat(xpService.replayLeaderboardEvents()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'xp.changed'",
+                Integer.class
+        )).isEqualTo(1);
         assertThat(meterRegistry.get("messaging.outbox.publish").timer().count())
                 .isGreaterThanOrEqualTo(1);
         assertThat(meterRegistry.get("messaging.quiz.completed.consume").timer().count())
@@ -275,7 +294,7 @@ class MessagingIntegrationTest {
                 finalScore, Timestamp.from(completedAt)
         );
         return QuizCompletedIntegrationEventV1.from(new QuizAttemptCompleted(
-                attemptId, USER_ID, quizId, quizVersionId, finalScore, completedAt
+                attemptId, USER_ID, quizId, quizVersionId, finalScore, finalScore, completedAt
         ));
     }
 

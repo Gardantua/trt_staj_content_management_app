@@ -11,6 +11,9 @@ import com.trt.contentengagement.quiz.domain.QuizVersion;
 public record PublishedQuizDetails(
         UUID quizId,
         UUID contentId,
+        String scopeType,
+        UUID seasonId,
+        UUID episodeId,
         UUID versionId,
         int versionNumber,
         String title,
@@ -22,7 +25,8 @@ public record PublishedQuizDetails(
     public static PublishedQuizDetails from(Quiz quiz) {
         QuizVersion publishedVersion = quiz.publishedVersion();
         return new PublishedQuizDetails(
-                quiz.id(), quiz.contentId(), publishedVersion.id(),
+                quiz.id(), quiz.contentId(), quiz.scopeType().name(),
+                quiz.seasonId(), quiz.episodeId(), publishedVersion.id(),
                 publishedVersion.versionNumber(), publishedVersion.title(),
                 publishedVersion.description(), publishedVersion.scoringPolicyVersion().name(),
                 publishedVersion.questions().stream()

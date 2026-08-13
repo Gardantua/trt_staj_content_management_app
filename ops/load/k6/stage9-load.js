@@ -7,7 +7,9 @@ const profiles = {
     rate: 10,
     timeUnit: '1s',
     duration: '1m',
-    preAllocatedVUs: 10,
+    // Keep spare VUs ready so short local/Docker latency spikes do not drop
+    // scheduled iterations while the measured request rate remains 10/s.
+    preAllocatedVUs: 20,
     maxVUs: 30,
   },
   ramp: {

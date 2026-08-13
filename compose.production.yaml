@@ -1,0 +1,165 @@
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    restart: unless-stopped
+    mem_limit: 1536m
+    environment:
+      POSTGRES_DB: content_engagement
+      POSTGRES_USER: content_engagement
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+    volumes:
+      - production-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U content_engagement -d content_engagement"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--maxmemory", "192mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:4.1-alpine
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      RABBITMQ_DEFAULT_USER: content_engagement
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+    volumes:
+      - production-rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  leaderboard-postgres:
+    image: postgres:17.5-alpine
+    restart: unless-stopped
+    mem_limit: 1280m
+    environment:
+      POSTGRES_DB: leaderboard
+      POSTGRES_USER: leaderboard
+      POSTGRES_PASSWORD: ${LEADERBOARD_DATABASE_PASSWORD:?LEADERBOARD_DATABASE_PASSWORD is required}
+    volumes:
+      - production-leaderboard-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U leaderboard -d leaderboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  leaderboard-redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    mem_limit: 256m
+    command: ["redis-server", "--maxmemory", "192mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  leaderboard-service:
+    build:
+      context: ./leaderboard-service
+    restart: unless-stopped
+    mem_limit: 768m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65.0
+      LEADERBOARD_DATABASE_URL: jdbc:postgresql://leaderboard-postgres:5432/leaderboard
+      LEADERBOARD_DATABASE_USERNAME: leaderboard
+      LEADERBOARD_DATABASE_PASSWORD: ${LEADERBOARD_DATABASE_PASSWORD:?LEADERBOARD_DATABASE_PASSWORD is required}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: content_engagement
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      LEADERBOARD_REDIS_HOST: leaderboard-redis
+      LEADERBOARD_REDIS_PORT: 6379
+    depends_on:
+      leaderboard-postgres:
+        condition: service_healthy
+      leaderboard-redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8082/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 45s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+    restart: unless-stopped
+    mem_limit: 1536m
+    environment:
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65.0
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_URL: jdbc:postgresql://postgres:5432/content_engagement
+      DATABASE_USERNAME: content_engagement
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?DATABASE_PASSWORD is required}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: content_engagement
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      LEADERBOARD_SERVICE_BASE_URL: http://leaderboard-service:8082
+      MAILERSEND_SMTP_USERNAME: ${MAILERSEND_SMTP_USERNAME:?MAILERSEND_SMTP_USERNAME is required}
+      MAILERSEND_SMTP_PASSWORD: ${MAILERSEND_SMTP_PASSWORD:?MAILERSEND_SMTP_PASSWORD is required}
+      MAILERSEND_FROM_ADDRESS: ${MAILERSEND_FROM_ADDRESS:?MAILERSEND_FROM_ADDRESS is required}
+      PASSWORD_RESET_FRONTEND_URL: https://${APP_DOMAIN:?APP_DOMAIN is required}/
+      INITIAL_ADMIN_ENABLED: ${INITIAL_ADMIN_ENABLED:-false}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      INITIAL_ADMIN_DISPLAY_NAME: ${INITIAL_ADMIN_DISPLAY_NAME:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      DEPLOYMENT_ENVIRONMENT: production
+    volumes:
+      - production-media-data:/data/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      leaderboard-service:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: admin-web/Dockerfile
+    restart: unless-stopped
+    mem_limit: 128m
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - production-caddy-data:/data
+      - production-caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  production-postgres-data:
+  production-leaderboard-postgres-data:
+  production-rabbitmq-data:
+  production-media-data:
+  production-caddy-data:
+  production-caddy-config:

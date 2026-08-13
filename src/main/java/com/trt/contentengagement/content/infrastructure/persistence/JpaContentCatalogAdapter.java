@@ -8,12 +8,14 @@ import com.trt.contentengagement.content.application.ContentCatalogRepository;
 import com.trt.contentengagement.content.application.ContentSummary;
 import com.trt.contentengagement.content.application.PageResult;
 import com.trt.contentengagement.content.domain.Content;
+import com.trt.contentengagement.content.domain.ContentRuleViolationException;
 import com.trt.contentengagement.content.domain.Episode;
 import com.trt.contentengagement.content.domain.PublicationStatus;
 import com.trt.contentengagement.content.domain.Season;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -43,13 +45,22 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
     }
 
     @Override
-    public PageResult<AdminContentSummary> findAllForAdministration(int page, int size) {
+    public PageResult<AdminContentSummary> findAllForAdministration(
+            String normalizedTitleQuery,
+            int page,
+            int size
+    ) {
         PageRequest pageRequest = PageRequest.of(
                 page,
                 size,
                 Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("id"))
         );
-        Page<JpaContentEntity> contentPage = springDataContentRepository.findAll(pageRequest);
+        Page<JpaContentEntity> contentPage = normalizedTitleQuery.isEmpty()
+                ? springDataContentRepository.findAll(pageRequest)
+                : springDataContentRepository.findAllByTitleContainingIgnoreCase(
+                        normalizedTitleQuery,
+                        pageRequest
+                );
         return new PageResult<>(
                 contentPage.getContent().stream()
                         .map(entity -> new AdminContentSummary(
@@ -100,7 +111,15 @@ public class JpaContentCatalogAdapter implements ContentCatalogRepository {
 
     @Override
     public void delete(Content content) {
-        springDataContentRepository.deleteById(content.id());
+        try {
+            springDataContentRepository.deleteById(content.id());
+            springDataContentRepository.flush();
+        } catch (DataIntegrityViolationException exception) {
+            throw new ContentRuleViolationException(
+                    "CONTENT_DELETE_HAS_GAMEPLAY_HISTORY",
+                    "Content with gameplay history cannot be permanently deleted."
+            );
+        }
     }
 
     private JpaContentEntity toEntity(Content content) {

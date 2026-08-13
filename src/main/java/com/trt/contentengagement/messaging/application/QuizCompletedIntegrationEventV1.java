@@ -15,12 +15,14 @@ public record QuizCompletedIntegrationEventV1(
         UUID quizId,
         UUID quizVersionId,
         int finalScore,
+        Integer earnedXp,
         String xpPolicyVersion,
         Instant occurredAt
 ) {
     public static final String EVENT_TYPE = "quiz.completed";
     public static final int EVENT_VERSION = 1;
     public static final String XP_POLICY_VERSION = "SCORE_MATCH_V1";
+    public static final String FIRST_COMPLETION_XP_POLICY_VERSION = "FIRST_COMPLETION_SCORE_V2";
 
     public QuizCompletedIntegrationEventV1 {
         Objects.requireNonNull(eventId);
@@ -33,7 +35,11 @@ public record QuizCompletedIntegrationEventV1(
         if (finalScore < 0) {
             throw new IllegalArgumentException("Final score cannot be negative.");
         }
-        if (!XP_POLICY_VERSION.equals(xpPolicyVersion)) {
+        if (earnedXp != null && (earnedXp < 0 || earnedXp > finalScore)) {
+            throw new IllegalArgumentException("Earned XP must be between zero and final score.");
+        }
+        if (!XP_POLICY_VERSION.equals(xpPolicyVersion)
+                && !FIRST_COMPLETION_XP_POLICY_VERSION.equals(xpPolicyVersion)) {
             throw new IllegalArgumentException("Unsupported XP policy version.");
         }
     }
@@ -50,8 +56,13 @@ public record QuizCompletedIntegrationEventV1(
                 completedAttempt.quizId(),
                 completedAttempt.quizVersionId(),
                 completedAttempt.score(),
-                XP_POLICY_VERSION,
+                completedAttempt.earnedXp(),
+                FIRST_COMPLETION_XP_POLICY_VERSION,
                 completedAttempt.completedAt().truncatedTo(ChronoUnit.MICROS)
         );
+    }
+
+    public int awardedXp() {
+        return earnedXp == null ? finalScore : earnedXp;
     }
 }

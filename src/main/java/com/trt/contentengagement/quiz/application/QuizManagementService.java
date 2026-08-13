@@ -12,6 +12,7 @@ import com.trt.contentengagement.identity.application.CurrentActorProvider;
 import com.trt.contentengagement.quiz.domain.Question;
 import com.trt.contentengagement.quiz.domain.QuestionDifficulty;
 import com.trt.contentengagement.quiz.domain.Quiz;
+import com.trt.contentengagement.quiz.domain.QuizScopeType;
 import com.trt.contentengagement.quiz.domain.QuizVersion;
 import com.trt.contentengagement.quiz.domain.VisualRole;
 import com.trt.contentengagement.media.application.MediaReferenceVerifier;
@@ -46,10 +47,25 @@ public class QuizManagementService {
 
     @Transactional
     public QuizDetails create(UUID contentId, String title, String description) {
-        contentReferenceVerifier.requireExistingContent(contentId);
+        return create(
+                contentId, QuizScopeType.CONTENT, null, null, title, description
+        );
+    }
+
+    @Transactional
+    public QuizDetails create(
+            UUID contentId,
+            QuizScopeType scopeType,
+            UUID seasonId,
+            UUID episodeId,
+            String title,
+            String description
+    ) {
+        contentReferenceVerifier.requireQuizPlacement(contentId, seasonId, episodeId);
         Instant occurredAt = clock.instant();
         Quiz savedQuiz = quizCatalogRepository.save(Quiz.create(
-                contentId, title, description, occurredAt
+                contentId, scopeType, seasonId, episodeId,
+                title, description, occurredAt
         ));
         audit("QUIZ_CREATED", "QUIZ", savedQuiz.id(), occurredAt);
         return QuizDetails.from(savedQuiz);
@@ -58,6 +74,38 @@ public class QuizManagementService {
     @Transactional(readOnly = true)
     public QuizDetails get(UUID quizId) {
         return QuizDetails.from(requireQuiz(quizId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminQuizSummary> listForContent(UUID contentId) {
+        contentReferenceVerifier.requireExistingContent(contentId);
+        return quizCatalogRepository.findByContentId(contentId).stream()
+                .map(AdminQuizSummary::from)
+                .toList();
+    }
+
+    @Transactional
+    public void delete(UUID quizId) {
+        Instant occurredAt = clock.instant();
+        Quiz quiz = requireQuiz(quizId);
+        if (quiz.hasPublicationHistory()) {
+            throw new com.trt.contentengagement.quiz.domain.QuizRuleViolationException(
+                    "QUIZ_DELETE_REQUIRES_RETIREMENT",
+                    "A previously published quiz must be moved to history instead of deleted."
+            );
+        }
+        quizCatalogRepository.delete(quiz);
+        audit("QUIZ_DELETED", "QUIZ", quizId, occurredAt);
+    }
+
+    @Transactional
+    public QuizDetails retire(UUID quizId) {
+        Instant occurredAt = clock.instant();
+        Quiz quiz = requireQuiz(quizId);
+        quiz.retire(occurredAt);
+        Quiz savedQuiz = quizCatalogRepository.save(quiz);
+        audit("QUIZ_RETIRED", "QUIZ", quizId, occurredAt);
+        return QuizDetails.from(savedQuiz);
     }
 
     @Transactional
@@ -102,7 +150,7 @@ public class QuizManagementService {
         Instant occurredAt = clock.instant();
         Quiz quiz = requireQuiz(quizId);
         Question question = quiz.addQuestion(
-                versionId, questionOrder, prompt, difficulty, visualMediaId, visualRole,
+                versionId, questionOrder, prompt, QuestionDifficulty.MEDIUM, visualMediaId, visualRole,
                 visualAlternativeText, accessiblePrompt, answerOptions, occurredAt
         );
         Quiz savedQuiz = quizCatalogRepository.save(quiz);
@@ -128,7 +176,7 @@ public class QuizManagementService {
         Instant occurredAt = clock.instant();
         Quiz quiz = requireQuiz(quizId);
         quiz.updateQuestion(
-                versionId, questionId, questionOrder, prompt, difficulty,
+                versionId, questionId, questionOrder, prompt, QuestionDifficulty.MEDIUM,
                 visualMediaId, visualRole, visualAlternativeText, accessiblePrompt,
                 answerOptions, occurredAt
         );

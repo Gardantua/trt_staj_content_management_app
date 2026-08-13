@@ -19,6 +19,9 @@ operasyon sözleşmesinde tanımlanmalıdır.
 - Prometheus düşük cardinality metriklerin doğru kaynağı, Tempo dağıtık trace
   deposu, yapılandırılmış log ise olay ayrıntısının kaynağıdır.
 - Tek-instance MVP abuse kontrolü uzak IP anahtarlı bellek içi token bucket'tır.
+- Token bucket normal ve production profillerinde varsayılan olarak açıktır; yalnız
+  yerel geliştirme profili, yoğun admin/görsel çalışmasının 429 üretmemesi için
+  filtreyi kapatır.
 - Güvenlik taraması normal testlerden ayrı CI kapılarıyla yapılır.
 - Kapasite baseline/ramp/spike/soak k6 profilleriyle ve p95/p99/hata oranıyla
   raporlanır.
@@ -46,6 +49,8 @@ expand-contract, uygulama rollback'ini güvenli kılar.
 
 - Outbox satırında nullable W3C context alanları vardır; eski satırlar geçerlidir.
 - Rate limit instance bazlıdır ve process restart token durumunu sıfırlar.
+- `local` profil production abuse korumasını temsil etmez; production'da limiter'ı
+  kapatmak ayrı ve açık bir environment kararı gerektirir.
 - Security scan dış CVE veri kaynağına bağlı olduğu için ayrı CI işi zaman zaman
   altyapı kaynaklı başarısız olabilir; ürün test sonucunu değiştirmez.
 - Retention uygulayan otomatik purge/anonymization job henüz yoktur. Production

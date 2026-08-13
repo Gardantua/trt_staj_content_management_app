@@ -1,0 +1,10 @@
+[
+  { "label": "Demo Usta 1", "actorId": "90000000-0000-0000-0000-000000000001", "accuracyPercent": 100 },
+  { "label": "Demo Usta 2", "actorId": "90000000-0000-0000-0000-000000000002", "accuracyPercent": 85 },
+  { "label": "Demo İyi 1",  "actorId": "90000000-0000-0000-0000-000000000003", "accuracyPercent": 70 },
+  { "label": "Demo İyi 2",  "actorId": "90000000-0000-0000-0000-000000000004", "accuracyPercent": 60 },
+  { "label": "Demo Orta 1", "actorId": "90000000-0000-0000-0000-000000000005", "accuracyPercent": 50 },
+  { "label": "Demo Orta 2", "actorId": "90000000-0000-0000-0000-000000000006", "accuracyPercent": 40 },
+  { "label": "Demo Yeni 1", "actorId": "90000000-0000-0000-0000-000000000009", "accuracyPercent": 50 },
+  { "label": "Demo Yeni 2", "actorId": "90000000-0000-0000-0000-000000000010", "accuracyPercent": 50 }
+]

@@ -1,5 +1,6 @@
 import type { LocalActor } from "../auth/actor";
-import type { AnswerSubmissionResult, CurrentActor, Leaderboard, PublicApiError, PublicContent, PublicContentPage, PublishedQuiz, QuizAttempt, XpSummary } from "./types";
+import { CsrfTokenClient } from "../api/csrf";
+import type { AnswerSubmissionResult, CurrentActor, Leaderboard, PublicApiError, PublicContent, PublicContentPage, PublishedQuiz, PublishedQuizSummary, QuizAttempt, QuizResultSummary, XpSummary } from "./types";
 
 export class PublicApiRequestError extends Error implements PublicApiError {
   readonly code: string;
@@ -17,7 +18,7 @@ export class PublicApiRequestError extends Error implements PublicApiError {
 
 interface ErrorBody { code?: unknown; message?: unknown; traceId?: unknown; }
 
-async function toApiError(response: Response): Promise<PublicApiRequestError> {
+export async function toApiError(response: Response): Promise<PublicApiRequestError> {
   let body: ErrorBody = {};
   try { body = await response.json() as ErrorBody; } catch { /* A proxy error can be plain text. */ }
   return new PublicApiRequestError({
@@ -29,21 +30,27 @@ async function toApiError(response: Response): Promise<PublicApiRequestError> {
 }
 
 export class PublicApi {
+  private readonly mediaRequests = new Map<string, Promise<Blob>>();
+  private readonly csrfTokenClient: CsrfTokenClient;
+
   constructor(
-    private readonly actor: LocalActor,
+    private readonly actor: LocalActor | null = null,
     private readonly baseUrl = import.meta.env.VITE_API_BASE_URL ?? ""
-  ) {}
+  ) {
+    this.csrfTokenClient = new CsrfTokenClient(baseUrl);
+  }
 
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers({ Accept: "application/json" });
     new Headers(init.headers).forEach((value, name) => headers.set(name, value));
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
-    if (this.actor.id) {
+    if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
     }
+    if (!this.actor?.id) await this.csrfTokenClient.protect(headers, init.method);
     let response: Response;
-    try { response = await fetch(`${this.baseUrl}${path}`, { ...init, headers }); }
+    try { response = await fetch(`${this.baseUrl}${path}`, { ...init, headers, credentials: "same-origin" }); }
     catch {
       throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "İçerik servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
     }
@@ -58,6 +65,19 @@ export class PublicApi {
     return this.get(`/api/v1/contents?page=${page}&size=${size}`);
   }
 
+  async listAllContents(): Promise<PublicContentPage["items"]> {
+    const contents: PublicContentPage["items"] = [];
+    let currentPage = 0;
+    let totalPages = 1;
+    while (currentPage < totalPages) {
+      const page = await this.listContents(currentPage, 100);
+      contents.push(...page.items);
+      totalPages = page.totalPages;
+      currentPage += 1;
+    }
+    return contents;
+  }
+
   getContent(contentId: string): Promise<PublicContent> {
     return this.get(`/api/v1/contents/${contentId}`);
   }
@@ -66,25 +86,46 @@ export class PublicApi {
     return this.get(`/api/v1/contents/${contentId}/quizzes`);
   }
 
+  listPublishedQuizzes(): Promise<PublishedQuizSummary[]> {
+    return this.get("/api/v1/quizzes");
+  }
+  listQuizResults(): Promise<QuizResultSummary[]> {
+    return this.get("/api/v1/me/quiz-results");
+  }
+
   getQuiz(quizId: string): Promise<PublishedQuiz> { return this.get(`/api/v1/quizzes/${quizId}`); }
-  startAttempt(quizId: string, timingPolicyVersion: QuizAttempt["timingPolicyVersion"]): Promise<QuizAttempt> {
-    return this.request(`/api/v1/quizzes/${quizId}/attempts`, { method: "POST", body: JSON.stringify({ timingPolicyVersion }) });
+  startAttempt(quizId: string): Promise<QuizAttempt> {
+    return this.request(`/api/v1/quizzes/${quizId}/attempts`, { method: "POST" });
   }
   submitAnswer(attemptId: string, questionId: string, selectedOptionId: string, idempotencyKey: string): Promise<AnswerSubmissionResult> {
     return this.request(`/api/v1/attempts/${attemptId}/answers`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ questionId, selectedOptionId }) });
+  }
+  timeoutQuestion(attemptId: string, questionId: string, idempotencyKey: string): Promise<QuizAttempt> {
+    return this.request(`/api/v1/attempts/${attemptId}/timeouts`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: JSON.stringify({ questionId }) });
+  }
+  startNextQuestion(attemptId: string): Promise<QuizAttempt> {
+    return this.request(`/api/v1/attempts/${attemptId}/next-question`, { method: "POST" });
   }
   getXp(): Promise<XpSummary> { return this.get("/api/v1/me/xp"); }
   getIdentity(): Promise<CurrentActor> { return this.get("/api/v1/identity/me"); }
   getGlobalLeaderboard(): Promise<Leaderboard> { return this.get("/api/v1/leaderboards/global?limit=10"); }
 
-  async getMedia(path: string): Promise<Blob> {
+  getMedia(path: string): Promise<Blob> {
+    const cachedRequest = this.mediaRequests.get(path);
+    if (cachedRequest) return cachedRequest;
+    const request = this.loadMedia(path).catch((error: unknown) => { this.mediaRequests.delete(path); throw error; });
+    this.mediaRequests.set(path, request);
+    return request;
+  }
+
+  private async loadMedia(path: string): Promise<Blob> {
     const headers = new Headers({ Accept: "image/*" });
-    if (this.actor.id) {
+    if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
     }
     let response: Response;
-    try { response = await fetch(`${this.baseUrl}${path}`, { headers }); }
+    try { response = await fetch(`${this.baseUrl}${path}`, { headers, credentials: "same-origin" }); }
     catch {
       throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
     }

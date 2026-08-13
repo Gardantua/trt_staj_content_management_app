@@ -60,9 +60,10 @@ class GameplayIntegrationTest {
         jdbc.update("DELETE FROM inbox_messages");
         jdbc.update("DELETE FROM outbox_events");
         jdbc.update("DELETE FROM xp_transactions");
+        jdbc.update("DELETE FROM gameplay_quiz_reward_claims");
         jdbc.update("DELETE FROM gameplay_answers"); jdbc.update("DELETE FROM gameplay_attempts");
-        jdbc.update("DELETE FROM admin_audit_entries"); jdbc.update("DELETE FROM quiz_answer_options");
-        jdbc.update("DELETE FROM quiz_questions"); jdbc.update("DELETE FROM quiz_versions");
+        jdbc.update("DELETE FROM admin_audit_entries"); jdbc.update("DELETE FROM quiz_questions");
+        jdbc.update("DELETE FROM quiz_versions");
         jdbc.update("DELETE FROM quiz_definitions"); jdbc.update("DELETE FROM catalog_episodes");
         jdbc.update("DELETE FROM catalog_seasons"); jdbc.update("DELETE FROM catalog_contents");
         jdbc.update("DELETE FROM media_assets");
@@ -84,16 +85,35 @@ class GameplayIntegrationTest {
         assertThat(first.statusCode()).isEqualTo(200);
         assertThat(first.body()).contains("\"correct\":true")
                 .contains("\"correctOptionId\":\""+quiz.q1Correct()+"\"")
-                .contains("\"questionId\":\""+quiz.q2()+"\"");
+                .contains("\"correctOptionText\":\"A\"")
+                .contains("\"questionId\":\""+quiz.q2()+"\"")
+                .contains("\"attemptStatus\":\"AWAITING_NEXT_QUESTION\"");
+
+        HttpResponse<String> nextQuestion = send(
+                "POST", "/api/v1/attempts/" + attemptId + "/next-question",
+                null, USER_ID, "USER", null
+        );
+        assertThat(nextQuestion.statusCode()).isEqualTo(200);
+        Instant nextDeadline = Instant.parse(json(nextQuestion).get("questionDeadline").stringValue());
+        assertThat(Duration.between(Instant.now(), nextDeadline)).isBetween(
+                Duration.ofSeconds(29), Duration.ofSeconds(30)
+        );
 
         HttpResponse<String> second=answer(attemptId,quiz.q2(),quiz.q2Wrong(),"key-2",USER_ID);
         assertThat(second.statusCode()).isEqualTo(200);
         assertThat(second.body()).contains("\"correct\":false")
                 .contains("\"attemptStatus\":\"COMPLETED\"")
-                .contains("\"score\":100")
-                .contains("\"earnedXp\":100");
+                .contains("\"score\":10")
+                .contains("\"earnedXp\":10");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gameplay_answers",Integer.class)).isEqualTo(2);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM outbox_events",Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'quiz.completed'",
+                Integer.class
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'xp.changed'",
+                Integer.class
+        )).isZero();
         String storedTraceId = jdbc.queryForObject(
                 "SELECT trace_id FROM outbox_events", String.class
         );
@@ -107,16 +127,23 @@ class GameplayIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM xp_transactions",Integer.class)).isZero();
         consumeCompletionEvent(attemptId);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM xp_transactions",Integer.class)).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT amount FROM xp_transactions",Integer.class)).isEqualTo(100);
+        assertThat(jdbc.queryForObject("SELECT amount FROM xp_transactions",Integer.class)).isEqualTo(10);
 
         HttpResponse<String> repeated=answer(attemptId,quiz.q2(),quiz.q2Wrong(),"key-2",USER_ID);
         assertThat(repeated.statusCode()).isEqualTo(200);
-        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM outbox_events",Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'quiz.completed'",
+                Integer.class
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_events WHERE event_type = 'xp.changed'",
+                Integer.class
+        )).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM xp_transactions",Integer.class)).isEqualTo(1);
 
         HttpResponse<String> summary=send("GET","/api/v1/me/xp",null,USER_ID,"USER",null);
         assertThat(summary.statusCode()).isEqualTo(200);
-        assertThat(summary.body()).contains("\"totalXp\":100").contains("\"transactionCount\":1");
+        assertThat(summary.body()).contains("\"totalXp\":10").contains("\"transactionCount\":1");
     }
 
     @Test void ownerBoundaryAndIdempotencyPayloadConflictAreEnforced() throws Exception {
@@ -134,6 +161,100 @@ class GameplayIntegrationTest {
         assertThat(other.body()).contains("ATTEMPT_NOT_FOUND");
     }
 
+    @Test void onlyFirstCompletionOfSameQuizAwardsXp() throws Exception {
+        QuizFixture quiz = publishedQuiz();
+        String firstAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(firstAttemptId, quiz.q1(), quiz.q1Correct(), "first-1", USER_ID);
+        HttpResponse<String> firstCompletion = answer(
+                firstAttemptId, quiz.q2(), quiz.q2Correct(), "first-2", USER_ID
+        );
+        consumeCompletionEvent(firstAttemptId);
+
+        String practiceAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(practiceAttemptId, quiz.q1(), quiz.q1Correct(), "practice-1", USER_ID);
+        HttpResponse<String> practiceCompletion = answer(
+                practiceAttemptId, quiz.q2(), quiz.q2Correct(), "practice-2", USER_ID
+        );
+        consumeCompletionEvent(practiceAttemptId);
+
+        assertThat(firstCompletion.body()).contains("\"score\":20", "\"earnedXp\":20");
+        assertThat(practiceCompletion.body()).contains("\"score\":20", "\"earnedXp\":0");
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM gameplay_quiz_reward_claims WHERE user_id = ? AND quiz_id = ?",
+                Integer.class, USER_ID, UUID.fromString(quiz.quizId())
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM xp_transactions WHERE user_id = ?", Integer.class, USER_ID
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT policy_version FROM xp_transactions WHERE user_id = ?", String.class, USER_ID
+        )).isEqualTo("FIRST_COMPLETION_SCORE_V2");
+        assertThat(send("GET", "/api/v1/me/xp", null, USER_ID, "USER", null).body())
+                .contains("\"totalXp\":20", "\"transactionCount\":1");
+    }
+
+    @Test void zeroScoreFirstCompletionCreatesOneParticipantLedgerEntry() throws Exception {
+        QuizFixture quiz = publishedQuiz();
+        String firstAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(firstAttemptId, quiz.q1(), quiz.q1Wrong(), "zero-first-1", USER_ID);
+        answer(firstAttemptId, quiz.q2(), quiz.q2Wrong(), "zero-first-2", USER_ID);
+        consumeCompletionEvent(firstAttemptId);
+
+        String practiceAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(practiceAttemptId, quiz.q1(), quiz.q1Wrong(), "zero-practice-1", USER_ID);
+        answer(practiceAttemptId, quiz.q2(), quiz.q2Wrong(), "zero-practice-2", USER_ID);
+        consumeCompletionEvent(practiceAttemptId);
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM xp_transactions WHERE user_id = ?", Integer.class, USER_ID
+        )).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT amount FROM xp_transactions WHERE user_id = ?", Integer.class, USER_ID
+        )).isZero();
+        assertThat(send("GET", "/api/v1/me/xp", null, USER_ID, "USER", null).body())
+                .contains("\"totalXp\":0", "\"transactionCount\":1");
+    }
+
+    @Test void userCanReadTheLatestEarnedXpForEachQuiz() throws Exception {
+        QuizFixture quiz = publishedQuiz();
+        String firstAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(firstAttemptId, quiz.q1(), quiz.q1Correct(), "results-first-1", USER_ID);
+        answer(firstAttemptId, quiz.q2(), quiz.q2Correct(), "results-first-2", USER_ID);
+
+        String latestAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(latestAttemptId, quiz.q1(), quiz.q1Wrong(), "results-latest-1", USER_ID);
+        answer(latestAttemptId, quiz.q2(), quiz.q2Wrong(), "results-latest-2", USER_ID);
+
+        HttpResponse<String> response = send(
+                "GET", "/api/v1/me/quiz-results", null, USER_ID, "USER", null
+        );
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        JsonNode results = json(response);
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).get("quizId").stringValue()).isEqualTo(quiz.quizId());
+        assertThat(results.get(0).get("earnedXp").intValue()).isZero();
+        assertThat(results.get(0).has("score")).isFalse();
+    }
+
     @Test void parallelAnswersToSameQuestionProduceOnePersistentAnswer() throws Exception {
         QuizFixture quiz=publishedQuiz(); String attemptId=json(send(
                 "POST","/api/v1/quizzes/"+quiz.quizId()+"/attempts",null,USER_ID,"USER",null
@@ -147,23 +268,70 @@ class GameplayIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM gameplay_answers",Integer.class)).isEqualTo(1);
     }
 
-    @Test void extendedTimingPolicyCreatesTenTimesLongerServerDeadline() throws Exception {
+    @Test void everyStartedQuestionGetsExactlyThirtySeconds() throws Exception {
         QuizFixture quiz=publishedQuiz();
         HttpResponse<String> response=send(
                 "POST","/api/v1/quizzes/"+quiz.quizId()+"/attempts",
-                "{\"timingPolicyVersion\":\"EXTENDED_V1\"}",USER_ID,"USER",null
+                null,USER_ID,"USER",null
         );
 
         assertThat(response.statusCode()).isEqualTo(200);
         JsonNode responseJson=json(response);
-        assertThat(responseJson.get("timingPolicyVersion").stringValue()).isEqualTo("EXTENDED_V1");
+        assertThat(responseJson.get("timingPolicyVersion").stringValue())
+                .isEqualTo("QUESTION_30_SECONDS_V1");
         Instant startedAt=Instant.parse(responseJson.get("startedAt").stringValue());
-        Instant deadline=Instant.parse(responseJson.get("deadline").stringValue());
-        assertThat(Duration.between(startedAt,deadline)).isEqualTo(Duration.ofMinutes(50));
+        Instant deadline=Instant.parse(responseJson.get("questionDeadline").stringValue());
+        assertThat(Duration.between(startedAt,deadline)).isEqualTo(Duration.ofSeconds(30));
         assertThat(jdbc.queryForObject(
                 "SELECT timing_policy_version FROM gameplay_attempts WHERE id = ?::uuid",
                 String.class,responseJson.get("attemptId").stringValue()
-        )).isEqualTo("EXTENDED_V1");
+        )).isEqualTo("QUESTION_30_SECONDS_V1");
+        assertThat(jdbc.queryForObject(
+                "SELECT scoring_policy_version FROM gameplay_attempts WHERE id = ?::uuid",
+                String.class,responseJson.get("attemptId").stringValue()
+        )).isEqualTo("STANDARD_V1");
+    }
+
+    @Test void elapsedQuestionIsStoredAsTimedOutAndNextQuestionGetsNewDeadline()
+            throws Exception {
+        QuizFixture quiz = publishedQuiz();
+        JsonNode started = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        ));
+        String attemptId = started.get("attemptId").stringValue();
+        HttpResponse<String> tooEarly = send(
+                "POST", "/api/v1/attempts/" + attemptId + "/timeouts",
+                "{\"questionId\":\"" + quiz.q1() + "\"}",
+                USER_ID, "USER", "timeout-early"
+        );
+        assertThat(tooEarly.statusCode()).isEqualTo(409);
+        assertThat(tooEarly.body()).contains("QUESTION_TIME_REMAINING");
+
+        jdbc.update(
+                "UPDATE gameplay_attempts SET started_at = now() - interval '2 minutes', "
+                        + "deadline = now() - interval '1 minute' "
+                        + "WHERE id = ?::uuid",
+                attemptId
+        );
+        HttpResponse<String> timedOut = send(
+                "POST", "/api/v1/attempts/" + attemptId + "/timeouts",
+                "{\"questionId\":\"" + quiz.q1() + "\"}",
+                USER_ID, "USER", "timeout-1"
+        );
+
+        assertThat(timedOut.statusCode()).isEqualTo(200);
+        JsonNode response = json(timedOut);
+        assertThat(response.get("submittedAnswers").get(0).get("resultStatus").stringValue())
+                .isEqualTo("TIMED_OUT");
+        assertThat(response.get("submittedAnswers").get(0).get("selectedOptionId").isNull())
+                .isTrue();
+        assertThat(response.get("currentQuestion").get("questionId").stringValue())
+                .isEqualTo(quiz.q2());
+        assertThat(jdbc.queryForObject(
+                "SELECT selected_option_id IS NULL FROM gameplay_answers WHERE attempt_id = ?::uuid",
+                Boolean.class, attemptId
+        )).isTrue();
     }
 
     @Test void parallelRepeatedCompleteCreatesOneOutboxEventAndOneXpTransaction() throws Exception {
@@ -194,7 +362,7 @@ class GameplayIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT amount FROM xp_transactions WHERE source_attempt_id = ?::uuid",
                 Integer.class,attemptId
-        )).isEqualTo(200);
+        )).isEqualTo(20);
     }
 
     @Test void adminCorrectionAppendsSignedTransactionWithoutChangingOriginal() throws Exception {
@@ -209,7 +377,7 @@ class GameplayIntegrationTest {
                 "SELECT id::text FROM xp_transactions WHERE source_attempt_id = ?::uuid",
                 String.class,attemptId
         );
-        String adjustmentBody="{\"amount\":-40,\"referenceKey\":\"support-case-42\","
+        String adjustmentBody="{\"amount\":-4,\"referenceKey\":\"support-case-42\","
                 + "\"note\":\"Verified score correction\"}";
 
         HttpResponse<String> forbidden=send(
@@ -226,7 +394,7 @@ class GameplayIntegrationTest {
         );
         HttpResponse<String> conflict=send(
                 "POST","/api/v1/admin/xp-transactions/"+originalTransactionId+"/adjustments",
-                "{\"amount\":-20,\"referenceKey\":\"support-case-42\",\"note\":\"Different\"}",
+                "{\"amount\":-2,\"referenceKey\":\"support-case-42\",\"note\":\"Different\"}",
                 ADMIN_ID,"ADMIN",null
         );
 
@@ -239,9 +407,9 @@ class GameplayIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT amount FROM xp_transactions WHERE id = ?::uuid",
                 Integer.class,originalTransactionId
-        )).isEqualTo(100);
+        )).isEqualTo(10);
         HttpResponse<String> summary=send("GET","/api/v1/me/xp",null,USER_ID,"USER",null);
-        assertThat(summary.body()).contains("\"totalXp\":60").contains("\"transactionCount\":2");
+        assertThat(summary.body()).contains("\"totalXp\":6").contains("\"transactionCount\":2");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM admin_audit_entries WHERE action = 'XP_ADJUSTMENT_CREATED'",
                 Integer.class
@@ -295,14 +463,14 @@ class GameplayIntegrationTest {
         )).get("attemptId").stringValue();
         answer(attemptId,quiz.q1(),quiz.q1Correct(),"answer-1",USER_ID);
         UUID outboxEventId=UUID.nameUUIDFromBytes(
-                ("quiz.completed:v1:"+attemptId).getBytes(StandardCharsets.UTF_8)
+                ("quiz.completed:v2:"+attemptId).getBytes(StandardCharsets.UTF_8)
         );
         jdbc.update(
                 """
                 INSERT INTO outbox_events
                     (event_id, aggregate_type, aggregate_id, event_type, event_version,
                      payload, trace_id, occurred_at, next_attempt_at)
-                VALUES (?, 'QUIZ_ATTEMPT', ?::uuid, 'quiz.completed', 1,
+                VALUES (?, 'QUIZ_ATTEMPT', ?::uuid, 'quiz.completed', 2,
                         '{"conflict":true}'::jsonb, 'conflict-test', now(), now())
                 """,
                 outboxEventId,attemptId
@@ -317,7 +485,7 @@ class GameplayIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT status FROM gameplay_attempts WHERE id = ?::uuid",
                 String.class,attemptId
-        )).isEqualTo("ACTIVE");
+        )).isEqualTo("AWAITING_NEXT_QUESTION");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM gameplay_answers WHERE attempt_id = ?::uuid",
                 Integer.class,attemptId
@@ -364,7 +532,7 @@ class GameplayIntegrationTest {
         xpEventHandler.handle(payload);
     }
     private String adminQuestions(String q,String v){return "/api/v1/admin/quizzes/"+q+"/versions/"+v+"/questions";}
-    private String questionBody(int order,String prompt){return "{\"questionOrder\":"+order+",\"prompt\":\""+prompt+"\",\"difficulty\":\"EASY\",\"answerOptions\":[{\"optionOrder\":1,\"text\":\"A\",\"correct\":true},{\"optionOrder\":2,\"text\":\"B\",\"correct\":false}]}";}
+    private String questionBody(int order,String prompt){return "{\"questionOrder\":"+order+",\"prompt\":\""+prompt+"\",\"answerOptions\":[{\"optionOrder\":1,\"text\":\"A\",\"correct\":true},{\"optionOrder\":2,\"text\":\"B\",\"correct\":false},{\"optionOrder\":3,\"text\":\"C\",\"correct\":false},{\"optionOrder\":4,\"text\":\"D\",\"correct\":false}]}";}
     private HttpResponse<String> answer(String a,String q,String o,String key,UUID user)throws Exception{return send("POST","/api/v1/attempts/"+a+"/answers","{\"questionId\":\""+q+"\",\"selectedOptionId\":\""+o+"\"}",user,"USER",key);}
     private HttpResponse<String> uncheckedAnswer(String a,String q,String o,String key){try{return answer(a,q,o,key,USER_ID);}catch(Exception e){throw new RuntimeException(e);}}
     private HttpResponse<String> uncheckedSend(String method,String path,String body,UUID actor,String role,String key){try{return send(method,path,body,actor,role,key);}catch(Exception e){throw new RuntimeException(e);}}

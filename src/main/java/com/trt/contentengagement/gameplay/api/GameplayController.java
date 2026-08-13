@@ -1,11 +1,12 @@
 package com.trt.contentengagement.gameplay.api;
 
+import java.util.List;
 import java.util.UUID;
 
 import com.trt.contentengagement.gameplay.application.AnswerSubmissionResult;
 import com.trt.contentengagement.gameplay.application.AttemptDetails;
 import com.trt.contentengagement.gameplay.application.GameplayService;
-import com.trt.contentengagement.gameplay.domain.TimingPolicyVersion;
+import com.trt.contentengagement.gameplay.application.QuizResultSummary;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -29,12 +30,14 @@ public class GameplayController {
 
     @PostMapping("/quizzes/{quizId}/attempts")
     public ResponseEntity<AttemptDetails> start(
-            @PathVariable UUID quizId,
-            @RequestBody(required = false) StartAttemptRequest request
+            @PathVariable UUID quizId
     ) {
-        TimingPolicyVersion timingPolicyVersion = request == null
-                ? TimingPolicyVersion.STANDARD_V1 : request.timingPolicyVersion();
-        return ResponseEntity.ok(gameplayService.start(quizId, timingPolicyVersion));
+        return ResponseEntity.ok(gameplayService.start(quizId));
+    }
+
+    @GetMapping("/me/quiz-results")
+    public List<QuizResultSummary> latestCompletedResults() {
+        return gameplayService.latestCompletedResults();
     }
 
     @GetMapping("/attempts/{attemptId}")
@@ -53,6 +56,20 @@ public class GameplayController {
         );
     }
 
+    @PostMapping("/attempts/{attemptId}/timeouts")
+    public AttemptDetails timeout(
+            @PathVariable UUID attemptId,
+            @RequestHeader("Idempotency-Key") @NotBlank @Size(max = 100) String idempotencyKey,
+            @Valid @RequestBody TimeoutQuestionRequest request
+    ) {
+        return gameplayService.timeout(attemptId, request.questionId(), idempotencyKey);
+    }
+
+    @PostMapping("/attempts/{attemptId}/next-question")
+    public AttemptDetails startNextQuestion(@PathVariable UUID attemptId) {
+        return gameplayService.startNextQuestion(attemptId);
+    }
+
     @PostMapping("/attempts/{attemptId}/complete")
     public AttemptDetails complete(
             @PathVariable UUID attemptId,
@@ -66,5 +83,5 @@ public class GameplayController {
             @NotNull UUID selectedOptionId
     ) { }
 
-    public record StartAttemptRequest(@NotNull TimingPolicyVersion timingPolicyVersion) { }
+    public record TimeoutQuestionRequest(@NotNull UUID questionId) { }
 }

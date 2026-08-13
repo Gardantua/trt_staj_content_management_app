@@ -16,8 +16,8 @@ tekrarlanan istekler de aynı soruya birden fazla cevap üretebilir.
   root'u olacaktır.
 - Kimlik request body'den değil `CurrentActorProvider` bağlamından alınacaktır.
 - Attempt yayınlanmış quiz sürümünü ve `STANDARD_V1` politika kimliğini sabitler.
-- `STANDARD_V1` için attempt süresi sunucu `Clock` kaynağıyla beş dakika, doğru
-  cevap 100 puan, yanlış cevap 0 puandır; süre bonusu yoktur.
+- `STANDARD_V1` için doğru cevap 10 puan, yanlış cevap 0 puandır; süre bonusu
+  yoktur. Soru başına 30 saniyelik güncel zamanlama ADR-0022'de tanımlıdır.
 - Sorular sunucu sırasıyla ve tek kez cevaplanır.
 - Doğru seçenek yalnız cevap kalıcılaştırıldıktan sonra answer response'unda
   açıklanır; sonraki soru aynı response ile açılır.
