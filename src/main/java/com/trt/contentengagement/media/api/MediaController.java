@@ -63,7 +63,7 @@ public class MediaController {
         MediaService.MediaContent mediaContent = mediaService.getContent(mediaAssetId);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(mediaContent.mimeType()))
-                .cacheControl(CacheControl.noCache())
+                .cacheControl(CacheControl.maxAge(java.time.Duration.ofDays(30)).cachePublic().immutable())
                 .body(mediaContent.content());
     }
 

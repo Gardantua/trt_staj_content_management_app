@@ -22,8 +22,8 @@ spring:
     redis:
       host: ${LEADERBOARD_REDIS_HOST:localhost}
       port: ${LEADERBOARD_REDIS_PORT:6381}
-      connect-timeout: 500ms
-      timeout: 500ms
+      connect-timeout: 5s
+      timeout: 5s
       repositories:
         enabled: false
 

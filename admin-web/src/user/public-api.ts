@@ -106,6 +106,9 @@ export class PublicApi {
   startNextQuestion(attemptId: string): Promise<QuizAttempt> {
     return this.request(`/api/v1/attempts/${attemptId}/next-question`, { method: "POST" });
   }
+  abandonAttempt(attemptId: string): Promise<QuizAttempt> {
+    return this.request(`/api/v1/attempts/${attemptId}/abandon`, { method: "POST" });
+  }
   getXp(): Promise<XpSummary> { return this.get("/api/v1/me/xp"); }
   getIdentity(): Promise<CurrentActor> { return this.get("/api/v1/identity/me"); }
   getGlobalLeaderboard(): Promise<Leaderboard> { return this.get("/api/v1/leaderboards/global?limit=10"); }

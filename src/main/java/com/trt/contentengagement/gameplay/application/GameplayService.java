@@ -194,6 +194,23 @@ public class GameplayService {
         return AttemptDetails.from(saved, snapshot, saved.earnedXp());
     }
 
+    @Transactional(noRollbackFor = AttemptExpiredException.class)
+    public AttemptDetails abandon(UUID attemptId) {
+        QuizAttempt attempt = requireOwned(attemptId);
+        GameplayQuizSnapshot snapshot = quizSnapshotProvider.getByVersionId(attempt.quizVersionId());
+        if (attempt.status() == AttemptStatus.COMPLETED) {
+            return AttemptDetails.from(attempt, snapshot, attempt.earnedXp());
+        }
+        Instant now = now();
+        attempt.abandon(now);
+        QuizAttemptRepository.CompletionReward reward = recordCompletionReward(
+                attemptRepository.save(attempt)
+        );
+        QuizAttempt saved = reward.attempt();
+        stageCompletionEvent(saved, reward.firstCompletionReward());
+        return AttemptDetails.from(saved, snapshot, saved.earnedXp());
+    }
+
     private void stageCompletionEvent(
             QuizAttempt completedAttempt, boolean firstCompletionReward
     ) {

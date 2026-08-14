@@ -1,5 +1,18 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 14.08.2026 Oracle Cloud Free Tier canlıya alma ve production dağıtımı
+
+- Oracle Cloud Free Tier VM (AMD EPYC, 12 GB RAM, 4 GB Swap) üzerinde `compose.production.yaml` ile tüm mimari başarıyla canlıya alındı.
+- Canlı alan adı: `https://hikayeizi.duckdns.org` (Caddy Let's Encrypt otomatik SSL/TLS sertifikası ile).
+- Servis topolojisi: 8 izole container (`postgres`, `leaderboard-postgres`, `rabbitmq`, `redis`, `leaderboard-redis`, `leaderboard-service`, `backend`, `web`) birbirine bağlı iç Docker ağında `healthy` durumunda çalışmaktadır. Yalnızca Port 80 ve 443 internete açıktır.
+- `RemoteLeaderboardClient` doğrudan `RestClient.builder()` kullanacak şekilde sadeleştirildi; `application.yml` içinde `management.health.mail.enabled: false` yapılarak SMTP bağlantı kontrolü Actuator healthcheck'inden ayrıştırıldı ve Redis timeout değerleri optimize edildi.
+- Testler ve doğrulama: Yerel Maven suite'inde `130/130` backend testi geçti; Oracle sunucusunda HTTPS kullanıcı arayüzü (`/`), yönetim paneli (`/admin`) ve API (`/api/v1/...`) erişimleri doğrulandı.
+- İlk yönetici hesabı (`admin@hikayeizi.duckdns.org`) ve CSRF/HttpOnly oturum güvenliği devrede.
+- Quiz kartlarında gösterilen `Kazanılan XP` sorgusu (`/api/v1/me/quiz-results`), kullanıcının o quizden kazandığı kalıcı XP'yi (`MAX(earned_xp)`) gösterecek şekilde güncellendi. Böylece ADR-0026 kuralı (2. çözüşte 0 ek XP kazanılması ve toplam XP'nin korunması) tam olarak muhafaza edilirken, tekrar çözülen quizlerin kartlarında kazanılmış önceki XP değerinin 0'a düşmesi engellendi.
+- Soru görselleri için `MediaController` endpoint'ine `CacheControl.maxAge(30 days).cachePublic().immutable()` eklendi; frontend'de ise kullanıcı cevap verdikten sonra sonuç kartını incelerken bir sonraki sorunun görselini arka planda sessizce önden indiren (preloading) mekanizma uygulandı. Böylece canlı ağ ortamında soru metni ile görselin eşzamanlı ve sıfır gecikmeyle açılması sağlandı.
+- Quiz esnasında `Quizden çık` butonuna basıldığında aktif oturumu güvenle tamamlayan `POST /api/v1/attempts/{attemptId}/abandon` uç noktası eklendi. Kullanıcı ilk kez çözüyorsa o ana kadar bildiği sorulardan kazandığı XP hesabına kalıcı olarak işlenir, oturum kapatılır ve kullanıcı quize bir sonraki girişinde yarım kalmış eski soruda takılmak yerine doğrudan 1. sorudan tertemiz başlar.
+- Sıradaki tek iş: İlk yönetici girişi sonrasında `.env.production` içindeki `INITIAL_ADMIN_ENABLED=false` yapılarak başlangıç parolasının kaldırılması ve canlı sistem üzerinde smoke kontrollerinin tamamlanması.
+
 ## 13.08.2026 cevaptan sonra doğru cevap metni gösterimi
 
 - Kullanıcı soruyu yanlış cevapladığında veya süre dolduğunda çıkan `AnswerReveal` (puan/sonuç) kartına **doğru şıkkın metni** (`correctOptionText`) eklendi.

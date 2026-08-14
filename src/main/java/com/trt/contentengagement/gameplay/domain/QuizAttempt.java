@@ -202,6 +202,20 @@ public class QuizAttempt {
         return completionEvent();
     }
 
+    public void abandon(Instant now) {
+        if (status == AttemptStatus.COMPLETED) {
+            return;
+        }
+        if (status == AttemptStatus.EXPIRED) {
+            throw new GameplayRuleViolationException(
+                    "ATTEMPT_EXPIRED", "The attempt has expired."
+            );
+        }
+        status = AttemptStatus.COMPLETED;
+        completedAt = now;
+        deadline = null;
+    }
+
     public QuizAttemptCompleted completionEvent() {
         if (status != AttemptStatus.COMPLETED) {
             throw new GameplayRuleViolationException(

@@ -165,9 +165,45 @@ export function publicScopeLabel(quiz: Pick<PublishedQuiz, "scopeType"> & Partia
 
 function QuizExperience({ api, quizId, onExit, onViewProfile }: { api: PublicApi; quizId: string; onExit: () => void; onViewProfile: () => void }) {
   const [quiz, setQuiz] = useState<PublishedQuiz | null>(null); const [attempt, setAttempt] = useState<QuizAttempt | null>(null); const [answerResult, setAnswerResult] = useState<AnswerSubmissionResult | null>(null); const [error, setError] = useState<PublicApiRequestError | null>(null); const [isLoading, setIsLoading] = useState(true); const [isStarting, setIsStarting] = useState(false); const [isSubmitting, setIsSubmitting] = useState(false); const [pendingAnswer, setPendingAnswer] = useState<{ questionId: string; optionId: string; key: string } | null>(null);
-  useEffect(() => { let active = true; api.getQuiz(quizId).then((loadedQuiz) => { if (active) setQuiz(loadedQuiz); }).catch((reason: unknown) => { if (active) setError(asPublicError(reason)); }).finally(() => { if (active) setIsLoading(false); }); return () => { active = false; }; }, [api, quizId]);
-  async function start() { setIsStarting(true); setError(null); try { setAttempt(await api.startAttempt(quizId)); } catch (reason) { setError(asPublicError(reason)); } finally { setIsStarting(false); } }
-  async function submit(questionId: string, optionId: string, key = createRequestKey()) { setIsSubmitting(true); setError(null); const pending = { questionId, optionId, key }; setPendingAnswer(pending); try { setAnswerResult(await api.submitAnswer(attempt!.attemptId, questionId, optionId, key)); } catch (reason) { setError(asPublicError(reason)); } finally { setIsSubmitting(false); } }
+  useEffect(() => {
+    let active = true;
+    api.getQuiz(quizId).then((loadedQuiz) => {
+      if (active) setQuiz(loadedQuiz);
+    }).catch((reason: unknown) => {
+      if (active) setError(asPublicError(reason));
+    }).finally(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => { active = false; };
+  }, [api, quizId]);
+  async function start() {
+    setIsStarting(true);
+    setError(null);
+    try {
+      const newAttempt = await api.startAttempt(quizId);
+      if (newAttempt.currentQuestion?.visual?.contentUrl) void api.getMedia(newAttempt.currentQuestion.visual.contentUrl);
+      setAttempt(newAttempt);
+    } catch (reason) {
+      setError(asPublicError(reason));
+    } finally {
+      setIsStarting(false);
+    }
+  }
+  async function submit(questionId: string, optionId: string, key = createRequestKey()) {
+    setIsSubmitting(true);
+    setError(null);
+    const pending = { questionId, optionId, key };
+    setPendingAnswer(pending);
+    try {
+      const result = await api.submitAnswer(attempt!.attemptId, questionId, optionId, key);
+      if (result.nextQuestion?.visual?.contentUrl) void api.getMedia(result.nextQuestion.visual.contentUrl);
+      setAnswerResult(result);
+    } catch (reason) {
+      setError(asPublicError(reason));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
   async function timeout(questionId: string) { if (!attempt || isSubmitting || answerResult) return; setIsSubmitting(true); setError(null); try { const updated = await api.timeoutQuestion(attempt.attemptId, questionId, `timeout-${questionId}`); const feedback = updated.submittedAnswers.at(-1)!; setAnswerResult({ attemptId: updated.attemptId, feedback, attemptStatus: updated.status, score: updated.score, earnedXp: updated.earnedXp, questionDeadline: updated.status === "ACTIVE" ? updated.questionDeadline : null, nextQuestion: updated.currentQuestion }); } catch (reason) { setError(asPublicError(reason)); } finally { setIsSubmitting(false); } }
   async function continueAfterAnswer() {
     if (!attempt || !answerResult) return;
@@ -180,6 +216,16 @@ function QuizExperience({ api, quizId, onExit, onViewProfile }: { api: PublicApi
     catch (reason) { setError(asPublicError(reason)); }
     finally { setIsSubmitting(false); }
   }
+  async function exitQuiz() {
+    if (attempt && attempt.status !== "COMPLETED") {
+      try {
+        await api.abandonAttempt(attempt.attemptId);
+      } catch {
+        // allow navigation even if network error occurs
+      }
+    }
+    onExit();
+  }
   if (isLoading) return <p className="loading-copy" aria-live="polite">Quiz hazırlanıyor…</p>; if (!quiz) return <section className="detail-section"><ErrorNotice error={error} /><button className="text-button" onClick={onExit}>← Geri dön</button></section>;
   if (!attempt) return <section className="quiz-intro"><p className="kicker">{quiz.questions.length} soru · Her soru 30 saniye</p><h1>{quiz.title}</h1><p>{quiz.description || "Bu hikâyeyi ne kadar hatırladığını gör."}</p><ErrorNotice error={error} /><div className="timing-choice"><button disabled={isStarting} onClick={start}><strong>Quiz'e başla</strong><span>Cevabını erken verip hemen ilerleyebilirsin.</span></button></div><button className="text-button" onClick={onExit}>Vazgeç</button></section>;
   if (attempt.status === "COMPLETED" && !answerResult) return <QuizResult attempt={attempt} onExit={onExit} onViewProfile={onViewProfile} />;
@@ -187,7 +233,7 @@ function QuizExperience({ api, quizId, onExit, onViewProfile }: { api: PublicApi
   const restoredAnswerResult = attempt.status === "AWAITING_NEXT_QUESTION" && !answerResult
     ? { attemptId: attempt.attemptId, feedback: attempt.submittedAnswers.at(-1)!, attemptStatus: attempt.status, score: attempt.score, earnedXp: attempt.earnedXp, questionDeadline: null, nextQuestion: question }
     : answerResult;
-  return <QuizQuestion api={api} attempt={attempt} question={question} answerResult={restoredAnswerResult} error={error} isSubmitting={isSubmitting} pendingAnswer={pendingAnswer} onExit={onExit} onSubmit={submit} onTimeout={timeout} onContinue={continueAfterAnswer} />;
+  return <QuizQuestion api={api} attempt={attempt} question={question} answerResult={restoredAnswerResult} error={error} isSubmitting={isSubmitting} pendingAnswer={pendingAnswer} onExit={exitQuiz} onSubmit={submit} onTimeout={timeout} onContinue={continueAfterAnswer} />;
 }
 
 function QuizQuestion({ api, attempt, question, answerResult, error, isSubmitting, pendingAnswer, onExit, onSubmit, onTimeout, onContinue }: { api: PublicApi; attempt: QuizAttempt; question: NonNullable<QuizAttempt["currentQuestion"]>; answerResult: AnswerSubmissionResult | null; error: PublicApiRequestError | null; isSubmitting: boolean; pendingAnswer: { questionId: string; optionId: string; key: string } | null; onExit: () => void; onSubmit: (questionId: string, optionId: string, key?: string) => Promise<void>; onTimeout: (questionId: string) => Promise<void>; onContinue: () => void }) {
