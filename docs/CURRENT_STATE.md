@@ -1,5 +1,17 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 17.08.2026 ana README çalıştırma rehberi
+
+- Ana `README.md`; Java, Docker ve Node.js gereksinimleriyle birlikte altyapı,
+  backend ve web uygulamasını ayrı adımlarda başlatacak şekilde güncellendi.
+- Kullanıcı, yönetim, health ve RabbitMQ adresleri ile yerel portlar açıkça yazıldı.
+- İlk admin bootstrap ayarları tek kullanımlık ve şifre sıfırlama SMTP ayarları
+  isteğe bağlı olarak belirtildi; secret değerlerin repoya yazılmaması korundu.
+- Test ve `docker compose down` komutları eklendi. Uygulama kodu değişmediği için
+  yeni test çalıştırılmadı; komutlar mevcut yapılandırma dosyalarıyla doğrulandı.
+- Sıradaki tek iş: Yeni geliştiricinin README adımlarını temiz bir ortamda uygulayıp
+  eksik bir önkoşul olup olmadığını doğrulaması.
+
 ## 14.08.2026 Oracle Cloud Free Tier canlıya alma ve production dağıtımı
 
 - Oracle Cloud Free Tier VM (AMD EPYC, 12 GB RAM, 4 GB Swap) üzerinde `compose.production.yaml` ile tüm mimari başarıyla canlıya alındı.

@@ -31,29 +31,88 @@ API-first bir backend projesidir. Ana kullanıcı akışı:
 
 ## Yerel çalıştırma
 
-Windows:
+### Gereksinimler
+
+- Java 21
+- Docker Desktop ve Docker Compose
+- Node.js 20.19 veya üzeri
+
+### 1. Altyapıyı başlat
+
+Proje kök dizininde:
 
 ```powershell
 docker compose up -d --wait
+```
+
+Bu komut PostgreSQL, RabbitMQ, Redis ve `8082` portundaki leaderboard servisini
+başlatır.
+
+### 2. Backend'i başlat
+
+Aynı dizinde yeni bir PowerShell penceresi aç:
+
+```powershell
 $env:LEADERBOARD_REMOTE_ENABLED="true"
-$env:MAILERSEND_SMTP_USERNAME="MailerSend SMTP username"
-$env:MAILERSEND_SMTP_PASSWORD="MailerSend SMTP password"
-$env:MAILERSEND_FROM_ADDRESS="Doğrulanmış domain altındaki gönderen adresi"
-.\mvnw.cmd verify
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local"
 ```
 
-Şifre sıfırlama e-postaları MailerSend SMTP üzerinden gerçek alıcıya gider. Bilgileri
-repoya veya sohbet mesajına yazma; yalnız çalıştırdığın terminalin ortam değişkeni
-olarak tanımla. SMTP username/password, MailerSend panelindeki doğrulanmış domainin
-`SMTP` bölümünden üretilir. `MAILERSEND_FROM_ADDRESS` aynı doğrulanmış domain altında
-olmalıdır.
+Backend `http://localhost:8081` adresinde çalışır. Sağlık kontrolü:
+`http://localhost:8081/actuator/health`.
 
-Monolith `8081`; leaderboard servisi `8082` portunu kullanır. Monolith PostgreSQL
-`5433`, leaderboard PostgreSQL `5434`, RabbitMQ `5673`, monolith Redis `6380` ve
-leaderboard Redis `6381` portundadır. Health kontrolleri:
-`http://localhost:8081/actuator/health` ve
-`http://localhost:8082/actuator/health`.
+### 3. Web uygulamasını başlat
+
+Başka bir terminalde:
+
+```powershell
+cd admin-web
+npm ci
+npm run dev
+```
+
+- Kullanıcı uygulaması: `http://localhost:5173/`
+- Yönetim uygulaması: `http://localhost:5173/admin.html`
+- RabbitMQ paneli: `http://localhost:15673/`
+
+Yerel RabbitMQ kullanıcı adı `content_engagement`, parolası
+`local_development_password` değeridir.
+
+### İsteğe bağlı ayarlar
+
+İlk yerel yönetici hesabını yalnız bir kez oluşturmak için backend'i başlatmadan
+önce aşağıdaki değişkenleri tanımlayabilirsin:
+
+```powershell
+$env:INITIAL_ADMIN_ENABLED="true"
+$env:INITIAL_ADMIN_EMAIL="admin@example.com"
+$env:INITIAL_ADMIN_DISPLAY_NAME="İlk Yönetici"
+$env:INITIAL_ADMIN_PASSWORD="uzun-ve-benzersiz-bir-parola"
+```
+
+İlk başarılı girişten sonra `INITIAL_ADMIN_ENABLED` değerini `false` yap ve parolayı
+terminal ortamından kaldır.
+
+Şifre sıfırlama e-postası denenecekse `MAILERSEND_SMTP_USERNAME`,
+`MAILERSEND_SMTP_PASSWORD` ve `MAILERSEND_FROM_ADDRESS` değişkenleri gerekir. Bu
+bilgileri repoya yazma; yalnız terminal ortamında tut.
+
+### Test ve kapatma
+
+```powershell
+.\mvnw.cmd verify
+.\mvnw.cmd -f leaderboard-service\pom.xml test
+cd admin-web
+npm test
+```
+
+Docker servislerini durdurmak için proje kökünde:
+
+```powershell
+docker compose down
+```
+
+Yerel portlar: monolith PostgreSQL `5433`, leaderboard PostgreSQL `5434`, RabbitMQ
+`5673`, monolith Redis `6380` ve leaderboard Redis `6381`.
 
 İlk mikroservis geçişinde mevcut XP satırları ADMIN yetkili
 `POST /api/v1/admin/leaderboards/replay-xp-events` çağrısıyla idempotent biçimde
