@@ -67,7 +67,8 @@ Oracle Always Free gibi tek Linux sunucusu için `compose.production.yaml` hazı
 Yalnız web katmanı internete açılır; kullanıcı uygulaması `/`, yönetim uygulaması
 `/admin` adresindedir. Örnek secret dosyası ve ilk kurulum sırası
 [operasyon rehberinde](docs/OPERATIONS.md) açıklanır. Repository hazırlığı gerçek
-sunucu dağıtımı, domain doğrulaması ve yedek/restore provası yerine geçmez.
+sunucu dağıtımı, domain doğrulaması ve yedek/restore provası yerine geçmez. 
+Proje 15/08/2026 itibari ile https://hikayeizi.duckdns.org/ adresşnde yayındadır.
 
 ## Çalışma kuralları
 
