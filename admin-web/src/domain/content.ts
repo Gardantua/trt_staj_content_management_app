@@ -78,3 +78,10 @@ export interface EpisodeInput {
   title: string;
   description: string;
 }
+
+export interface ContentTranslation {
+  title: string;
+  description: string | null;
+  coverAlternativeText: string | null;
+  seasons: Array<{ seasonId: string; title: string; episodes: Array<{ episodeId: string; title: string; description: string | null }> }>;
+}

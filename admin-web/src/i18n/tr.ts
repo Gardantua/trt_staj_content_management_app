@@ -344,7 +344,20 @@ export const tr = {
   "viewer.xpPending": "XP işleniyor; profilinde kısa süre sonra görünebilir.",
   "viewer.xpPractice": "Bu bir alıştırma çözümüydü; ek XP kazanmadın.",
   "viewer.xpEarned": "+{xp} XP kazandın.",
-  "viewer.correctSummary": "{correct} / {total} doğru"
+  "viewer.correctSummary": "{correct} / {total} doğru",
+  "admin.englishTranslation": "İngilizce içerik",
+  "admin.translationLoading": "Çeviri alanları yükleniyor…",
+  "admin.translationHelp": "Türkçe ana kayıt değişmeden kalır. Buraya girilen İngilizce metinler kullanıcı İngilizceyi seçtiğinde gösterilir.",
+  "admin.quizTranslationHelp": "Soru ve şık kimlikleri değişmez; yalnız kullanıcıya gösterilen İngilizce metin kaydedilir. Doğru cevap seçimi Türkçe sürümden korunur.",
+  "admin.englishTitle": "İngilizce başlık",
+  "admin.englishQuizTitle": "İngilizce quiz başlığı",
+  "admin.englishDescription": "İngilizce açıklama",
+  "admin.englishCoverAlt": "İngilizce kapak alternatif metni",
+  "admin.englishQuestion": "İngilizce soru",
+  "admin.englishOptionNumber": "{number}. şıkkın İngilizcesi",
+  "admin.englishVisualAlt": "İngilizce görsel alternatif metni",
+  "admin.englishAccessiblePrompt": "İngilizce erişilebilir açıklama",
+  "admin.saveEnglishTranslation": "İngilizce çeviriyi kaydet"
 } as const;
 
 export type TranslationKey = keyof typeof tr;

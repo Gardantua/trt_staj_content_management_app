@@ -7,6 +7,8 @@ import java.util.UUID;
 
 import com.trt.contentengagement.content.application.AdminContentSummary;
 import com.trt.contentengagement.content.application.ContentManagementService;
+import com.trt.contentengagement.content.application.ContentTranslation;
+import com.trt.contentengagement.content.application.ContentTranslationService;
 import com.trt.contentengagement.content.application.PageResult;
 import com.trt.contentengagement.content.application.EpisodeManagementService;
 import com.trt.contentengagement.content.application.SeasonManagementService;
@@ -39,15 +41,29 @@ public class AdminContentController {
     private final ContentManagementService contentManagementService;
     private final SeasonManagementService seasonManagementService;
     private final EpisodeManagementService episodeManagementService;
+    private final ContentTranslationService contentTranslationService;
 
     public AdminContentController(
             ContentManagementService contentManagementService,
             SeasonManagementService seasonManagementService,
-            EpisodeManagementService episodeManagementService
+            EpisodeManagementService episodeManagementService,
+            ContentTranslationService contentTranslationService
     ) {
         this.contentManagementService = contentManagementService;
         this.seasonManagementService = seasonManagementService;
         this.episodeManagementService = episodeManagementService;
+        this.contentTranslationService = contentTranslationService;
+    }
+
+    @GetMapping("/{contentId}/translations/{languageCode}")
+    public ContentTranslation getTranslation(@PathVariable UUID contentId, @PathVariable String languageCode) {
+        return contentTranslationService.get(contentId, languageCode);
+    }
+
+    @PutMapping("/{contentId}/translations/{languageCode}")
+    public ContentTranslation saveTranslation(@PathVariable UUID contentId, @PathVariable String languageCode,
+                                              @Valid @RequestBody ContentTranslationRequest request) {
+        return contentTranslationService.save(contentId, languageCode, request.toTranslation());
     }
 
     @PostMapping
@@ -256,6 +272,25 @@ public class AdminContentController {
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
     ) {
+    }
+
+    public record ContentTranslationRequest(
+            @NotBlank @Size(max = 200) String title,
+            @Size(max = 2000) String description,
+            @Size(max = 500) String coverAlternativeText,
+            @NotNull List<@Valid SeasonTranslationRequest> seasons
+    ) {
+        ContentTranslation toTranslation() { return new ContentTranslation(title.trim(), description, coverAlternativeText,
+                seasons.stream().map(SeasonTranslationRequest::toTranslation).toList()); }
+    }
+    public record SeasonTranslationRequest(@NotNull UUID seasonId, @NotBlank @Size(max = 200) String title,
+                                           @NotNull List<@Valid EpisodeTranslationRequest> episodes) {
+        ContentTranslation.SeasonTranslation toTranslation() { return new ContentTranslation.SeasonTranslation(
+                seasonId, title.trim(), episodes.stream().map(EpisodeTranslationRequest::toTranslation).toList()); }
+    }
+    public record EpisodeTranslationRequest(@NotNull UUID episodeId, @NotBlank @Size(max = 200) String title,
+                                            @Size(max = 2000) String description) {
+        ContentTranslation.EpisodeTranslation toTranslation() { return new ContentTranslation.EpisodeTranslation(episodeId, title.trim(), description); }
     }
 
     public record AdminContentPageResponse(

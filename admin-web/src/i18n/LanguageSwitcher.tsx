@@ -2,6 +2,7 @@ import { useI18n } from "./I18nContext";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useI18n();
+  const flags = { tr: "🇹🇷", en: "🇬🇧" } as const;
 
   return <div className="language-switcher" role="group" aria-label={t("language.label")}>
     {(["tr", "en"] as const).map((candidateLanguage) => {
@@ -13,7 +14,7 @@ export function LanguageSwitcher() {
         aria-pressed={language === candidateLanguage}
         aria-label={t("language.switchTo", { language: label })}
         onClick={() => setLanguage(candidateLanguage)}
-      >{candidateLanguage.toUpperCase()}</button>;
+      ><span aria-hidden="true">{flags[candidateLanguage]}</span></button>;
     })}
   </div>;
 }

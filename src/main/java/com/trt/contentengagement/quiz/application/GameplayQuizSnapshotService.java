@@ -7,13 +7,17 @@ import com.trt.contentengagement.quiz.domain.Quiz;
 import com.trt.contentengagement.quiz.domain.QuizVersion;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.i18n.LocaleContextHolder;
 
 @Service
 public class GameplayQuizSnapshotService implements GameplayQuizSnapshotProvider {
     private final QuizCatalogRepository quizCatalogRepository;
+    private final QuizTranslationService quizTranslationService;
 
-    public GameplayQuizSnapshotService(QuizCatalogRepository quizCatalogRepository) {
+    public GameplayQuizSnapshotService(QuizCatalogRepository quizCatalogRepository,
+                                       QuizTranslationService quizTranslationService) {
         this.quizCatalogRepository = quizCatalogRepository;
+        this.quizTranslationService = quizTranslationService;
     }
 
     @Override
@@ -21,7 +25,7 @@ public class GameplayQuizSnapshotService implements GameplayQuizSnapshotProvider
     public GameplayQuizSnapshot getPublishedByQuizId(UUID quizId) {
         Quiz quiz = quizCatalogRepository.findWithPublishedVersionById(quizId)
                 .orElseThrow(() -> new QuizNotFoundException(quizId));
-        return snapshot(quiz, quiz.publishedVersion());
+        return localizedSnapshot(quiz, quiz.publishedVersion());
     }
 
     @Override
@@ -29,7 +33,11 @@ public class GameplayQuizSnapshotService implements GameplayQuizSnapshotProvider
     public GameplayQuizSnapshot getByVersionId(UUID versionId) {
         Quiz quiz = quizCatalogRepository.findByVersionId(versionId)
                 .orElseThrow(() -> new QuizNotFoundException(versionId));
-        return snapshot(quiz, quiz.requireVersion(versionId));
+        return localizedSnapshot(quiz, quiz.requireVersion(versionId));
+    }
+
+    private GameplayQuizSnapshot localizedSnapshot(Quiz quiz, QuizVersion version) {
+        return quizTranslationService.localize(snapshot(quiz, version), LocaleContextHolder.getLocale().getLanguage());
     }
 
     private GameplayQuizSnapshot snapshot(Quiz quiz, QuizVersion version) {

@@ -346,5 +346,18 @@ export const en = {
   "viewer.xpPending": "XP is being processed and may appear in your profile shortly.",
   "viewer.xpPractice": "This was a practice attempt, so you did not earn additional XP.",
   "viewer.xpEarned": "+{xp} XP earned.",
-  "viewer.correctSummary": "{correct} / {total} correct"
+  "viewer.correctSummary": "{correct} / {total} correct",
+  "admin.englishTranslation": "English content",
+  "admin.translationLoading": "Loading translation fields…",
+  "admin.translationHelp": "The Turkish source remains unchanged. Text entered here is shown when the viewer selects English.",
+  "admin.quizTranslationHelp": "Question and option identities remain unchanged; only their English presentation is saved. The correct answer is preserved from the Turkish version.",
+  "admin.englishTitle": "English title",
+  "admin.englishQuizTitle": "English quiz title",
+  "admin.englishDescription": "English description",
+  "admin.englishCoverAlt": "English cover alternative text",
+  "admin.englishQuestion": "English question",
+  "admin.englishOptionNumber": "English option {number}",
+  "admin.englishVisualAlt": "English visual alternative text",
+  "admin.englishAccessiblePrompt": "English accessible explanation",
+  "admin.saveEnglishTranslation": "Save English translation"
 } satisfies Record<TranslationKey, string>;

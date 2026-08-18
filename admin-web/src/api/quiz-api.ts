@@ -1,5 +1,5 @@
 import { ApiClient } from "./client";
-import type { CreateQuizInput, QuestionInput, Quiz, QuizSummary } from "../domain/quiz";
+import type { CreateQuizInput, QuestionInput, Quiz, QuizSummary, QuizTranslation } from "../domain/quiz";
 
 export class QuizApi {
   constructor(private readonly client: ApiClient) {}
@@ -8,6 +8,12 @@ export class QuizApi {
     return this.client.request(`/api/v1/admin/quizzes?contentId=${contentId}`);
   }
   get(quizId: string): Promise<Quiz> { return this.client.request(`/api/v1/admin/quizzes/${quizId}`); }
+  getTranslation(quizId: string, versionId: string): Promise<QuizTranslation> {
+    return this.client.request(`/api/v1/admin/quizzes/${quizId}/versions/${versionId}/translations/en`);
+  }
+  saveTranslation(quizId: string, versionId: string, input: QuizTranslation): Promise<QuizTranslation> {
+    return this.client.request(`/api/v1/admin/quizzes/${quizId}/versions/${versionId}/translations/en`, { method: "PUT", body: JSON.stringify(input) });
+  }
   create(input: CreateQuizInput): Promise<Quiz> {
     return this.client.request("/api/v1/admin/quizzes", { method: "POST", body: JSON.stringify(input) });
   }

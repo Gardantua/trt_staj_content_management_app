@@ -151,7 +151,12 @@ textarea { resize: vertical; }
 .form-validation { background: #fce9e5; border-left: .25rem solid #c53d2a; color: #7e2519; margin: 0; padding: .75rem .9rem; }
 @media (max-width: 760px) { .detail-hero { grid-template-columns: 6rem minmax(0, 1fr); }.detail-actions { grid-column: 1 / -1; }.list-heading { align-items: start; flex-direction: column; } }
 .language-switcher { align-items: center; display: inline-flex; gap: .25rem; }
-.language-switcher button { background: transparent; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 999px; color: inherit; cursor: pointer; font: inherit; font-size: .72rem; font-weight: 800; letter-spacing: .06em; min-height: 2.25rem; min-width: 2.75rem; padding: .35rem .65rem; }
+.language-switcher button { align-items: center; background: transparent; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); border-radius: 999px; color: inherit; cursor: pointer; display: inline-flex; font: inherit; font-size: 1.05rem; justify-content: center; line-height: 1; min-height: 2.25rem; min-width: 2.5rem; padding: .3rem .45rem; }
 .language-switcher button.is-active { background: #177a60; border-color: #177a60; color: #fff; }
 .language-switcher button:focus-visible { outline: 3px solid #78d9bb; outline-offset: 2px; }
+.translation-editor { border: 1px solid var(--line); margin-top: 1.5rem; padding: 1rem; }
+.translation-editor > summary { cursor: pointer; font-weight: 800; }
+.translation-editor > form { margin-top: 1rem; }
+.translation-editor fieldset { border: 1px solid var(--line); padding: 1rem; }
+.translation-subgroup { border-left: 3px solid var(--accent); display: grid; gap: .75rem; margin-top: 1rem; padding-left: 1rem; }
 .admin-access > .language-switcher { position: absolute; right: 1rem; top: 1rem; z-index: 2; }

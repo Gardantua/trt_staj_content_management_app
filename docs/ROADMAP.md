@@ -25,6 +25,8 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
 - Aşama 13A: Kullanıcı ve yönetici web arayüzlerinin tip kontrollü Türkçe–İngilizce
   sözlük, kalıcı dil tercihi, erişilebilir dil seçici ve yerelleştirilmiş PDF şablonuyla
   iki dilli hale getirilmesi.
+- Aşama 13C: Film/dizi, sezon/bölüm ve quiz metinlerinin aynı domain kimliklerine bağlı
+  İngilizce sunum projeksiyonları, admin çeviri alanları ve `Accept-Language` seçimi.
 
 ## Güncel ürün durumu
 
@@ -59,7 +61,7 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
 
 ## Sıradaki iş
 
-Aşama 13A tamamlandı. Kullanıcı yeni dil dilimini seçerse sıradaki tek geliştirme işi
+Aşama 13C tamamlandı. Kullanıcı yeni dil dilimini seçerse sıradaki tek geliştirme işi
 Aşama 13B'de kararlı hata kodu ve trace ID sözleşmesini koruyarak backend API,
 authentication, authorization ve CSRF hata mesajlarına `Accept-Language` desteği
 eklemektir. Oracle VM smoke testi ve ilk dış backup/restore provası ayrı operasyon

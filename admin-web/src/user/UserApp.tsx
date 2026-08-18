@@ -15,9 +15,9 @@ type QuizSort = "CONTENT_TITLE" | "QUIZ_TITLE" | "QUESTION_COUNT";
 interface ViewerRoute { contentId: string | null; quizId: string | null; view: View; }
 
 export function UserApp() {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const authApi = useMemo(() => new AuthApi(), []);
-  const api = useMemo(() => new PublicApi(), []);
+  const api = useMemo(() => new PublicApi(), [language]);
   const [account, setAccount] = useState<AccountSession | null | undefined>(undefined);
   const [route, setRoute] = useState<ViewerRoute>(readRoute);
 
@@ -44,17 +44,17 @@ export function UserApp() {
   if (account === undefined) return <main className="viewer-shell sign-in-shell"><LanguageSwitcher /><p className="loading-copy">{t("viewer.sessionChecking")}</p></main>;
   if (!account) return <AccountAccess authApi={authApi} onSignedIn={setAccount} />;
   return <main className="viewer-shell">
-    <SiteHeader account={account} view={route.view} onNavigate={(view) => navigate({ view, contentId: null, quizId: null })} onSignOut={async () => { try { await authApi.logout(); } finally { setAccount(null); } }} />
+    <SiteHeader account={account} view={route.view} showLanguageSwitcher={!route.quizId} onNavigate={(view) => navigate({ view, contentId: null, quizId: null })} onSignOut={async () => { try { await authApi.logout(); } finally { setAccount(null); } }} />
     {route.quizId ? <QuizExperience api={api} quizId={route.quizId} onExit={() => navigate({ quizId: null })} onViewProfile={() => navigate({ quizId: null, contentId: null, view: "profile" })} /> : route.contentId
       ? <ContentDetail api={api} contentId={route.contentId} onBack={() => navigate({ contentId: null })} onStartQuiz={(quizId) => navigate({ quizId })} />
       : route.view === "quizzes" ? <QuizCatalogue api={api} onStartQuiz={(quizId) => navigate({ quizId })} /> : route.view === "profile" ? <Profile api={api} /> : <Catalogue api={api} onOpen={(contentId) => navigate({ contentId })} />}
   </main>;
 }
 
-function SiteHeader({ account, view, onNavigate, onSignOut }: { account: AccountSession; view: View; onNavigate: (view: View) => void; onSignOut: () => Promise<void> }) {
+function SiteHeader({ account, view, showLanguageSwitcher, onNavigate, onSignOut }: { account: AccountSession; view: View; showLanguageSwitcher: boolean; onNavigate: (view: View) => void; onSignOut: () => Promise<void> }) {
   const { t } = useI18n();
   return <header className="viewer-header"><a className="viewer-brand" href="/" onClick={(event) => { event.preventDefault(); onNavigate("home"); }} aria-label={t("viewer.homeAria")}><img src={tabiiLogoUrl} alt="tabii" /><span><strong>Hikâye</strong> İzi</span><em>{t("viewer.tagline")}</em></a>
-    <nav aria-label={t("viewer.menu")}><button className={view === "home" ? "active" : ""} onClick={() => onNavigate("home")}>{t("viewer.discover")}</button><button className={view === "quizzes" ? "active" : ""} onClick={() => onNavigate("quizzes")}>{t("viewer.quizzes")}</button><button className={view === "profile" ? "active" : ""} onClick={() => onNavigate("profile")}>{t("viewer.profile")}</button></nav><LanguageSwitcher /><p><span>{account.displayName}</span><button className="sign-out" onClick={() => void onSignOut()}>{t("viewer.signOut")}</button></p></header>;
+    <nav aria-label={t("viewer.menu")}><button className={view === "home" ? "active" : ""} onClick={() => onNavigate("home")}>{t("viewer.discover")}</button><button className={view === "quizzes" ? "active" : ""} onClick={() => onNavigate("quizzes")}>{t("viewer.quizzes")}</button><button className={view === "profile" ? "active" : ""} onClick={() => onNavigate("profile")}>{t("viewer.profile")}</button></nav>{showLanguageSwitcher && <LanguageSwitcher />}<p><span>{account.displayName}</span><button className="sign-out" onClick={() => void onSignOut()}>{t("viewer.signOut")}</button></p></header>;
 }
 
 function AccountAccess({ authApi, onSignedIn }: { authApi: AuthApi; onSignedIn: (account: AccountSession) => void }) {

@@ -81,6 +81,32 @@ class QuizAuthoringIntegrationTest {
     }
 
     @Test
+    void englishQuizTranslationKeepsAnswerIdentityAndLocalizesPublicContract() throws Exception {
+        String contentId = createContent("ROCKY");
+        QuizIdentifiers quiz = createQuiz(contentId, "Rocky Quiz");
+        JsonNode adminQuiz = json(addValidQuestion(quiz));
+        JsonNode question = adminQuiz.get("versions").get(0).get("questions").get(0);
+        String questionId = question.get("id").stringValue();
+        JsonNode options = question.get("answerOptions");
+        String translationBody = """
+                {"title":"Rocky Movie Trivia","description":"How well do you know Rocky?","questions":[
+                  {"questionId":"%s","prompt":"Why does Apollo choose Rocky?","answerOptions":[
+                    {"optionId":"%s","text":"For publicity"},{"optionId":"%s","text":"For his record"},
+                    {"optionId":"%s","text":"By legal order"},{"optionId":"%s","text":"Because of Mickey"}]}
+                ]}
+                """.formatted(questionId, options.get(0).get("id").stringValue(), options.get(1).get("id").stringValue(),
+                options.get(2).get("id").stringValue(), options.get(3).get("id").stringValue());
+        assertThat(sendJson("PUT", adminVersionPath(quiz) + "/translations/en", translationBody,
+                EDITOR_ACTOR_ID, "EDITOR").statusCode()).isEqualTo(200);
+        sendJson("POST", adminVersionPath(quiz) + "/publish", null, EDITOR_ACTOR_ID, "EDITOR");
+
+        HttpResponse<String> english = sendGetWithLanguage(
+                "/api/v1/quizzes/" + quiz.quizId(), USER_ACTOR_ID, "USER", "en");
+        assertThat(english.body()).contains("Rocky Movie Trivia").contains("Why does Apollo choose Rocky?")
+                .contains("For publicity").doesNotContain("correct");
+    }
+
+    @Test
     void editorCanAuthorPublishAndAuditQuizThenUserReadsSafeContract() throws Exception {
         String contentId = createContent("Gönül Dağı");
         QuizIdentifiers quiz = createQuiz(contentId, "Birinci Bölüm Quizi");
@@ -733,6 +759,16 @@ class QuizAuthoringIntegrationTest {
     private HttpResponse<String> sendGet(String path, UUID actorId, String role)
             throws IOException, InterruptedException {
         return sendJson("GET", path, null, actorId, role);
+    }
+
+    private HttpResponse<String> sendGetWithLanguage(String path, UUID actorId, String role, String language)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:" + serverPort + path))
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ID_HEADER, actorId.toString())
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ROLES_HEADER, role)
+                .header("Accept-Language", language).GET().build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> sendJson(

@@ -1,5 +1,35 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 18.08.2026 Aşama 13C içerik ve quiz çevirileri
+
+- Film/dizi, sezon/bölüm, quiz sürümü, soru, seçenek ve erişilebilirlik metinleri için
+  kaynak kimliklere yabancı anahtarla bağlı İngilizce çeviri tabloları V19 migration'ıyla
+  eklendi. Türkçe mevcut alanlarda ana/fallback dil olarak kaldı.
+- Kullanıcı istemcisi her JSON isteğinde `Accept-Language` gönderir. Dil değişince API
+  nesnesi yenilenerek katalog ve quiz verileri tekrar okunur. İngilizce çeviri varsa
+  gösterilir; eksik öğe Türkçeye düşer.
+- Gameplay yalnız gösterim metnini yerelleştirir. Soru/seçenek/doğru cevap kimlikleri,
+  süre, skor, attempt, ilk tamamlama ve XP davranışı değişmedi.
+- Admin içerik ekranına film/dizi, kapak, sezon ve bölüm için; quiz çalışma alanına
+  başlık, soru, dört şık, görsel alternatif metni ve erişilebilir açıklama için
+  `🇬🇧 İngilizce içerik` formları eklendi. Çeviri `PUT` işlemleri audit kaydı üretir.
+- Dil seçici TR/EN yazısı yerine erişilebilir Türkiye/Birleşik Krallık bayraklarıyla
+  gösterilir. Üst menüde ayrı grid alanına alındı ve quiz çözme sırasında gizlenir.
+- Migration, repoda bulunan altı demo katalog özetini ve kullanıcının paylaştığı Rocky
+  içerik metni/birinci soru metinlerini İngilizce geri doldurur. Çalışma alanında veya
+  erişilebilir yerel veritabanında bulunmayan diğer quiz metinleri uydurulmadı; admin
+  formundan girilmeleri gerekir.
+- Testler: Java 21 ve yerel Testcontainers altyapısıyla tam backend paketi `133/133`;
+  içerik ve quiz çeviri odaklı entegrasyon paketi `28/28`; frontend Vitest `56/56`
+  geçti ve üretim derlemesi tamamlandı.
+  TypeScript strict kontrolü ve production build başarılı; mevcut büyük PDF/font chunk
+  uyarısı devam ediyor.
+- Görsel tarayıcı incelemesi yapılmadı; proje kuralı gereği ayrıca açık izin gerekir.
+- Karar ADR-0034'te kayıtlıdır. Alternatif olan her dil için ayrı quiz kopyası, geçmiş ve
+  XP kimliğini böleceği için seçilmedi.
+- Sıradaki tek iş: Yerel admin ekranında kalan mevcut quizlerin İngilizce alanlarını
+  kaynak metinlerinden doldurmak; sonrasında istenirse Aşama 13B backend hata metinleri.
+
 ## 18.08.2026 Aşama 13A Türkçe–İngilizce arayüz yerelleştirmesi
 
 - Kullanıcı ve yönetici web girişleri ortak, bağımlılıksız ve TypeScript anahtarlarıyla

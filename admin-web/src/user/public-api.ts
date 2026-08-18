@@ -42,7 +42,7 @@ export class PublicApi {
   }
 
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({ Accept: "application/json", "Accept-Language": readStoredLanguage() });
     new Headers(init.headers).forEach((value, name) => headers.set(name, value));
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
     if (this.actor?.id) {

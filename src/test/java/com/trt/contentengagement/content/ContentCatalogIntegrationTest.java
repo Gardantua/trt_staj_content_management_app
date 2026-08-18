@@ -70,6 +70,29 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void englishContentTranslationIsStoredAndSelectedByAcceptLanguage() throws Exception {
+        HttpResponse<String> created = createFilm("ROCKY");
+        String contentId = json(created).get("id").stringValue();
+        attachCover(contentId);
+        sendJson("POST", "/api/v1/admin/contents/" + contentId + "/publish", null, EDITOR_ACTOR_ID, "EDITOR");
+
+        HttpResponse<String> saved = sendJson("PUT", "/api/v1/admin/contents/" + contentId + "/translations/en", """
+                {"title":"ROCKY","description":"An amateur boxer gets a championship opportunity.",
+                 "coverAlternativeText":"Rocky film cover","seasons":[]}
+                """, EDITOR_ACTOR_ID, "EDITOR");
+        assertThat(saved.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> english = sendGetWithLanguage(
+                "/api/v1/contents/" + contentId, USER_ACTOR_ID, "USER", "en");
+        assertThat(english.body()).contains("An amateur boxer gets a championship opportunity.")
+                .contains("Rocky film cover");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM admin_audit_entries
+                WHERE action = 'CONTENT_TRANSLATION_UPDATED' AND resource_id = ?::uuid
+                """, Integer.class, contentId)).isEqualTo(1);
+    }
+
+    @Test
     void editorCanCreateMultipleSeasonsAndEpisodesWithOnePlan() throws Exception {
         HttpResponse<String> createdContent = sendJson(
                 "POST",
@@ -662,6 +685,16 @@ class ContentCatalogIntegrationTest {
     private HttpResponse<String> sendGet(String path, UUID actorId, String role)
             throws IOException, InterruptedException {
         return sendJson("GET", path, null, actorId, role);
+    }
+
+    private HttpResponse<String> sendGetWithLanguage(String path, UUID actorId, String role, String language)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:" + serverPort + path))
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ID_HEADER, actorId.toString())
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ROLES_HEADER, role)
+                .header("Accept-Language", language).GET().build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> sendJson(

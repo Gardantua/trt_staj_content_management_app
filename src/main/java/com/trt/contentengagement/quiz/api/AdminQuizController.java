@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.UUID;
 
 import com.trt.contentengagement.quiz.application.QuizManagementService;
+import com.trt.contentengagement.quiz.application.QuizTranslation;
+import com.trt.contentengagement.quiz.application.QuizTranslationService;
 import com.trt.contentengagement.quiz.application.AdminQuizSummary;
 import com.trt.contentengagement.quiz.domain.Question;
 import com.trt.contentengagement.quiz.domain.QuestionDifficulty;
@@ -34,9 +36,25 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminQuizController {
 
     private final QuizManagementService quizManagementService;
+    private final QuizTranslationService quizTranslationService;
 
-    public AdminQuizController(QuizManagementService quizManagementService) {
+    public AdminQuizController(QuizManagementService quizManagementService,
+                               QuizTranslationService quizTranslationService) {
         this.quizManagementService = quizManagementService;
+        this.quizTranslationService = quizTranslationService;
+    }
+
+    @GetMapping("/{quizId}/versions/{versionId}/translations/{languageCode}")
+    public QuizTranslation getTranslation(@PathVariable UUID quizId, @PathVariable UUID versionId,
+                                          @PathVariable String languageCode) {
+        return quizTranslationService.get(quizId, versionId, languageCode);
+    }
+
+    @PutMapping("/{quizId}/versions/{versionId}/translations/{languageCode}")
+    public QuizTranslation saveTranslation(@PathVariable UUID quizId, @PathVariable UUID versionId,
+                                           @PathVariable String languageCode,
+                                           @Valid @RequestBody QuizTranslationRequest request) {
+        return quizTranslationService.save(quizId, versionId, languageCode, request.toTranslation());
     }
 
     @PostMapping
@@ -187,6 +205,28 @@ public class AdminQuizController {
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
     ) {
+    }
+
+    public record QuizTranslationRequest(
+            @NotBlank @Size(max = 200) String title,
+            @Size(max = 2000) String description,
+            @Size(max = 500) String fallbackAlternativeText,
+            @NotNull List<@Valid QuestionTranslationRequest> questions
+    ) {
+        QuizTranslation toTranslation() { return new QuizTranslation(title.trim(), description,
+                fallbackAlternativeText, questions.stream().map(QuestionTranslationRequest::toTranslation).toList()); }
+    }
+    public record QuestionTranslationRequest(
+            @NotNull UUID questionId, @NotBlank @Size(max = 1000) String prompt,
+            @Size(max = 500) String visualAlternativeText, @Size(max = 1000) String accessiblePrompt,
+            @NotNull @Size(min = 4, max = 4) List<@Valid OptionTranslationRequest> answerOptions
+    ) {
+        QuizTranslation.QuestionTranslation toTranslation() { return new QuizTranslation.QuestionTranslation(
+                questionId, prompt.trim(), visualAlternativeText, accessiblePrompt,
+                answerOptions.stream().map(OptionTranslationRequest::toTranslation).toList()); }
+    }
+    public record OptionTranslationRequest(@NotNull UUID optionId, @NotBlank @Size(max = 500) String text) {
+        QuizTranslation.OptionTranslation toTranslation() { return new QuizTranslation.OptionTranslation(optionId, text.trim()); }
     }
 
     public record QuestionRequest(

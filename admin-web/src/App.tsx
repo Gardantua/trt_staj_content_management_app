@@ -10,6 +10,7 @@ import { CoverEditor } from "./components/CoverEditor";
 import { ProtectedImage } from "./components/ProtectedImage";
 import { QuizOverview } from "./components/QuizOverview";
 import { QuizStudio } from "./components/QuizStudio";
+import { ContentTranslationEditor } from "./components/TranslationEditors";
 import { SeasonEditor } from "./components/SeasonEditor";
 import type { Content, ContentPage, ContentSummary } from "./domain/content";
 import { readStoredLanguage, translate, useI18n } from "./i18n/I18nContext";
@@ -215,6 +216,7 @@ function ContentDetail({ api, mediaApi, quizApi, contentId, navigate }: { api: C
         onUpdateEpisode={(season, episode, input) => api.updateEpisode(content.id, season.id, episode.id, input)}
         onDeleteEpisode={async (season, episode) => { await api.deleteEpisode(content.id, season.id, episode.id); setContent(await api.get(content.id)); }} /> : null}
       {content.contentType === "FILM" ? <p className="notice notice--info">{t("admin.filmHasNoSeasons")}</p> : null}
+      <ContentTranslationEditor content={content} api={api} onError={handleError} />
     </> : <QuizStudio content={content} quizApi={quizApi} mediaApi={mediaApi} initialQuizId={new URLSearchParams(window.location.search).get("quiz")} onError={handleError} />}
   </section>;
 }

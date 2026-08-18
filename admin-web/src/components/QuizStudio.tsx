@@ -6,6 +6,7 @@ import type { QuestionInput, Quiz, QuizQuestion, QuizScopeType, QuizSummary, Qui
 import { downloadQuizPdf } from "./quiz-pdf";
 import { translate, useI18n } from "../i18n/I18nContext";
 import type { Language } from "../i18n/types";
+import { QuizTranslationEditor } from "./TranslationEditors";
 
 interface QuizStudioProps {
   content: Content;
@@ -97,6 +98,7 @@ function QuizWorkspace({ content, quizNumber, quizId, quizApi, mediaApi, onChang
   return <section className="quiz-workspace">
     <div className="question-actions"><button type="button" className="button-danger" onClick={async () => { const confirmation = t(hasPublicationHistory ? "admin.retireQuizConfirm" : "admin.deleteDraftQuizConfirm"); if (!window.confirm(confirmation)) return; try { if (hasPublicationHistory) await quizApi.retireQuiz(quiz.id); else await quizApi.deleteQuiz(quiz.id); onDeleted(); } catch (reason) { onError(reason); } }}>{t(hasPublicationHistory ? "admin.retireQuiz" : "admin.deleteQuiz")}</button></div>
     {workingVersion ? <QuizEditor content={content} quizNumber={quizNumber} quiz={quiz} version={workingVersion} quizApi={quizApi} mediaApi={mediaApi} onQuizChanged={(updated) => { setQuiz(updated); onChanged(); }} onError={onError} /> : <div className="notice"><p>{t("admin.publishedQuizEditNotice")}</p><div className="question-actions"><button type="button" className="button-secondary" onClick={async () => { try { await downloadQuizPdf(content, quiz, latest, quizNumber, mediaApi, language); } catch (reason) { onError(reason); } }}>{t("admin.downloadVisualAnswerKey")}</button><button type="button" className="button-primary" onClick={async () => { try { const updated = await quizApi.startEditing(quiz.id); setQuiz(updated); onChanged(); } catch (reason) { onError(reason); } }}>{t("admin.startEditing")}</button></div></div>}
+    {latest ? <QuizTranslationEditor quizId={quiz.id} version={latest} api={quizApi} onError={onError} /> : null}
   </section>;
 }
 

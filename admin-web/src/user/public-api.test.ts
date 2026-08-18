@@ -13,6 +13,7 @@ describe("PublicApi", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/contents?page=0&size=12", expect.objectContaining({ headers: expect.any(Headers) }));
     const headers = fetchMock.mock.calls[0][1].headers as Headers;
     expect(headers.get("X-Test-Actor-Roles")).toBe("USER");
+    expect(headers.get("Accept-Language")).toBe("tr");
   });
 
   it("collects all public content pages for quiz discovery", async () => {
