@@ -1,5 +1,6 @@
 import type { LocalActor } from "../auth/actor";
 import { CsrfTokenClient } from "../api/csrf";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 import type { AnswerSubmissionResult, CurrentActor, Leaderboard, PublicApiError, PublicContent, PublicContentPage, PublishedQuiz, PublishedQuizSummary, QuizAttempt, QuizResultSummary, XpSummary } from "./types";
 
 export class PublicApiRequestError extends Error implements PublicApiError {
@@ -23,7 +24,7 @@ export async function toApiError(response: Response): Promise<PublicApiRequestEr
   try { body = await response.json() as ErrorBody; } catch { /* A proxy error can be plain text. */ }
   return new PublicApiRequestError({
     code: typeof body.code === "string" ? body.code : "UNEXPECTED_API_ERROR",
-    message: typeof body.message === "string" ? body.message : "İstek tamamlanamadı.",
+    message: typeof body.message === "string" ? body.message : translate(readStoredLanguage(), "error.requestFailed"),
     traceId: typeof body.traceId === "string" ? body.traceId : "unavailable",
     status: response.status
   });
@@ -52,7 +53,7 @@ export class PublicApi {
     let response: Response;
     try { response = await fetch(`${this.baseUrl}${path}`, { ...init, headers, credentials: "same-origin" }); }
     catch {
-      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "İçerik servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
+      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.contentUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await toApiError(response);
     if (response.status === 204) return undefined as T;
@@ -130,7 +131,7 @@ export class PublicApi {
     let response: Response;
     try { response = await fetch(`${this.baseUrl}${path}`, { headers, credentials: "same-origin" }); }
     catch {
-      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
+      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.mediaUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await toApiError(response);
     return response.blob();

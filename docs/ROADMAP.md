@@ -22,6 +22,9 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
   `xp.changed.v1`, bağımsız PostgreSQL/Redis ve özellik bayraklı geçiş.
 - Aşama 12: Oracle Always Free hedefli tek sunucu production paketi, aynı-origin
   HTTPS, CSRF koruması, gerçek admin oturumu ve tek kullanımlık ilk admin oluşturma.
+- Aşama 13A: Kullanıcı ve yönetici web arayüzlerinin tip kontrollü Türkçe–İngilizce
+  sözlük, kalıcı dil tercihi, erişilebilir dil seçici ve yerelleştirilmiş PDF şablonuyla
+  iki dilli hale getirilmesi.
 
 ## Güncel ürün durumu
 
@@ -56,11 +59,11 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
 
 ## Sıradaki iş
 
-Aşama 12 repository hazırlığı tamamlandı. Sıradaki tek iş Oracle VM, domain ve
-firewall'u hazırlayıp production Compose'u hedef sunucuda çalıştırmak; ardından
-health, kullanıcı girişi, `/admin` girişi, şifre sıfırlama ve leaderboard için smoke
-test ile ilk şifreli dış yedek/restore provasını yapmaktır. Eski monolith leaderboard
-modülü, XP replay ve sonuç eşitliği ayrıca doğrulanmadan kaldırılmaz.
+Aşama 13A tamamlandı. Kullanıcı yeni dil dilimini seçerse sıradaki tek geliştirme işi
+Aşama 13B'de kararlı hata kodu ve trace ID sözleşmesini koruyarak backend API,
+authentication, authorization ve CSRF hata mesajlarına `Accept-Language` desteği
+eklemektir. Oracle VM smoke testi ve ilk dış backup/restore provası ayrı operasyon
+işi olarak açık kalır.
 
 ## Arşiv
 

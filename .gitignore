@@ -44,4 +44,7 @@ v2.puml
 admin-web/node_modules/
 admin-web/dist/
 
-
+### Report build artifacts and scratch ###
+docs/report-work/
+Untitled-*.svg
+quiz_attempt_process.png

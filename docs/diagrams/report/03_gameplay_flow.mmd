@@ -1,0 +1,19 @@
+flowchart LR
+    S["Quiz başlat"] --> V["Yayımlanmış sürüm<br/>ve sahiplik doğrulaması"]
+    V --> D["Sunucu saatiyle<br/>30 sn deadline"]
+    D --> A["IN_PROGRESS"]
+    A -->|cevap / timeout| C{"Süre geçerli?"}
+    C -->|evet| P["Cevabı kaydet<br/>+10 / 0"]
+    C -->|hayır| T["Timeout<br/>+0"]
+    P --> N{"Son soru?"}
+    T --> N
+    N -->|hayır| W["AWAITING_NEXT_QUESTION<br/>deadline yok"]
+    W -->|Sonraki soru| D
+    N -->|evet| F["COMPLETED<br/>skor + XP hakkı"]
+    A -->|Çık| F
+    A -.->|aynı key| R["İdempotent<br/>aynı sonuç"]
+
+    classDef state fill:#eef5ff,stroke:#355d8a,color:#111;
+    classDef decision fill:#fff4df,stroke:#9b6a18,color:#111;
+    class A,W,F state;
+    class C,N decision;

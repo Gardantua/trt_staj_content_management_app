@@ -1,0 +1,17 @@
+flowchart LR
+    G["Attempt<br/>tamamlanır"] --> TX["Tek DB transaction<br/>attempt + Outbox"]
+    TX --> P["Publisher confirm"]
+    P --> R1[["RabbitMQ"]]
+    R1 --> X["Inbox korumalı<br/>XP consumer"]
+    X --> XL["xp_transactions<br/>+ xp.changed Outbox"]
+    XL --> R2[["RabbitMQ"]]
+    R2 --> LC["Leaderboard consumer<br/>çift tekillik"]
+    LC --> LDB[("Leaderboard<br/>PostgreSQL")]
+    LDB --> RB["Generation rebuild"]
+    RB --> REDIS[("Redis read model")]
+    REDIS -.->|fallback| LDB
+
+    classDef safe fill:#edf8ef,stroke:#3d7a48,color:#111;
+    classDef data fill:#f4f4f4,stroke:#555,color:#111;
+    class TX,X,LC,RB safe;
+    class AT,O1,XL,O2,LDB,REDIS data;

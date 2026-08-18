@@ -1,5 +1,46 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 18.08.2026 Aşama 13A Türkçe–İngilizce arayüz yerelleştirmesi
+
+- Kullanıcı ve yönetici web girişleri ortak, bağımlılıksız ve TypeScript anahtarlarıyla
+  kontrol edilen `I18nProvider` üzerinden Türkçe (`tr`) ve İngilizce (`en`) çalışır.
+- Dil seçici; kullanıcı/admin giriş ekranları ile oturum açılmış üst menülerde bulunur.
+  Tercih yalnız `app_language:v1` altında saklanır; geçersiz veya okunamayan storage
+  Türkçeye düşer. Dil değişiminde `html lang` ve belge başlığı da güncellenir.
+- Kullanıcı keşif, quiz, cevap geri bildirimi, sonuç, profil ve leaderboard yüzeyleri;
+  admin içerik, kapak, sezon/bölüm, quiz yazarlığı, quiz geçmişi ve PDF şablon metinleri
+  ortak sözlüklere taşındı. Frontend'in ağ/fallback hata metinleri de seçili dili kullanır.
+- Gameplay, doğru cevap, attempt, XP, leaderboard ve backend API sözleşmeleri
+  değiştirilmedi. Backend hata yerelleştirmesi ile içerik/quiz veri çevirileri bu aşamaya
+  dahil edilmedi.
+- Karar: İki dil ve mevcut istemci ölçeğinde harici i18n paketi yerine tip kontrollü
+  sözlük kullanıldı. `react-i18next` daha gelişmiş çoğul/namespace desteği sunabilirdi;
+  mevcut kapsam için ek bağımlılık ve yapılandırma maliyeti nedeniyle seçilmedi.
+  Karar ADR-0033'te kayıtlıdır.
+- İş kuralı/test eşleşmesi: sözlük anahtar eşitliği ve parametreler `i18n.test.ts`;
+  storage fallback/saklama ve belge dili aynı test dosyası; İngilizce scope ve kullanıcı
+  adı fallback'leri `UserApp.test.ts` ile korunur.
+- `npm test`: 12 dosyada 56/56 test geçti. `npm run build`: strict TypeScript kontrolü
+  ve Vite production derlemesi geçti. Mevcut büyük `pdfmake`/font chunk uyarısı sürüyor.
+- React kalite kontrolünde Context değeri memoize edildi, storage erişimi `try/catch`
+  ile korundu ve yalnız sürümlü küçük dil kodu saklandı.
+- Görsel tarayıcı incelemesi proje kuralı gereği açık izin bulunmadığından yapılmadı;
+  kullanıcıyla masaüstü/mobil dil seçici yerleşimi ayrıca doğrulanmalıdır.
+- Sıradaki tek iş: Kullanıcı isterse Aşama 13B'de kararlı hata kodlarını koruyarak
+  backend API ve security hata mesajlarına `Accept-Language` desteği eklemek.
+
+## 17.08.2026 soru görseli alternatif metni ile cevap geri bildirimi ve Oracle güncellemesi
+
+- Soru çözüldüğünde (`AnswerReveal`), eğer soru görselinde **alternatif metin** (`alternativeText`) tanımlıysa:
+  - Hem doğru hem de yanlış/timeout sonuçlarında, doğru cevap kutucuğu formatında ve başlıksız (`Doğru Cevap:` ibaresi olmadan) doğrudan alternatif metin gösterilir.
+  - Alternatif metin bulunduğu durumda doğru cevap metni (`correctOptionText`) gizlenir.
+- Eğer soru görselinde alternatif metin yoksa:
+  - Yanlış ve süre dolumu durumlarında `Doğru Cevap:` başlığıyla doğru cevap seçeneği gösterilmeye devam eder; doğru cevaplandığında ekstra kutucuk açılmaz.
+- `resolveAnswerRevealDetails` saf fonksiyonu eklendi; `UserApp.test.ts` içine 3 yeni birim test eklenerek tüm durumlar (alt metin var/doğru, alt metin var/yanlış, alt metin yok/yanlış, alt metin yok/doğru) doğrulandı.
+- Frontend testleri: `11` dosyada `50/50` Vitest testi başarıyla geçti; `tsc --noEmit` ve `npm run build` production derlemesi doğrulandı.
+- Oracle Cloud Free Tier canlı ortamı (`https://hikayeizi.duckdns.org`): Güncellenen kaynak dosyalar aktarıldı, `compose.production.yaml` ile `web` container'ı sıfırdan derlenip canlıya alındı ve HTTPS yanıtı (HTTP/2 200) doğrulandı.
+- Sıradaki tek iş: Kullanıcının yeni görsel alternatif metinlerini ve quiz akışını canlı ortamda denemesi.
+
 ## 17.08.2026 ana README çalıştırma rehberi
 
 - Ana `README.md`; Java, Docker ve Node.js gereksinimleriyle birlikte altyapı,

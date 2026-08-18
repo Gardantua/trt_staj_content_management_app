@@ -1,0 +1,37 @@
+flowchart TB
+    subgraph ID["Kimlik"]
+      UA["identity_user_accounts<br/>PK id · UK normalized_email"]
+      RT["identity_password_reset_tokens<br/>FK user_account_id · UK token_digest"]
+      UA --> RT
+    end
+
+    subgraph CAT["İçerik"]
+      C["catalog_contents"] --> S["catalog_seasons<br/>FK content_id"]
+      S --> E["catalog_episodes<br/>FK season_id"]
+    end
+
+    subgraph QUIZ["Quiz sürümleme"]
+      QD["quiz_definitions<br/>FK content/season/episode"] --> QV["quiz_versions<br/>UK quiz_id + version_number"]
+      QV --> QQ["quiz_questions<br/>UK version + order"]
+      QQ --> AO["quiz_answer_options<br/>tek doğru seçenek"]
+    end
+
+    subgraph GAME["Gameplay ve XP"]
+      GA["gameplay_attempts<br/>status · score · earned_xp"] --> AN["gameplay_answers<br/>UK attempt + question<br/>UK idempotency_key"]
+      GA --> RC["gameplay_quiz_reward_claims<br/>PK user + quiz"]
+      GA --> XP["xp_transactions<br/>append-only ledger"]
+    end
+
+    C --> QD
+    QV --> GA
+    UA -.->|user_id| GA
+    MA["media_assets<br/>UK storage_key · SHA-256"] -.-> C
+    MA -.-> QV
+    MA -.-> QQ
+    XP -.-> OB["outbox_events"]
+    OB -.-> LB["Ayrı DB: leaderboard_xp_entries<br/>PK event_id · UK transaction_id"]
+
+    classDef table fill:#eef5ff,stroke:#355d8a,color:#111;
+    classDef ledger fill:#edf8ef,stroke:#3d7a48,color:#111;
+    class UA,RT,C,S,E,QD,QV,QQ,AO,GA,AN,MA,OB,LB table;
+    class RC,XP ledger;

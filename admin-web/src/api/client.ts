@@ -1,5 +1,6 @@
 import type { LocalActor } from "../auth/actor";
 import { CsrfTokenClient } from "./csrf";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 
 export interface ApiError {
   code: string;
@@ -42,7 +43,7 @@ export async function readApiError(response: Response): Promise<ApiRequestError>
 
   return new ApiRequestError({
     code: typeof body.code === "string" ? body.code : "UNEXPECTED_API_ERROR",
-    message: typeof body.message === "string" ? body.message : "İstek tamamlanamadı.",
+    message: typeof body.message === "string" ? body.message : translate(readStoredLanguage(), "error.requestFailed"),
     traceId: typeof body.traceId === "string" ? body.traceId : "unavailable",
     status: response.status
   });
@@ -78,7 +79,7 @@ export class ApiClient {
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
-        message: "Yönetim API'sine ulaşılamadı.",
+        message: translate(readStoredLanguage(), "error.adminUnavailable"),
         traceId: "unavailable",
         status: 0
       });
@@ -109,7 +110,7 @@ export class ApiClient {
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
-        message: "Yönetim API'sine ulaşılamadı.",
+        message: translate(readStoredLanguage(), "error.adminUnavailable"),
         traceId: "unavailable",
         status: 0
       });
@@ -136,7 +137,7 @@ export class ApiClient {
         headers, credentials: "same-origin"
       });
     } catch {
-      throw new ApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel alınamadı.", traceId: "unavailable", status: 0 });
+      throw new ApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.imageUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await readApiError(response);
     return response.blob();

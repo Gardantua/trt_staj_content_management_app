@@ -58,3 +58,4 @@ Mevcut kayıtlar:
 - [ADR-0029: Yerel kullanıcı hesapları ve sunucu oturumu](ADR-0029-local-user-accounts-and-server-session.md)
 - [ADR-0030: Tek kullanımlık şifre sıfırlama ve MailerSend SMTP](ADR-0030-password-reset-and-mailersend-smtp.md)
 - [ADR-0032: Tek sunucu production dağıtımı ve ilk yönetici hesabı](ADR-0032-single-server-production-and-admin-bootstrap.md)
+- [ADR-0033: Frontend arayüz yerelleştirmesi](ADR-0033-frontend-interface-localization.md)

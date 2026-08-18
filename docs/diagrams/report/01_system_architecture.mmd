@@ -1,0 +1,18 @@
+flowchart LR
+    U["Kullanıcı / Yönetici"] -->|HTTPS| W["Caddy + React SPA<br/>/ · /admin · /api"]
+    W --> B["Spring Boot Modüler Monolit<br/>8081"]
+    B --> M["identity · content · media · quiz<br/>gameplay · gamification · messaging · admin"]
+    B -->|transaction| PG[("Monolit PostgreSQL<br/>kalıcı doğru kaynak")]
+    B -->|Outbox| R[["RabbitMQ"]]
+    R -->|xp.changed.v1| LS["Leaderboard Service<br/>8082"]
+    B -.->|internal API| LS
+    LS --> LPG[("Leaderboard PostgreSQL<br/>projeksiyon")]
+    LS --> LR[("Redis<br/>read model")]
+    LR -.->|fallback| LPG
+
+    classDef core fill:#eef5ff,stroke:#355d8a,color:#111;
+    classDef data fill:#f4f4f4,stroke:#555,color:#111;
+    classDef edge fill:#edf8ef,stroke:#3d7a48,color:#111;
+    class B,LS,M core;
+    class PG,LPG,LR,R data;
+    class W edge;

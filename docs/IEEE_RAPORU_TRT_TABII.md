@@ -1,493 +1,575 @@
-# TRT tabii İçerikleri İçin Sunucu Otoriter, Modüler Monolit ve Olay Güdümlü Etkileşim Backend Platformu
+# TRT tabii İçerikleri İçin Etkileşim Platformu
 
-**Server-Authoritative, Modular Monolith and Event-Driven Engagement Backend Platform for TRT tabii Content**
+Engagement Platform for TRT tabii Contents
 
-**Yazar Bilgileri:**  
 Yunus Emre Arı  
 Bilgisayar Mühendisliği Bölümü, Kocaeli Üniversitesi, Kocaeli, Türkiye  
 yunuseemreari@gmail.com  
 
----
+Özetçe — Bu çalışma, TRT tabii dijital yayın platformundaki dizi, film ve program içeriklerinin pasif izleme deneyiminden çıkarılarak quiz ve oyunlaştırma yoluyla etkileşimli hale getirilmesini sağlayan, kurumsal ölçeklenebilirlikte ve API-first bir backend platformunun mimari tasarımını, gerçeklenmesini ve canlı dağıtımını sunmaktadır. Geleneksel istemci odaklı quiz sistemlerindeki doğru cevap sızıntıları, süre manipülasyonları, ağ kesintilerinde çift işlem riskleri ve yüksek trafikte sıralama sorgularının getirdiği darboğazlar; sunucu otoriter oyun motoru, transactional outbox/inbox desenli asenkron mesajlaşma ve generation tabanlı Redis önbellek modeliyle çözülmüştür. Çekirdek sistem, dağıtık transaction karmaşasından kaçınmak amacıyla Clean Architecture prensipleriyle modüler monolit olarak tasarlanmış; okuma-yoğun sıralama yükü ise bağımsız ölçeklenebilen bir Spring Boot mikroservisine ayrıştırılmıştır. Geliştirilen sistem Oracle Cloud Infrastructure üzerinde Caddy ters vekiliyle sekiz izole Docker konteyneri halinde canlıya alınmış; 130 backend, 47 frontend ve gerçek Testcontainers senaryolarıyla doğrulanmıştır.
 
-## Özetçe (Abstract in Turkish)
-Bu çalışma, TRT tabii dijital yayın platformundaki dizi, film ve program içeriklerinin pasif izleme deneyiminden çıkarılarak quiz ve oyunlaştırma yoluyla etkileşimli hale getirilmesini sağlayan, kurumsal ölçeklenebilirlikte ve API-first bir backend platformunun mimari tasarımını, gerçeklenmesini ve canlı dağıtımını sunmaktadır. Geleneksel istemci odaklı quiz sistemlerindeki doğru cevap sızıntıları, süre manipülasyonları, ağ kesintilerinde çift işlem (duplicate request) riskleri ve yüksek trafikte sıralama (leaderboard) sorgularının getirdiği darboğazlar; sunucu otoriter (server-authoritative) oyun motoru, transactional outbox/inbox desenli asenkron mesajlaşma ve generation tabanlı Redis önbellek modeliyle çözülmüştür. Çekirdek sistem, dağıtık transaction karmaşasından kaçınmak amacıyla Clean Architecture prensipleriyle modüler monolit olarak tasarlanmış; okuma-yoğun sıralama yükü ise bağımsız ölçeklenebilen bir Spring Boot mikroservisine ayrıştırılmıştır. Geliştirilen sistem Oracle Cloud Infrastructure üzerinde Caddy ters vekiliyle 8 izole Docker konteyneri halinde canlıya alınmış; 130 backend, 47 frontend ve gerçek Testcontainers senaryolarıyla doğrulanmıştır.
+Anahtar Kelimeler — TRT tabii, oyunlaştırma, modüler monolit, sunucu otoriter, transactional outbox, idempotency, Spring Boot, RabbitMQ, Redis, PostgreSQL.
 
-**Anahtar Kelimeler —** TRT tabii, oyunlaştırma, modüler monolit, sunucu otoriter, transactional outbox, idempotency, Spring Boot, RabbitMQ, Redis, PostgreSQL.
+Abstract — This paper presents the architectural design, implementation, and live deployment of an enterprise-grade, API-first backend platform that transforms the passive viewing experience of TRT tabii video streaming content into an interactive engagement through quizzes and gamification. Traditional client-centric quiz applications suffer from answer leakage, client-side timer manipulation, race conditions causing duplicate XP rewards, and severe database bottlenecks during real-time leaderboard aggregations. These challenges are resolved by introducing a server-authoritative gameplay engine, asynchronous event-driven messaging powered by the Transactional Outbox/Inbox pattern, and a generation-based Redis caching model. The core system is structured as a Modular Monolith adhering to Clean Architecture principles to eliminate distributed transaction overheads, while the read-heavy leaderboard projection is decoupled into an independently scalable Spring Boot microservice. The resulting platform has been deployed to Oracle Cloud Infrastructure utilizing an 8-container topology behind a Caddy reverse proxy and verified with 130 backend, 47 frontend, and containerized integration test suites.
 
----
+Keywords — TRT tabii, gamification, modular monolith, server-authoritative, transactional outbox, idempotency, Spring Boot, RabbitMQ, Redis, PostgreSQL.
 
-## Abstract
-This paper presents the architectural design, implementation, and live deployment of an enterprise-grade, API-first backend platform that transforms the passive viewing experience of TRT tabii video streaming content into an interactive engagement through quizzes and gamification. Traditional client-centric quiz applications suffer from answer leakage, client-side timer manipulation, race conditions causing duplicate XP rewards, and severe database bottlenecks during real-time leaderboard aggregations. These challenges are resolved by introducing a server-authoritative gameplay engine, asynchronous event-driven messaging powered by the Transactional Outbox/Inbox pattern, and a generation-based Redis caching model. The core system is structured as a Modular Monolith adhering to Clean Architecture principles to eliminate distributed transaction overheads, while the read-heavy leaderboard projection is decoupled into an independently scalable Spring Boot microservice. The resulting platform has been deployed to Oracle Cloud Infrastructure utilizing an 8-container topology behind a Caddy reverse proxy and verified with 130 backend, 47 frontend, and containerized integration test suites.
+# I. GİRİŞ
 
-**Keywords —** TRT tabii, gamification, modular monolith, server-authoritative, transactional outbox, idempotency, Spring Boot, RabbitMQ, Redis, PostgreSQL.
+Dijital yayın platformlarının yaygınlaşmasıyla birlikte kullanıcıların video içeriklerini tüketim biçimi büyük ölçüde tek yönlü ve pasif bir izleme deneyimine dönüşmüştür. TRT tabii ekosisteminde yer alan zengin dizi, film, belgesel ve çocuk programı katalogları; kullanıcı bağlılığını, içerik hatırlanırlığını ve topluluk etkileşimini artıracak modern bir oyunlaştırma katmanına ihtiyaç duymaktadır. Bu çalışmanın temel amacı; TRT tabii izleyicilerine bölüm ve içerik bazlı yarışma deneyimi sunan, güvenilir, ölçeklenebilir ve kötüye kullanıma karşı korumalı bir backend altyapısı geliştirmektir. Projede quiz ve puanlama mekanizmasının seçilme nedeni; izleyicinin izlediği yapımla doğrudan zihinsel bağ kurmasını sağlamak, içerik tüketimini pekiştirmek ve adil bir rekabet ortamı oluşturmaktır.
 
----
+Sistemin hedef kullanıcı kitlesi; TRT tabii izleyicileri, içerik ve soru editörleri, operasyon ve yönetim ekipleri ile gelecekte sisteme entegre edilecek web, mobil ve Smart TV istemcileridir. Çalışmanın kapsamı, tek ve dikey bir MVP akışı üzerine kurgulanmıştır. Bu akış; içeriği yayınlama, quiz başlatma, cevaplama, tamamlama, XP verme ve sıralama adımlarından oluşmaktadır.
 
-# I. GİRİŞ (Introduction)
-
-Dijital yayın platformlarının yaygınlaşmasıyla birlikte kullanıcıların video içeriklerini tüketim biçimi büyük ölçüde tek yönlü ve pasif bir izleme deneyimine dönüşmüştür. TRT tabii ekosisteminde yer alan zengin dizi, film, belgesel ve çocuk programı katalogları; kullanıcı bağlılığını, içerik hatırlanırlığını ve topluluk etkileşimini artıracak modern bir oyunlaştırma (gamification) katmanına ihtiyaç duymaktadır. 
-
-Bu çalışmanın temel amacı; TRT tabii izleyicilerine bölüm ve içerik bazlı yarışma deneyimi sunan, güvenilir, ölçeklenebilir ve kötüye kullanıma karşı korumalı (cheat-resistant) bir backend altyapısı geliştirmektir. Projede quiz ve puanlama mekanizmasının seçilme nedeni; izleyicinin izlediği yapımla doğrudan zihinsel bağ kurmasını sağlamak, içerik tüketimini pekiştirmek ve adil bir rekabet ortamı oluşturmaktır.
-
-Sistemin hedef kullanıcı kitlesi; TRT tabii izleyicileri, içerik ve soru editörleri, operasyon/yönetim ekipleri ve gelecekte sisteme entegre edilecek web, mobil ve Smart TV istemcileridir. Çalışmanın kapsamı, tek ve dikey bir MVP (Minimum Viable Product) akışı üzerine kurgulanmıştır: **İçeriği yayınla → Quiz başlat → Cevapla → Tamamla → XP ver → Sırala**.
-
-Projenin literatüre ve sektörel uygulamalara sunduğu temel teknik katkılar şunlardır:
-1. **Sunucu Otoriter Oyun Motoru:** Süre, aktif soru durumu, doğru cevap gizliliği ve puanlama yetkisinin tamamen sunucu saatine ve iş kurallarına bağlanması.
-2. **Değişmez (Immutable) Quiz Sürümleme:** Yayınlanan bir quiz sürümünün geçmiş kullanıcı denemelerinin veri bütünlüğünü bozmaması için dondurulması ve düzenlemelerin yeni sürümlerle yapılması.
-3. **Tekrarlı İşlemlere Dayanıklı (Idempotent) XP Üretimi:** Ağ kesintilerinde veya mükerrer tamamlama isteklerinde çift XP kazancını veritabanı kısıtlamaları ve append-only defterle engelleyen kurgu.
-4. **Transactional Outbox/Inbox ile Güvenilir Mesajlaşma:** Dual-write problemini ortadan kaldıran, PostgreSQL ve RabbitMQ entegrasyonu.
-5. **PostgreSQL Kaynaklı ve Redis ile Hızlandırılan Leaderboard:** PostgreSQL'in tek kalıcı doğru kaynak (Single Source of Truth) olduğu, Redis'in ise kaybedilebilir ve yeniden üretilebilir bir okuma modeli (Read Model) olarak konumlandırıldığı sıralama altyapısı.
-6. **Modüler Monolitten Kontrollü Servis Ayrıştırması:** Gereksiz dağıtık karmaşadan kaçınarak çekirdeği modüler monolit tutan, yalnızca okuma-yoğun Leaderboard bileşenini mikroservise çıkaran dengeli mimari.
-7. **Erişilebilir Medya ve Süre Sözleşmesi:** WCAG 2.2 AA standartları doğrultusunda cevabı sızdırmayan alternatif metinler ve sağlık verisi toplamadan süre uyarlaması sağlayan API tasarımı.
-
----
+Çalışma kapsamında geliştirilen sistemin sunduğu temel teknik katkılar şu şekildedir: İlk olarak, süre ve puanlama yetkisi tamamen sunucu saatine bağlanarak istemci tarafındaki manipülasyonlar engellenmiştir. İkinci olarak, yayınlanan quiz sürümleri değişmez kılınmış ve geçmiş denemelerin veri bütünlüğü güvenceye alınmıştır. Üçüncü olarak, ağ kesintilerinde oluşabilecek mükerrer tamamlama isteklerine karşı veritabanı kısıtlamaları ve append-only işlem defteriyle tekil XP kazanımı garanti edilmiştir. Dördüncü olarak, ilişkisel veritabanı ile mesaj brokerı arasındaki dual-write problemi Transactional Outbox ve Inbox desenleriyle çözülmüştür. Beşinci olarak, PostgreSQL sistemin tek kalıcı doğru kaynağı olarak konumlandırılırken, Redis kaybedilebilir ve yeniden üretilebilir bir okuma modeli olarak kullanılmıştır. Altıncı olarak, çekirdek sistem modüler monolit sınırlarıyla korunurken yalnız okuma-yoğun sıralama bileşeni bağımsız bir mikroservise ayrıştırılmıştır. Son olarak, WCAG 2.2 AA standartlarına uyumlu erişilebilir medya ve süre sözleşmesi sisteme kazandırılmıştır.
 
 # II. SİSTEM GEREKSİNİMLERİ VE TASARIM HEDEFLERİ
 
 ## A. Fonksiyonel Gereksinimler
-- **İçerik Kataloğu Yönetimi:** İçerik, sezon ve bölüm hiyerarşisinin `DRAFT`, `PUBLISHED` ve `ARCHIVED` yaşam döngüsüyle yönetilmesi.
-- **Quiz Yazarlık ve Sürümleme:** Editörlerin soru metni, 4 seçenek, erişilebilirlik açıklaması, kapak/soru görseli ve süre tanımlayabilmesi; yayınlanan sürümün dondurulması.
-- **Gameplay (Oyun Akışı):** Kullanıcının yayınlanmış sürüm üzerinden attempt başlatması, soruları süre kısıtında cevaplaması, doğru şıkkın ancak cevaplandıktan sonra açıklanması ve oturumun tamamlanması/terk edilmesi.
-- **XP ve Ödül Sistemi:** Kullanıcının ilk tamamlamada skoruna göre XP kazanması; tekrar çözümlerde 0 ek XP kuralının işletilmesi.
-- **Liderlik Tablosu (Leaderboard):** Global ve içerik bazlı anlık sıralamaların hesaplanması ve listelenmesi.
-- **Yönetici ve Kullanıcı Arayüzleri:** Kullanıcılar için yarışma ve profil, yöneticiler için içerik/quiz yayınlama ve medya kütüphanesi arayüzlerinin sunulması.
+Platformun fonksiyonel gereksinimleri içerik kataloğu, quiz yazarlık, oynanış, ödül mekanizması, sıralama ve kullanıcı yönetimi olmak üzere altı ana başlıkta toplanmıştır. Sistem; içerik, sezon ve bölüm hiyerarşisinin taslak, yayında ve arşiv durumlarıyla yönetilmesini sağlar. Editörler soru metni, dört seçenek, erişilebilirlik açıklaması, kapak veya soru görseli ve süre tanımlayarak quiz sürümleri oluşturabilir ve yayınlayabilir. Kullanıcılar yayınlanmış sürüm üzerinden oturum başlatıp soruları süre kısıtında cevaplar; doğru şık bilgisi ancak cevap kaydedildikten sonra geri bildirim olarak sunulur. Başarıyla tamamlanan denemeler sonucunda kullanıcıya puanına uygun XP tanımlanır ve kullanıcının global ile içerik bazlı sıralamaları hesaplanır.
 
 ## B. Fonksiyonel Olmayan Gereksinimler
-- **Veri Bütünlüğü (Data Integrity):** Veritabanı seviyesinde tekillik (`UNIQUE`), yabancı anahtar (`FOREIGN KEY`) ve kontrol (`CHECK`) kısıtlamalarıyla korunan veri tutarlılığı.
-- **Güvenlik (Security):** `HttpOnly`, `Secure`, `SameSite=Strict` oturum çerezleri, SPA CSRF double-submit token doğrulaması, Bcrypt parola özetleri ve SHA-256 şifre sıfırlama token'ları.
-- **Idempotency:** Ağ tekrarında aynı cevabın veya tamamlamanın ikinci kez yan etki üretmemesi.
-- **Erişilebilirlik (Accessibility):** WCAG 2.2 AA seviyesine uyumlu API ve medya modelleri.
-- **Gözlemlenebilirlik (Observability):** W3C Trace Context, OpenTelemetry, Prometheus ve Spring Boot Actuator ile dağıtık izleme.
-- **Hata Toleransı (Resilience):** Broker veya önbellek kesintilerinde ana quiz ve puanlama akışının kesintisiz sürmesi.
-- **Test Edilebilirlik:** Mock bağımlılıkları yerine gerçek PostgreSQL, RabbitMQ ve Redis kapsayıcıları ile uçtan uca doğrulanabilirlik.
+Sistem; veri bütünlüğü, güvenlik, idempotency, erişilebilirlik, gözlemlenebilirlik, hata toleransı ve test edilebilirlik hedefleri doğrultusunda tasarlanmıştır. Veritabanı seviyesinde tekillik, yabancı anahtar ve kontrol kısıtlamaları uygulanmıştır. Oturum güvenliğinde HttpOnly, Secure ve SameSite niteliklerine sahip çerezler ile SPA CSRF doğrulaması kullanılmıştır. Ağ tekrarlarında sistemin ikinci kez yan etki üretmemesi sağlanmıştır. Görme engelli bireyler için doğru cevabı ifşa etmeyen metin alternatifleri sunulmuştur. Dağıtık sistem izlenebilirliği W3C Trace Context ve OpenTelemetry ile güvenceye alınmıştır.
 
 ## C. Temel Tasarım İlkeleri ve Kavramsal Çerçeve
-Mimari kararların zeminini oluşturan beş temel kavram aşağıda tanımlanmıştır:
+Sistemin mimari kararları beş temel ilke üzerine inşa edilmiştir:
 
-1. **PostgreSQL Neden Kalıcı Doğru Kaynaktır?**  
-   Kullanıcı hesapları, tamamlanan denemeler, cevaplar ve kazanılan puanlar ilişkisel bütünlük, ACID güvencesi ve güçlü tutarlılık (strong consistency) gerektirir. PostgreSQL sistemin tek ve nihai gerçeklik kaynağıdır (Single Source of Truth).
-2. **Redis Neden Kaybedilebilir Bir Read Model'dir?**  
-   Redis, milyonlarca kullanıcı arasındaki sıralama hesaplarını O(log(N)) hızında sunan bir önbellek katmanıdır. Redis verisi her an silinebilir veya çökebilir; sistem PostgreSQL'deki ham işlem kayıtlarından (`xp_transactions`) tüm Redis verisini saniyeler içinde sıfırdan yeniden üretebilecek şekilde tasarlanmıştır.
-3. **Domain Kuralı ve Veritabanı Constraint'i Neden Birlikte Kullanılır?**  
-   Uygulama kodundaki domain kuralları kullanıcıya anlamlı hata mesajları dönmek için gereklidir; ancak eşzamanlı (concurrency) yarış durumlarında yalnız uygulama mantığı veri bozulmasını engelleyemez. Veritabanı constraint'leri (`UNIQUE`, `CHECK`) sistemin son savunma hattıdır.
-4. **İstemci Neden Skor ve Doğru Cevap Otoritesi Değildir?**  
-   Tarayıcı veya mobil istemciler kullanıcı kontrolündedir ve manipüle edilebilir. İstemci yalnızca bir gösterim aracıdır; doğru cevap soru çözülene kadar istemciye gönderilmez, süre ve skor sunucu saatine göre sunucuda belirlenir.
-5. **At-Least-Once Mesaj Teslimatında Idempotency Neden Zorunludur?**  
-   RabbitMQ gibi mesaj kuyrukları ağ kesintilerinde aynı mesajı birden fazla kez iletebilir (at-least-once). Tüketici servislerin mükerrer mesaj aldığında fazladan XP yazmaması için idempotency anahtarları ve Inbox tabloları zorunludur.
+Kullanıcı hesapları, denemeler, cevaplar ve kazanılan puanlar güçlü tutarlılık gerektirdiğinden PostgreSQL sistemin tek kalıcı doğru kaynağıdır. Redis ise milyonlarca kullanıcı arasındaki sıralama hesaplarını O(log(N)) hızında sunan bir önbellek ve okuma modelidir. Redis verisi kaybedilebilir niteliktedir ve PostgreSQL'deki işlem kayıtlarından saniyeler içinde sıfırdan yeniden üretilebilir.
 
----
+Uygulama kodundaki domain kuralları kullanıcıya anlamlı geri bildirimler vermek için gereklidir; ancak eşzamanlı yarış durumlarında veri bozulmasını engellemek için veritabanı kısıtlamaları son savunma hattı olarak zorunludur.
+
+İstemci bileşenleri kullanıcı denetiminde olduğundan skor ve doğru cevap otoritesi olamaz. İstemci yalnızca bir gösterim ve komut iletim aracıdır; süre ve skor sunucu saatine göre sunucuda belirlenir.
+
+RabbitMQ gibi mesaj kuyrukları ağ kesintilerinde aynı mesajı birden fazla kez iletebileceğinden, tüketici servislerde mükerrer işlemlerin önlenmesi adına idempotency kontrolleri ve Inbox tabloları zorunlu bir tasarım ilkesidir.
 
 # III. SİSTEM MİMARİSİ
 
-```
-+-------------------------------------------------------------------------------------------------------+
-| Şekil 1. Sistem mimarisi ve modül sınırları (Yatay Genel Bakış)                                      |
-|                                                                                                       |
-|  [ Kullanıcı / Admin Web ] ---> [ Caddy Reverse Proxy (HTTPS/Let's Encrypt) ]                         |
-|                                         |                                                             |
-|          +------------------------------+------------------------------+                              |
-|          | (Same-Origin /api)                                          |                              |
-|          v                                                             v                              |
-|  +--------------------------------------------+            +---------------------------------------+  |
-|  |  ÇEKİRDEK MODÜLER MONOLİT (Port 8081)      |            |  LEADERBOARD MİKROSERVİSİ (Port 8082) |  |
-|  |  • API: Controllers & DTOs                 |            |  • RabbitMQ Consumer (Inbox)          |  |
-|  |  • Application: Use Cases & Transactions   |            |  • Projection Service (Deterministik) |  |
-|  |  • Domain: Pure Entities & State Machines  |            |  • Internal REST Endpoint             |  |
-|  |  • Ports & Infrastructure: JDBC, AMQP, SMTP|            +---------------------------------------+  |
-|  +--------------------------------------------+                     |                     |           |
-|          |                      |                                   v                     v           |
-|          v                      v                          [ Leaderboard DB ]      [ Redis ZSET ]     |
-|   [ Monolith DB ]      [ RabbitMQ Broker ]                 (PostgreSQL 17)           (Read Model)     |
-|   (PostgreSQL 17)        (quiz.exchange)                                                              |
-+-------------------------------------------------------------------------------------------------------+
-```
-*(Detaylı şema için bkz. [01_SISTEM_MIMARISI_VE_MODUL_SINIRLARI.md](file:///c:/Users/yunus/Desktop/staj/content_angagement_app/docs/DIAGRAMS/01_SISTEM_MIMARISI_VE_MODUL_SINIRLARI.md))*
-
 ## A. Genel Mimari
-Sistem üç ana düzlemden oluşur:
-1. **Kenar ve İstemci Katmanı:** React 19 ve TypeScript ile geliştirilen SPA arayüzleri, Caddy ters vekili arkasında tek bir origin (`https://hikayeizi.duckdns.org`) altında toplanmıştır.
-2. **Çekirdek Modüler Monolit (Spring Boot 4.1):** Kimlik, içerik, quiz yazarlık, oyunlaştırma ve attempt yönetimini sağlayan ana backend uygulamasıdır.
-3. **Bağımsız Leaderboard Mikroservisi:** Monolitten bağımsız çalışan, RabbitMQ üzerinden XP olaylarını tüketen ve Redis Sorted Set (ZSET) ile liderlik tablosu üreten servistir.
+Sistem üç ana düzlemden oluşmaktadır. İstemci katmanında React ve TypeScript ile geliştirilen kullanıcı ve yönetim arayüzleri, Caddy ters vekili arkasında tek bir alan adı altında sunulmaktadır. Uygulama katmanında Spring Boot ile geliştirilen çekirdek modüler monolit ile bağımsız çalışan Leaderboard mikroservisi yer almaktadır. Veri ve mesajlaşma katmanında ise PostgreSQL, RabbitMQ ve Redis altyapıları bulunmaktadır (bkz. Şekil 1).
 
-## B. Modüler Monolit Yapısı ve İzolasyon Kuralları
-Çekirdek uygulama 10 mantıksal modüle ayrılmıştır:
-- `identity`: Kullanıcı kaydı, parola özetleme (Bcrypt), oturum ve şifre sıfırlama token yönetimi (`identity_user_accounts`, `password_reset_tokens`).
-- `content`: Dizi, film, sezon ve bölüm kataloğu (`content_catalog_items`, `content_seasons`, `content_episodes`).
-- `media`: Görsel dosyaların fiziksel depolanması, SHA-256 checksum doğrulaması ve metadata yönetimi (`media_assets`).
-- `quiz`: Soru, 4 seçenek, süre ve değişmez sürüm yaşam döngüsü (`quiz_definitions`, `quiz_versions`, `quiz_questions`, `question_options`).
-- `gameplay`: Attempt başlatma, sunucu deadline üretimi, cevap doğrulama, `AWAITING_NEXT_QUESTION` durumu ve skorlama (`gameplay_attempts`, `attempt_answers`, `gameplay_quiz_reward_claims`).
-- `gamification`: Append-only XP işlem defteri ve bakiye hesaplaması (`xp_transactions`).
-- `messaging`: Transactional Outbox ve Inbox altyapısı (`outbox_events`, `inbox_messages`).
-- `leaderboard`: Monolit içi geçiş adaptörü ve dış servis entegrasyonu.
-- `admin`: Yetkili yönetim arayüzü ve operasyonel denetim koordinasyonu.
-- `shared`: Ortak hata kodları, istisnalar ve W3C trace yardımcıları.
+```mermaid
+flowchart TB
+    subgraph Tier1["1. İstemci ve Kenar Yönlendirme Katmanı"]
+        direction LR
+        UserWeb["Kullanıcı Arayüzü (React SPA) [ / ]"]
+        AdminWeb["Yönetim Paneli (React SPA) [ /admin ]"]
+        Caddy["Caddy Ters Vekil Sunucusu\n• Otomatik TLS / Let's Encrypt\n• SPA Dağıtımı & /api Proxy"]
+        UserWeb & AdminWeb -->|HTTPS:443| Caddy
+    end
 
-**Modül İzolasyon Kuralı:** Modüller birbirlerinin veritabanı tablolarına doğrudan SQL sorgusu atamaz veya repository sınıflarını enjekte edemez. İletişim yalnızca Java port arayüzleri, servis sözleşmeleri veya asenkron olaylar üzerinden yürütülür.
+    subgraph Tier2["2. Uygulama Katmanı"]
+        direction LR
+        
+        subgraph Monolith["Çekirdek Modüler Monolit (Spring Boot 8081)"]
+            direction TB
+            API["API Katmanı (Controllers & DTOs)"]
+            AppDomain["Uygulama ve Saf Domain Modülleri\n(Gameplay, Quiz, Identity, Gamification)"]
+            InfraPorts["Altyapı Adaptörleri\n(Spring Data JDBC, AMQP Publisher)"]
+            API --> AppDomain --> InfraPorts
+        end
 
-## C. Katmanlar ve Bağımlılık Yönü (Clean Architecture)
-```text
-api (Controllers / DTOs)
-  ↓
-application (Use Cases & @Transactional Sınırları)
-  ↓
-domain (Saf İş Kuralları, Varlıklar, Durum Makineleri)
-  ↖
-ports ← infrastructure (Spring Data JDBC/JPA, AMQP, SMTP Adapters)
+        subgraph LeaderboardSvc["Leaderboard Mikroservisi (Spring Boot 8082)"]
+            direction TB
+            LB_In["RabbitMQ Olay Tüketicisi (Inbox)"]
+            LB_Core["Sıralama Projeksiyon Motoru"]
+            LB_API["Dahili Sıralama API'si"]
+            LB_In --> LB_Core
+            LB_API --> LB_Core
+        end
+    end
+
+    subgraph Tier3["3. Veri ve Mesajlaşma Altyapısı"]
+        direction LR
+        MonoDB[("Monolith PostgreSQL 17\n(Kalıcı Doğru Kaynak - SSOT)")]
+        RabbitMQ[["RabbitMQ 4.1 Broker\n(quiz.exchange)"]]
+        LB_DB[("Leaderboard PostgreSQL 17\n(Projeksiyon Verisi)")]
+        LB_Redis[("Leaderboard Redis 8.2\n(Generation ZSET)")]
+    end
+
+    Caddy -->|/api İstekleri| API
+    InfraPorts -->|ACID Transaction| MonoDB
+    InfraPorts -->|Outbox Olayları| RabbitMQ
+    RabbitMQ -->|xp.changed.v1| LB_In
+    API -.->|Dahili REST İstemcisi| LB_API
+    LB_Core -->|Yazma ve Okuma| LB_DB
+    LB_Core -->|ZSET Güncelleme| LB_Redis
 ```
-- **Domain:** Sıfır framework bağımlılığı taşır; yalnızca saf Java sınıflarından oluşur.
-- **Application:** Use case'leri yürütür ve veritabanı transaction sınırlarını (`@Transactional`) çizer.
-- **API:** HTTP protokol detayları, DTO dönüşümleri ve CSRF doğrulamasıyla ilgilenir; iş kuralı içermez.
-- **Infrastructure:** Veritabanı, mesaj kuyruğu ve dış e-posta servislerine ait adaptörleri barındırır.
+Şekil 1. Sistem mimarisi ve modül sınırları.
 
-## D. Leaderboard Servisinin Ayrıştırılması ve Tasarım Dengesi (ADR-0031)
-1. **Neden İlk Günden Tam Mikroservis Değil?**  
-   Tüm sistemi mikroservislere bölmek; dağıtık transaction (2PC/Saga), ağ gecikmesi ve operasyonel karmaşıklık getirir. Bu nedenle çekirdek domain monolit içinde tutulmuştur.
-2. **Neden Yalnızca Leaderboard Ayrıştırıldı?**  
-   Sıralama sorguları yoğun aggregation gerektirir ve write-heavy gameplay akışından farklı olarak read-heavy karaktere sahiptir. Sıralama yükünün ana veritabanını kilitlemesini önlemek için ideal bir mikroservis adayıdır.
-3. **XP'nin Sahibi Neden Monolit Kaldı?**  
-   XP kazanımı bir attempt tamamlama sonucudur. Veri bütünlüğünü sağlamak adına XP defteri monolit PostgreSQL'de tutulur; Leaderboard servisi ise bu verinin salt okunur bir türevidir (projection).
-4. **Özellik Bayrağı (Feature Flag) ve Rollback Güvencesi:**  
-   Monolit API'si dış istemciler için sabit kalmıştır. `LEADERBOARD_REMOTE_ENABLED=true` bayrağı ile trafik mikroservise yönlendirilir; olası bir servis arızasında bayrak kapatılarak monolit içi eski yerel sorgu bir rollback yolu olarak kullanılır.
+## B. Modüler Monolit Yapısı
+Çekirdek uygulama on mantıksal modüle ayrılmıştır. Identity modülü kullanıcı kaydı, parola özetleme ve şifre sıfırlama işlemlerini yürütür. Content modülü dizi, film, sezon ve bölüm kataloğunu yönetir. Media modülü görsel dosyaların depolanmasını ve SHA-256 bütünlük kontrolünü sağlar. Quiz modülü soruların, seçeneklerin ve sürümlerin yaşam döngüsünden sorumludur. Gameplay modülü attempt başlatma, deadline üretimi, cevap doğrulama ve skorlamayı yönetir. Gamification modülü append-only XP işlem defterini tutar. Messaging modülü Transactional Outbox ve Inbox altyapısını işletir. Leaderboard modülü dış mikroservis ile entegrasyonu sağlar. Admin modülü yönetim yetkilerini koordine ederken, shared modülü ortak hata ve izleme yapılarını barındırır. Modüller birbirlerinin tablolarına doğrudan erişemez; iletişim yalnızca servis arayüzleri ve sözleşmeler üzerinden yürütülür.
 
----
+## C. Katmanlar ve Bağımlılık Yönü
+Uygulama Clean Architecture prensiplerine uygun olarak katmanlandırılmıştır. Domain katmanı saf iş kurallarından ve varlıklardan oluşur; sıfır framework bağımlılığı taşır. Application katmanı kullanım senaryolarını yürütür ve veritabanı transaction sınırlarını belirler. API katmanı HTTP isteklerini karşılar, DTO dönüşümlerini ve güvenlik kontrollerini yapar. Ports ve Infrastructure katmanları ise veritabanı sorguları, mesajlaşma ve e-posta adaptörlerini barındırır.
 
-# IV. DOMAİN VE VERİTABANI TASARIMI
+## D. Leaderboard Servisinin Ayrıştırılması
+Sistemin tamamını ilk günden mikroservislere bölmek dağıtık transaction karmaşası ve ağ gecikmesi getireceğinden çekirdek domain monolit içinde tutulmuştur. Sıralama sorguları yoğun aggregation gerektiren ve okuma-yoğun bir karaktere sahip olduğu için yalnızca Leaderboard bileşeni ayrı bir Spring Boot servisine taşınmıştır. XP kazanımının asıl sahibi monolit olarak kalmış; Leaderboard servisi bu verinin bir projeksiyonu olarak kurgulanmıştır. Dış API monolit üzerinde sabit tutulmuş, özellik bayrağı ile mikroservise yönlendirilmiş ve olası bir arızada monolit içi eski yerel sorgu bir rollback yolu olarak korunmuştur.
 
-## A. İçerik ve Quiz Sürümleme Modeli
-İçerik kataloğu `content_catalog_items` → `content_seasons` → `content_episodes` hiyerarşisinde yapılandırılmıştır. Bir quiz, bir içeriğe veya doğrudan bir bölüme bağlanabilir (`quiz_definitions`).
+# IV. DOMAIN VE VERİTABANI TASARIMI
 
-Quiz yapısında **Definition** (Tanım) ile **Version** (Sürüm) kavramları birbirinden ayrılmıştır:
-- `quiz_versions` tablosundaki bir sürüm `PUBLISHED` durumuna geçtiğinde **tamamen değişmez (immutable)** kabul edilir.
-- Editör soruları değiştirmek istediğinde yayındaki sürüm güncellenmez; otomatik olarak yeni bir `version_number` ile `DRAFT` sürüm oluşturulur. Böylece geçmişte o quizi çözen kullanıcıların attempt kayıtları ve başarı istatistikleri asla bozulmaz.
+## A. İçerik ve Quiz Sürümleme
+İçerik kataloğu content_catalog_items, content_seasons ve content_episodes hiyerarşisinde yapılandırılmıştır. Quiz yapısında tanım ile sürüm kavramları birbirinden ayrılmıştır. Bir quiz sürümü yayınlandığı anda tamamen değişmez kabul edilir. Editör soruları değiştirmek istediğinde yayındaki sürüm güncellenmez; otomatik olarak yeni bir sürüm numarasıyla taslak sürüm oluşturulur. Bu sayede geçmiş kullanıcı denemelerinin veri bütünlüğü korunur.
 
 ## B. Gameplay ve Attempt Yaşam Döngüsü
-Kullanıcı denemeleri katı bir durum makinesi (state machine) ile yönetilir:
+Kullanıcı denemeleri katı bir durum makinesi ile yönetilir. Başlatılan deneme IN_PROGRESS durumuna geçer ve sunucu saatiyle 30 saniyelik deadline tanımlanır. Kullanıcı cevap verdiğinde veya süre dolduğunda deneme AWAITING_NEXT_QUESTION durumuna alınır ve sayaç dondurulur. Bu durumun amacı; kullanıcının sonuç kartını ve doğru şıkkı incelerken geçirdiği sürenin bir sonraki sorudan eksilmesini önlemektir. Kullanıcı sonraki soruya geçtiğinde sunucu saati baz alınarak sıfırdan 30 saniyelik yeni bir deadline üretilir ve deneme yeniden IN_PROGRESS olur. Tüm sorular bittiğinde deneme COMPLETED durumuna geçer.
 
-```text
-[Başlat] ──> IN_PROGRESS (30 sn Sunucu Deadline)
-                  │
-                  ├── Cevap Verildi / Timeout
-                  v
-             AWAITING_NEXT_QUESTION (Sayaç Durduruldu / Doğru Şık Gösterildi)
-                  │
-                  ├── "Sonraki Soruya Geç" Butonu (Sıfırdan Temiz 30 sn Deadline)
-                  v
-             IN_PROGRESS
-                  │
-                  ├── Son Soru Cevaplandı / "Quizden Çık" (Abandon)
-                  v
-             COMPLETED / ABANDONED (XP Hesabı & Outbox Kaydı)
+## C. XP İşlem Defteri
+xp_transactions tablosu append-only bir muhasebe defteri mantığıyla çalışır; mevcut satırlar güncellenmez veya silinmez. Bir kullanıcı bir quizi ilk kez tamamladığında skoruna karşılık gelen XP deftere işlenir ve gameplay_quiz_reward_claims tablosuna tekil kayıt atılır. Kullanıcı aynı quizi tekrar çözdüğünde kazanılan XP sıfır olarak işlenir; önceki kalıcı kazanım muhafaza edilir. İlk tamamlamasında sıfır puan alan kullanıcı için de sıfır değerli bir defter kaydı tutularak ödül hakkının kullanıldığı belgelenir. Yönetici düzeltmeleri ise eski kaydı değiştirmeden yeni bir satır eklenerek gerçekleştirilir.
+
+## D. Veri Bütünlüğü Kuralları
+İş kuralları veritabanı seviyesinde katı kısıtlamalarla garanti altına alınmıştır. attempt_answers tablosundaki tekil kısıt ile aynı soruya birden fazla cevap verilmesi engellenir. gameplay_quiz_reward_claims tablosundaki birincil anahtar ile mükerrer XP ödülü önlenir. quiz_versions tablosundaki tekil kısıt ile aynı quiz için sürüm çakışması engellenir. inbox_messages tablosundaki birincil anahtar ile mesajların birden fazla kez işlenmesi önlenir.
+
+## E. Veritabanı Diyagramı
+Veritabanı modeli iki şema halinde yapılandırılmıştır. Monolit şeması kimlik, içerik, quiz sürümleri, gameplay denemeleri, ödül kilitleri, XP defteri ve mesajlaşma tablolarını içerir (bkz. Şekil 2-a). Leaderboard şeması ise tekil transaction kısıtlamasına sahip sıralama projeksiyon tablosunu barındırır (bkz. Şekil 2-b).
+
+```mermaid
+erDiagram
+    IDENTITY_USER_ACCOUNTS ||--o{ PASSWORD_RESET_TOKENS : "sahiptir"
+    IDENTITY_USER_ACCOUNTS ||--o{ GAMEPLAY_ATTEMPTS : "çözer"
+    IDENTITY_USER_ACCOUNTS ||--o{ GAMEPLAY_QUIZ_REWARD_CLAIMS : "hak_kazanır"
+    IDENTITY_USER_ACCOUNTS ||--o{ XP_TRANSACTIONS : "kaydına_sahiptir"
+
+    IDENTITY_USER_ACCOUNTS {
+        uuid id PK
+        varchar_150 email UK "Tekil e-posta"
+        varchar_100 display_name "Görünen ad / Takma ad"
+        varchar_255 password_hash "Bcrypt parola özeti"
+        varchar_30 role "USER, EDITOR, ADMIN"
+        timestamptz created_at
+    }
+
+    PASSWORD_RESET_TOKENS {
+        uuid id PK
+        uuid user_id FK "identity_user_accounts.id"
+        varchar_64 token_hash UK "SHA-256 token özeti"
+        timestamptz expires_at "30 dk geçerli"
+        timestamptz consumed_at "Tek kullanımlık kilit"
+    }
+
+    CONTENT_CATALOG_ITEMS ||--o{ CONTENT_SEASONS : "içerir"
+    CONTENT_SEASONS ||--o{ CONTENT_EPISODES : "içerir"
+    CONTENT_CATALOG_ITEMS ||--o{ QUIZ_DEFINITIONS : "bağlanır"
+    CONTENT_EPISODES ||--o{ QUIZ_DEFINITIONS : "bağlanabilir"
+
+    CONTENT_CATALOG_ITEMS {
+        uuid id PK
+        varchar_200 title "Dizi / Film / Program"
+        varchar_50 type "SERIES, MOVIE, SHOW"
+        varchar_30 status "DRAFT, PUBLISHED, ARCHIVED"
+    }
+
+    CONTENT_SEASONS {
+        uuid id PK
+        uuid content_id FK "UK(content_id, season_number)"
+        int season_number
+    }
+
+    CONTENT_EPISODES {
+        uuid id PK
+        uuid season_id FK "UK(season_id, episode_number)"
+        int episode_number
+        int duration_in_seconds
+    }
+
+    QUIZ_DEFINITIONS ||--o{ QUIZ_VERSIONS : "sürümlendirilir"
+    QUIZ_VERSIONS ||--o{ QUIZ_QUESTIONS : "içerir"
+    QUIZ_QUESTIONS ||--o{ QUESTION_OPTIONS : "seçenekleri"
+
+    QUIZ_DEFINITIONS {
+        uuid id PK
+        uuid content_id FK "content_catalog_items.id"
+        uuid episode_id FK "content_episodes.id"
+        varchar_30 status "DRAFT, PUBLISHED, ARCHIVED"
+    }
+
+    QUIZ_VERSIONS {
+        uuid id PK
+        uuid quiz_id FK "UK(quiz_id, version_number)"
+        int version_number
+        varchar_30 status "DRAFT, PUBLISHED"
+        timestamptz published_at "Yayınlanınca IMMUTABLE"
+    }
+
+    QUIZ_QUESTIONS {
+        uuid id PK
+        uuid quiz_version_id FK "UK(quiz_version_id, question_order)"
+        uuid media_asset_id FK "media_assets.id"
+        int question_order "1, 2, 3..."
+        text prompt "Soru metni"
+        text accessible_prompt "Erişilebilirlik metni"
+        int time_limit_in_seconds "Varsayılan: 30 sn"
+        int points "Varsayılan: 10 puan"
+    }
+
+    QUESTION_OPTIONS {
+        uuid id PK
+        uuid question_id FK "UK(question_id, option_key)"
+        varchar_10 option_key "A, B, C, D"
+        text option_text "Şık metni"
+        boolean is_correct "Sunucu gizli cevabı"
+    }
+
+    QUIZ_VERSIONS ||--o{ GAMEPLAY_ATTEMPTS : "çözülür"
+    GAMEPLAY_ATTEMPTS ||--o{ ATTEMPT_ANSWERS : "içerir"
+
+    GAMEPLAY_ATTEMPTS {
+        uuid id PK
+        uuid user_id FK "identity_user_accounts.id"
+        uuid quiz_version_id FK "quiz_versions.id"
+        varchar_30 status "IN_PROGRESS, AWAITING_NEXT_QUESTION, COMPLETED, ABANDONED"
+        int current_question_order
+        int score "Toplam puan"
+        int earned_xp "Kalıcı kazanılan XP"
+        timestamptz question_deadline "Sunucu bitiş zaman damgası"
+        timestamptz completed_at
+    }
+
+    ATTEMPT_ANSWERS {
+        uuid id PK
+        uuid attempt_id FK "UK(attempt_id, question_id)"
+        uuid question_id FK "quiz_questions.id"
+        uuid selected_option_id FK "question_options.id"
+        boolean is_correct
+        int score_awarded "0 veya 10"
+        varchar_30 outcome "CORRECT, WRONG, TIMEOUT"
+    }
+
+    GAMEPLAY_QUIZ_REWARD_CLAIMS {
+        uuid user_id PK "PK(user_id, quiz_id)"
+        uuid quiz_id PK "quiz_definitions.id"
+        uuid attempt_id UK "gameplay_attempts.id"
+        timestamptz claimed_at
+    }
+
+    XP_TRANSACTIONS {
+        uuid id PK
+        uuid user_id FK "identity_user_accounts.id"
+        int amount "XP miktarı"
+        varchar_40 reason "QUIZ_COMPLETED, ADMIN_ADJUSTMENT"
+        varchar_40 policy_version "FIRST_COMPLETION_SCORE_V2"
+        varchar_150 reference_key UK "Tekil işlem referansı"
+        uuid source_attempt_id UK "gameplay_attempts.id"
+        timestamptz occurred_at
+    }
+
+    OUTBOX_EVENTS {
+        uuid event_id PK
+        varchar_100 event_type "quiz.completed.v1, xp.changed.v1"
+        varchar_100 aggregate_type "GAMEPLAY_ATTEMPT, XP_TRANSACTION"
+        uuid aggregate_id
+        text payload "JSON Olay İçeriği"
+        varchar_30 status "PENDING, PUBLISHED, FAILED"
+        timestamptz created_at
+    }
+
+    INBOX_MESSAGES {
+        uuid event_id PK "Tekil mesaj ID (Idempotency kalkanı)"
+        varchar_100 event_type
+        varchar_100 consumer_name
+        timestamptz processed_at
+    }
 ```
+Şekil 2-a. Monolit çekirdek veritabanı varlık-ilişki modeli.
 
-**`AWAITING_NEXT_QUESTION` Durumunun Amacı:**  
-Kullanıcı bir soruyu cevapladığında doğru şıkkı ve kazandığı puanı incelemesi için sonuç kartı açılır. Bu esnada aktif soru deadline'ı durdurulur. Böylece kullanıcının sonuç ekranında geçirdiği süre bir sonraki sorunun süresinden düşmez; "Sonraki Soru" tıklandığında sunucu saati baz alınarak yeni soruya ait 30 saniyelik temiz bir deadline üretilir.
-
-## C. Append-Only XP İşlem Defteri ve Ödül Kurgusu
-- `xp_transactions` tablosu append-only (yalnızca ekleme yapılabilir) bir muhasebe defteri mantığıyla çalışır; mevcut satırlar güncellenmez veya silinmez.
-- **İlk Tamamlama Ödülü:** Bir kullanıcı bir quizi ilk kez tamamladığında skoruna karşılık gelen XP miktarı deftere işlenir ve `gameplay_quiz_reward_claims` tablosuna tekil kayıt atılır (ADR-0026).
-- **Tekrar Çözüm Kuralı:** Kullanıcı aynı quizi tekrar çözdüğünde `earned_xp = 0` olarak kaydedilir; önceki kazanılmış kalıcı XP korunur.
-- **Sıfır Puan Alan Kullanıcılar:** İlk tamamlamasında 0 puan alan kullanıcı için de `amount = 0` değerinde bir defter kaydı tutularak kullanıcının o quizdeki ödül hakkını tükettiği açıkça belgelenir (Flyway `V14`).
-- **Yönetici Düzeltmeleri:** Puan iadesi veya düzeltmeler, eski satır değiştirilmeden `ADMIN_ADJUSTMENT` gerekçesiyle yeni bir negatif/pozitif satır eklenerek gerçekleştirilir.
-
-## D. Veri Bütünlüğü Kısıtlamaları (Constraints)
-Sistemdeki kritik iş kuralları veritabanı seviyesinde şu kısıtlamalarla garanti altına alınmıştır:
-- **Tek Cevap:** `attempt_answers` tablosunda `UNIQUE(attempt_id, question_id)` kısıtı ile aynı soruya çift cevap engellenir.
-- **Tek İlk Ödül:** `gameplay_quiz_reward_claims` tablosunda `PRIMARY KEY(user_id, quiz_id)` kısıtı ile mükerrer XP ödülü önlenir.
-- **Tek Açık Attempt:** `gameplay_attempts` üzerinde kullanıcının aynı anda tek bir aktif denemeye sahip olabilmesi kuralı.
-- **Tekil Sürüm Numarası:** `quiz_versions` üzerinde `UNIQUE(quiz_id, version_number)`.
-- **Inbox Tekilliği:** `inbox_messages` üzerinde `PRIMARY KEY(event_id)` ile mükerrer mesaj tüketim engeli.
-
-## E. Veritabanı Varlık-İlişki Modelleri (ERD)
-IEEE formatına uygun olarak veritabanı modeli iki mantıksal şemaya bölünmüştür:
-- **Şekil 2-a: Monolit Çekirdek Veritabanı Şeması:** Kimlik, içerik kataloğu, quiz sürümleri, gameplay attempt'leri, XP defteri ve Outbox/Inbox tablolarını içerir (Bkz. [02_VERITABANI_SEMA_ERD.md](file:///c:/Users/yunus/Desktop/staj/content_angagement_app/docs/DIAGRAMS/02_VERITABANI_SEMA_ERD.md)).
-- **Şekil 2-b: Leaderboard Servisi Projeksiyon Şeması:** Yalnızca tekil `transaction_id` kısıtlamasına ve zaman damgası indekslerine sahip `leaderboard_xp_entries` tablosunu içerir.
-
----
+```mermaid
+erDiagram
+    LEADERBOARD_XP_ENTRIES {
+        uuid event_id PK "Olay Tekil ID"
+        uuid transaction_id UK "Monolith xp_transactions.id"
+        uuid user_id "Kullanıcı Tekil Kimliği"
+        uuid content_id "İçerik ID"
+        int amount "XP Değeri"
+        varchar_40 reason "QUIZ_COMPLETED, ADMIN_ADJUSTMENT"
+        timestamptz occurred_at "İlk kazanım zamanı (Tie-break)"
+        timestamptz consumed_at
+    }
+```
+Şekil 2-b. Leaderboard servisi projeksiyon şeması ve veri sahipliği.
 
 # V. KRİTİK SİSTEM AKIŞLARI
 
-```
-+-------------------------------------------------------------------------------------------------------+
-| Şekil 3. Sunucu Otoriteli Quiz Çözme ve Cevaplama Akışı                                              |
-|                                                                                                       |
-|  Kullanıcı              React SPA              Caddy Proxy           Spring Boot Backend    PostgreSQL|
-|     |                       |                       |                         |                 |     |
-|     |---(Quiz'e Başla)----->|---POST /start-attempt>|--->(Cookie & CSRF)----->|---(Deadline Üret)->[INSERT] |
-|     |                       |<--Question 1 DTO (Doğru Şık Gizli, deadline)---|                 |     |
-|     |                       | [30sn Sayaç Başlar]   |                         |                 |     |
-|     |---(B Şıkkını Seçer)-->| [Sayacı Dondurur]     |                         |                 |     |
-|     |                       |---POST /answers------>|------------------------>|---(Süre Kontrol)      |
-|     |                       |                       |                         |---(Puan Hesapla)      |
-|     |                       |<--AnswerFeedback (isCorrect, earnedScore, correctOptionText)-----[UPDATE] |
-|     |                       | [Sonuç Kartı Açılır & Soru 2 Görseli Preload Edilir]                    |
-|     |---(Sonraki Soru)----->|---POST /next-question>|------------------------>|---(Yeni Deadline)----->[UPDATE]|
-|     |                       |<--Question 2 DTO (Temiz 30sn Deadline ile)------|                 |     |
-+-------------------------------------------------------------------------------------------------------+
-```
-*(Detaylı sequence şeması için bkz. [03_QUIZ_VE_GAMEPLAY_AKISI.md](file:///c:/Users/yunus/Desktop/staj/content_angagement_app/docs/DIAGRAMS/03_QUIZ_VE_GAMEPLAY_AKISI.md))*
-
 ## A. Quiz Başlatma ve Cevaplama Akışı
-1. **Başlatma:** Kullanıcı oturumu `identity_user_accounts` üzerinden doğrulanır. Aktif `PUBLISHED` sürümün ilk sorusu çekilir. Sunucu saatiyle `deadline = now() + 30sn` hesaplanır ve `gameplay_attempts` tablosuna `IN_PROGRESS` olarak yazılır. İstemciye dönen DTO'da doğru şık bilgisi **yer almaz**.
-2. **Cevaplama ve Süre Doğrulama:** Kullanıcı şıkkı seçtiğinde arayüz sayacı durdurur ve isteği iletir. Backend `server_now <= question_deadline` kontrolünü yapar. Zamanında gelmişse şık doğrulanır; doğruysa 10 puan eklenir, süre aşılmışsa `TIMEOUT` (0 puan) işlenir. Attempt `AWAITING_NEXT_QUESTION` durumuna geçirilir.
-3. **Doğru Şık Açıklaması ve Görsel Önyükleme:** Doğru şıkkın metni (`correctOptionText`), sunucu puanı kaydettikten sonra dönen `AnswerFeedback` DTO'su ile iletilir. Kullanıcı sonuç kartını okurken frontend bir sonraki sorunun görselini sessizce önbelleğe indirir (`preloading`).
-4. **Sonraki Soru:** Kullanıcı butona bastığında `POST /next-question` çağrısı yapılır; sunucu yeni soru için temiz 30 saniyelik deadline üretir ve sayaç yeniden başlar.
+Quiz başlatma isteği geldiğinde aktif sürümün ilk sorusu çekilir, sunucu saatiyle 30 saniyelik deadline hesaplanır ve deneme oluşturulur. İstemciye dönen soru modelinde doğru şık bilgisi gizlidir. Kullanıcı şıkkı seçtiğinde arayüz sayacı durdurur ve isteği iletir. Sunucu süreyi doğrular, puanı hesaplar ve cevabı kaydeder. Doğru şıkkın metni ancak bu aşamada geri bildirim olarak iletilir. Kullanıcı sonuç kartını incelerken arayüz sıradaki sorunun görselini arka planda indirir. Kullanıcı sonraki soru butonuna bastığında sunucu temiz bir deadline üretir ve akış devam eder (bkz. Şekil 3).
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Kullanıcı (Tarayıcı)
+    participant UI as React SPA (Web İstemcisi)
+    participant Caddy as Caddy Reverse Proxy
+    participant Backend as Spring Boot Monolith (/api)
+    participant DB as Monolith PostgreSQL
+
+    rect rgb(245, 248, 255)
+        note right of User: 1. Quiz Başlatma & Deadline Üretimi
+        User->>UI: "Quiz'e Başla" tıklar
+        UI->>Caddy: POST /api/v1/quizzes/{quizId}/start-attempt
+        Caddy->>Backend: İstek iletilir (Cookie + CSRF)
+        Backend->>DB: Aktif QuizVersion ve Soru 1'i getir
+        Backend->>Backend: Sunucu Saatiyle Deadline Üret (now + 30sn)
+        Backend->>DB: INSERT gameplay_attempts (status='IN_PROGRESS', deadline=...)
+        Backend-->>UI: Soru 1 DTO (Doğru şık GİZLİ, deadline açık)
+        UI->>UI: Geri sayımı 30 saniyeden başlatır
+    end
+
+    rect rgb(255, 250, 245)
+        note right of User: 2. Cevaplama, Doğrulama & Süre Durdurma
+        User->>UI: B şıkkını seçer
+        UI->>UI: Görünür sayacı ANINDA dondurur (Pause)
+        UI->>Caddy: POST /api/v1/attempts/{attemptId}/answers (optionId=B)
+        Caddy->>Backend: İstek iletilir
+        Backend->>Backend: Süre Doğrulaması: server_now <= question_deadline ?
+        alt Zamanında Cevap
+            Backend->>DB: INSERT attempt_answers (score_awarded=10)
+            Backend->>DB: UPDATE gameplay_attempts SET score+=10, status='AWAITING_NEXT_QUESTION'
+        else Timeout
+            Backend->>DB: INSERT attempt_answers (outcome='TIMEOUT', score_awarded=0)
+            Backend->>DB: UPDATE gameplay_attempts SET status='AWAITING_NEXT_QUESTION'
+        end
+        Backend-->>UI: AnswerFeedback (isCorrect, earnedScore, correctOptionText)
+        UI->>UI: Sonuç kartını açar (Puan ve Doğru Şık metni)
+        UI-)UI: Arka Planda Sessizce Soru 2 Görselini İndirir (Preload)
+    end
+
+    rect rgb(245, 255, 245)
+        note right of User: 3. Sonraki Soruya Geçiş & Süre Yenileme
+        User->>UI: "Sonraki Soruya Geç" tıklar
+        UI->>Caddy: POST /api/v1/attempts/{attemptId}/next-question
+        Caddy->>Backend: İstek iletilir
+        Backend->>Backend: Soru 2 için YENİ Deadline Üret (now + 30sn)
+        Backend->>DB: UPDATE gameplay_attempts SET status='IN_PROGRESS', question_deadline=...
+        Backend-->>UI: Soru 2 DTO (Temiz yeni deadline ile)
+        UI->>UI: Sayacı temiz 30 saniyeden başlatır
+    end
+
+    rect rgb(245, 245, 245)
+        note right of User: 4. Tamamlama & Atomik Outbox Kaydı
+        User->>UI: Son soruyu tamamlar
+        UI->>Caddy: POST /api/v1/attempts/{attemptId}/complete
+        Caddy->>Backend: İstek iletilir
+        Backend->>DB: BEGIN TX: UPDATE gameplay_attempts (COMPLETED) + INSERT outbox_events
+        Backend-->>UI: Final Tebrik & Özet Kartı
+    end
 ```
-+-------------------------------------------------------------------------------------------------------+
-| Şekil 4. Transactional Outbox/Inbox ve Asenkron Olay Akışı                                            |
-|                                                                                                       |
-|  [ Gameplay Complete ]                                                                                |
-|          |                                                                                            |
-|          v (Atomic SQL Transaction)                                                                   |
-|  +-------------------------------------------------------------+                                      |
-|  | Monolith DB: UPDATE gameplay_attempts + INSERT outbox_events|                                      |
-|  +-------------------------------------------------------------+                                      |
-|          |                                                                                            |
-|          v (Scheduled Poller / FOR UPDATE SKIP LOCKED)                                                |
-|  [ OutboxPublisherService ] ---> RabbitMQ Exchange (quiz.completed.v1)                                |
-|                                           |                                                           |
-|          +--------------------------------+--------------------------------+                          |
-|          |                                                                 |                          |
-|          v (Idempotent Inbox)                                              v                          |
-|  [ Gamification Consumer ]                                         [ Leaderboard Consumer ]           |
-|          |                                                                 |                          |
-|          v                                                                 v                          |
-|  [ Monolith DB: INSERT xp_transactions ]                           [ Leaderboard DB: Projection ]     |
-|  [ Monolith DB: INSERT outbox (xp.changed.v1) ]                            |                          |
-|                                                                            v                          |
-|                                                                    [ Redis Generation ZSET ]          |
-+-------------------------------------------------------------------------------------------------------+
+Şekil 3. Sunucu otoriteli quiz ve gameplay sıralama diyagramı.
+
+## B. Transactional Outbox ve XP Akışı
+Quiz tamamlandığında attempt durumunun güncellenmesi ile tamamlanma olayının oluşturulması aynı yerel veritabanı transaction'ı içinde atomik olarak gerçekleştirilir. Böylece ağ kesintilerinde dahi veri kaybı önlenir. Arka plan yayıncı servisi bekleyen olayları toplu olarak çeker, RabbitMQ kuyruğuna iletir ve onay aldıktan sonra durumu günceller. Tüketici servis mesajı aldığında Inbox tablosunu kontrol eder; ilk kez gelen olay için XP defterine kayıt atar ve yeni bir XP değişim olayını Outbox'a bırakır. Tekrar iletilen mesajlar Inbox kalkanı sayesinde yok sayılır (bkz. Şekil 4).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Gameplay as Gameplay Modülü
+    participant MonolithDB as Monolith PostgreSQL
+    participant OutboxWorker as OutboxPublisherService
+    participant Rabbit as RabbitMQ (quiz.exchange)
+    participant Gamification as Gamification Consumer
+    participant LBConsumer as Leaderboard Consumer (Ayrı Servis)
+    participant LB_DB as Leaderboard PostgreSQL
+    participant Redis as Redis (Generation ZSET)
+
+    rect rgb(245, 248, 255)
+        note over Gameplay, MonolithDB: 1. Dual-Write Koruması (Atomik Transaction)
+        Gameplay->>MonolithDB: BEGIN TX: UPDATE gameplay_attempts (COMPLETED) + INSERT outbox_events (quiz.completed.v1)
+        MonolithDB-->>Gameplay: COMMIT (Veri ve mesaj aynı anda kesinleşir)
+    end
+
+    rect rgb(255, 250, 245)
+        note over OutboxWorker, Rabbit: 2. Güvenilir Mesaj Yayımlama (At-Least-Once)
+        OutboxWorker->>MonolithDB: SELECT * FROM outbox_events WHERE status='PENDING'
+        OutboxWorker->>Rabbit: basicPublish('quiz.completed.v1')
+        Rabbit-->>OutboxWorker: Publisher Confirm (ACK)
+        OutboxWorker->>MonolithDB: UPDATE outbox_events SET status='PUBLISHED'
+    end
+
+    rect rgb(245, 255, 245)
+        note over Rabbit, Gamification: 3. İdempotent XP Kaydı (Append-Only Ledger)
+        Rabbit->>Gamification: Mesajı ilet: quiz.completed.v1 (event_id=E1)
+        Gamification->>MonolithDB: BEGIN TX
+        Gamification->>MonolithDB: INSERT INTO inbox_messages (event_id=E1)
+        alt İlk Teslimat
+            Gamification->>MonolithDB: INSERT INTO xp_transactions (amount=40) + INSERT outbox_events (xp.changed.v1)
+            Gamification->>MonolithDB: COMMIT
+        else Tekrar Teslimat (Duplicate)
+            Gamification->>MonolithDB: ROLLBACK (Inbox tekilliği sayesinde ikinci XP önlenir)
+        end
+        Gamification-->>Rabbit: basicAck
+    end
+
+    rect rgb(255, 245, 245)
+        note over OutboxWorker, Redis: 4. Leaderboard Servisi & Generation ZSET Güncellemesi
+        OutboxWorker->>Rabbit: basicPublish('xp.changed.v1', tx_id=T1)
+        Rabbit->>LBConsumer: Mesajı ilet: xp.changed.v1
+        LBConsumer->>LB_DB: INSERT INTO leaderboard_xp_entries (transaction_id=T1)
+        LBConsumer->>LB_DB: Deterministik sıralamayı hesapla (Toplam XP + İlk Kazanım Zamanı Tie-break)
+        LBConsumer->>Redis: ZADD leaderboard:global:{generation} {score} {userId}
+        note right of Redis: Generation geçişi ile atomik ve tutarlı liderlik tablosu
+        LBConsumer-->>Rabbit: basicAck
+    end
 ```
-*(Detaylı sequence şeması için bkz. [04_OLAY_GUDUMLU_MESAJLASMA_VE_OUTBOX.md](file:///c:/Users/yunus/Desktop/staj/content_angagement_app/docs/DIAGRAMS/04_OLAY_GUDUMLU_MESAJLASMA_VE_OUTBOX.md))*
+Şekil 4. Transactional Outbox/Inbox ve olay akışı.
 
-## B. Transactional Outbox ve Asenkron XP Akışı
-- **Dual-Write Koruması:** Attempt'in `COMPLETED` yapılması ile `quiz.completed.v1` olayının oluşturulması aynı PostgreSQL transaction'ında commit edilir. Broker kapalı olsa dahi olay kaybolmaz.
-- **Outbox Worker:** Arka plan servisi `PENDING` durumundaki olayları toplu çeker (`FOR UPDATE SKIP LOCKED`), RabbitMQ'ya basar ve publisher confirm (ACK) aldıktan sonra durumu `PUBLISHED` yapar.
-- **Inbox ve Tekil İşleme:** `GamificationConsumer` mesajı aldığında `inbox_messages` tablosuna yazar. İlk kez geliyorsa `xp_transactions` tablosuna ilk tamamlama XP'sini kaydeder ve yeni bir `xp.changed.v1` olayını Outbox'a bırakır. Tekrar iletilen mesajlar Inbox kalkanı sayesinde yok sayılır.
-
-## C. Leaderboard Akışı ve Generation Tabanlı Redis Modeli
-- Leaderboard servisi `xp.changed.v1` olayını tüketir ve `leaderboard_xp_entries` tablosuna yazar (`UNIQUE(transaction_id)`).
-- Servis, PostgreSQL projeksiyonu üzerinden toplam XP, ilk kazanım zaman damgası (`occurred_at`) ve UUID tie-break kurallarıyla deterministik sıralamayı hesaplar.
-- Sıralama Redis üzerinde doğrudan ezilmez; `leaderboard:global:{generation}` şeklinde yeni bir generation anahtarı üretilerek atomik olarak devreye alınır.
-- Redis'in çökmesi durumunda `LeaderboardClient` otomatik olarak PostgreSQL projeksiyon sorgusuna geri düşer (fallback).
-
----
+## C. Leaderboard Akışı
+Leaderboard servisi XP değişim olayını tüketir ve kendi PostgreSQL projeksiyonuna yazar. Servis, toplam XP ve ilk kazanım zaman damgası kurallarıyla deterministik sıralamayı hesaplar. Sıralama Redis üzerinde generation tabanlı anahtarlar ile atomik olarak güncellenir. Redis'in devre dışı kalması durumunda sistem otomatik olarak PostgreSQL projeksiyon sorgularına geri düşer.
 
 # VI. GÜVENLİK, ERİŞİLEBİLİRLİK VE DAYANIKLILIK
 
-## A. Kimlik Doğrulama ve Oturum Güvenliği
-- **Yerel Hesaplar ve Parola Güvenliği:** Kullanıcı parolaları tek yönlü `Bcrypt` algoritması ile tuzlanarak (salted) özetlenir (ADR-0029).
-- **Çerez Tabanlı Oturum:** JWT'lerin LocalStorage'da tutulmasıyla doğan XSS risklerini önlemek amacıyla `HttpOnly`, `Secure` ve `SameSite=Strict` niteliklerine sahip sunucu oturum çerezleri kullanılmıştır.
-- **SPA CSRF Koruması:** Durum değiştiren (`POST`, `PUT`, `DELETE`) tüm isteklere karşı double-submit CSRF cookie/header doğrulaması zorunlu kılınmıştır (ADR-0032).
-- **Yetkilendirme Sınırları:** Sistemde `USER`, `EDITOR` ve `ADMIN` rolleri tanımlıdır. Tarayıcı tarafındaki rol bilgisi yalnızca UI görünümünü şekillendirir; tüm yetki kontrolleri sunucu API katmanında icra edilir.
-- **Güvenli Şifre Sıfırlama:** 256-bit rastgele üretilen sıfırlama token'ının veritabanında yalnızca **SHA-256 özeti** tutulur. Token 30 dakika geçerlidir ve tek kullanımlıktır; e-posta iletimi MailerSend SMTP relay üzerinden yapılır (ADR-0030).
+## A. Kimlik Doğrulama ve Yetkilendirme
+Kullanıcı parolaları tek yönlü Bcrypt algoritması ile tuzlanarak özetlenir. XSS risklerini bertaraf etmek amacıyla HttpOnly, Secure ve SameSite niteliklerine sahip sunucu oturum çerezleri kullanılmıştır. Durum değiştiren tüm HTTP isteklerine karşı SPA CSRF doğrulaması zorunlu tutulmuştur. Sistemde kullanıcı, editör ve yönetici rolleri tanımlanmıştır; tüm yetki kontrolleri sunucu API katmanında icra edilir. Şifre sıfırlama akışında rastgele üretilen 256-bit token'ın veritabanında yalnızca SHA-256 özeti saklanır; token 30 dakika geçerlidir ve tek kullanımlıktır.
 
-## B. Quiz Güvenliği ve Hile Engelleme
-- Doğru cevap ID'si ve metni soru çözülmeden önce istemciye gönderilmez.
-- Süre ve puan sunucu saatine göre işletilir; istemci tarafında yerel saat manipülasyonu puan kazandırmaz.
-- Bir kullanıcı yalnızca kendi oturumuna ait attemptId üzerinden işlem yapabilir; başkasının denemesine cevap gönderilemez.
-- Parola, ham token, doğru cevap ve kişisel veriler log kayıtlarına sızdırılmaz.
+## B. Quiz Güvenliği
+Doğru cevap bilgisi soru çözülmeden önce istemciye asla iletilmez. Süre ve puan hesaplamaları sunucu saatine bağlıdır; istemci tarafındaki saat değişiklikleri geçersizdir. Kullanıcılar yalnızca kendi oturumlarına ait denemeler üzerinde işlem yapabilir. Parola, ham token, doğru cevap ve kişisel veriler sistem loglarına yazılmaz.
 
-## C. Erişilebilirlik (Accessibility - WCAG 2.2 AA)
-- **Görsel ve Metin Ayrımı:** Her soru görseli için bilgilendirici veya dekoratif ayrımı yapılmıştır.
-- **Cevabı Sızdırmayan Alternatif Metin:** Görsel tabanlı sorularda görme engelli kullanıcılar için sunulan `accessible_prompt`, doğru cevabı ifşa etmeden görseldeki bağlamı eşdeğer biçimde aktarır.
-- **Renk Bağımsız Geri Bildirim:** Doğru/yanlış sonuçlarında yalnız yeşil/kırmızı renkler değil; metin etiketleri ve ikonlar birlikte kullanılır.
-- **Sağlık Verisi Toplamadan Süre Uyarlaması:** Engelli kullanıcılara ek süre tanınırken kullanıcıdan sağlık/rapor verisi talep edilmez; süre seçimi genel bir erişilebilirlik tercihi olarak sunulur.
+## C. Erişilebilirlik
+Sorularda kullanılan görseller için bilgilendirici veya dekoratif ayrımı yapılmıştır. Görme engelli bireyler için sunulan alternatif metinler doğru cevabı sızdırmadan görsel bağlamı aktarır. Sonuç ekranlarında renklerin yanı sıra metin etiketleri ve ikonlar kullanılmıştır. Kullanıcıdan sağlık veya engel raporu talep edilmeksizin genel bir erişilebilirlik tercihi olarak ek süre tanımlanabilmektedir.
 
-## D. Kesinti Senaryoları ve Hata Toleransı
-- **RabbitMQ Çökerse:** Monolit attempt tamamlama ve XP hesaplama işlemlerini PostgreSQL üzerinde kesintisiz sürdürür; olaylar `outbox_events` tablosunda birikir ve broker açıldığında otomatik iletilir.
-- **Redis Çökerse:** Leaderboard servisi ve monolit liderlik tablosu isteklerini doğrudan PostgreSQL projeksiyon sorgularına yönlendirir; veri kaybı yaşanmaz.
-- **Leaderboard Servisi Çökerse:** Çekirdek quiz çözme, içerik izleme ve XP kazanım akışları etkilenmez; monolit eski yerel sıralama sorgusuna geçici fallback yapar.
-
----
+## D. Kesinti Senaryoları ve Dayanıklılık
+RabbitMQ kesintisinde monolit attempt tamamlama işlemlerini veritabanında sürdürür; olaylar Outbox tablosunda birikir ve broker açıldığında iletilir. Redis kesintisinde liderlik tablosu doğrudan PostgreSQL projeksiyon sorgularına yönlenir. Leaderboard servisi kapandığında ise çekirdek quiz ve XP akışı kesintisiz devam eder.
 
 # VII. UYGULAMA VE CANLI DAĞITIM
 
-## A. Kullanılan Teknolojiler ve Rolleri
-- **Java 21 & Spring Boot 4.1:** Çekirdek iş mantığı, REST API ve sanal thread destekli modern çalışma zamanı.
-- **PostgreSQL 17 & Flyway:** İlişkisel veri modeli, ACID transaction'lar ve 18 aşamalı sürüm kontrollü veritabanı migration yönetimi.
-- **RabbitMQ 4.1 & Spring AMQP:** Güvenilir, at-least-once garantili asenkron olay dağıtımı.
-- **Redis 8.2 & Spring Data Redis:** O(log(N)) liderlik tablosu okuma modeli ve generation önbelleği.
-- **React 19, TypeScript & Vite:** Tip güvenli, performanslı ve responsive SPA kullanıcı/admin arayüzleri.
-- **Caddy 2:** Otomatik Let's Encrypt SSL/TLS sertifikası, statik SPA dağıtımı ve Same-Origin API ters vekili.
-- **Testcontainers 1.20:** Testlerde mock yerine gerçek PostgreSQL, RabbitMQ ve Redis kapsayıcıları ile uçtan uca doğrulama.
-- **OpenTelemetry & Actuator:** Dağıtık izleme ve sistem sağlık kontrolleri.
+## A. Kullanılan Teknolojiler
+Sistem Java 21 ve Spring Boot 4.1 üzerinde geliştirilmiştir. Veri yönetiminde PostgreSQL 17 ve Flyway kullanılmıştır. Asenkron mesajlaşma RabbitMQ 4.1 ile, hızlı sıralama okuma modeli Redis 8.2 ile sağlanmıştır. İstemci tarafında React 19, TypeScript ve Vite tercih edilmiştir. Test aşamasında Testcontainers kullanılırken, canlı ortamda Caddy 2 ters vekili devreye alınmıştır.
 
+## B. Production Topolojisi
+Sistem Oracle Cloud Always Free sanal sunucusu üzerinde sekiz izole Docker konteyneri halinde canlıya alınmıştır (bkz. Şekil 5). İnternete yalnızca Port 80 ve Port 443 açılmıştır. Veritabanları, mesaj brokerı ve servisler dış dünyaya kapalı bir dahili köprü ağı üzerinden haberleşir. Tüm veriler Docker Named Volume disklerinde saklanır.
+
+```mermaid
+flowchart TB
+    Clients["Kullanıcılar ve Yöneticiler (Web & Mobil Tarayıcılar)"]
+
+    subgraph HostVM["Oracle Cloud Infrastructure (Always Free VM - 12 GB RAM / Ubuntu Linux)"]
+        direction TB
+
+        subgraph EdgeLayer["Uç Güvenlik ve Ters Vekil (Edge Proxy)"]
+            direction LR
+            Ports["Açık Dış Portlar: 80 (HTTP) ve 443 (HTTPS)"]
+            Caddy["Caddy Web Server Konteyneri\n(https://hikayeizi.duckdns.org / TLS 1.3)"]
+            Ports --> Caddy
+        end
+
+        subgraph InternalNetwork["İzole Dahili Ağ (Docker Bridge: app-network - Dış Dünyaya Kapalı)"]
+            direction TB
+            
+            subgraph AppTier["Uygulama Servisleri"]
+                direction LR
+                WebSPA["web Konteyneri\n(React SPA Statik Dağıtım)"]
+                BackendApp["backend Konteyneri\n(Spring Boot Monolit - Port 8081)"]
+                LBService["leaderboard-service Konteyneri\n(Spring Boot Mikroservis - Port 8082)"]
+            end
+
+            subgraph DataTier["Kalıcı Veri ve Mesajlaşma Katmanı"]
+                direction LR
+                MainPG[("postgres Konteyneri\n(Monolith PostgreSQL 17)")]
+                Broker[["rabbitmq Konteyneri\n(RabbitMQ 4.1 Broker)"]]
+                LBPG[("leaderboard-postgres Konteyneri\n(Projeksiyon PostgreSQL 17)")]
+                LBRedis[("leaderboard-redis Konteyneri\n(Redis 8.2 ZSET)")]
+            end
+        end
+
+        subgraph StorageTier["Kalıcı Disk Birimleri (Docker Named Volumes)"]
+            Volumes[("caddy_data | postgres_data | leaderboard_postgres_data | media_data | rabbitmq_data")]
+        end
+    end
+
+    Clients -->|HTTPS:443| Ports
+    Caddy -->|/ ve /admin Yolları| WebSPA
+    Caddy -->|/api/* İstekleri| BackendApp
+    
+    BackendApp -->|JDBC Transaction| MainPG
+    BackendApp -->|Outbox AMQP Publish| Broker
+    BackendApp -.->|Dahili REST İstemcisi| LBService
+
+    Broker -->|xp.changed.v1 Tüketimi| LBService
+    LBService -->|Projeksiyon Yazımı| LBPG
+    LBService -->|Sıralama Güncellemesi| LBRedis
+
+    DataTier -.-> StorageTier
 ```
-+-------------------------------------------------------------------------------------------------------+
-| Şekil 5. Oracle Cloud Canlı Dağıtım ve Ağ Topolojisi                                                  |
-|                                                                                                       |
-|  Genel İnternet (HTTPS: 443 / HTTP: 80)                                                              |
-|        |                                                                                              |
-|        v                                                                                              |
-|  [ Oracle Cloud Free Tier VM (AMD EPYC, 12 GB RAM, Ubuntu Linux) ]                                    |
-|  +-------------------------------------------------------------------------------------------------+  |
-|  | [ Caddy Container ] (https://hikayeizi.duckdns.org)                                             |  |
-|  |   • Port 80/443 Açık (Tüm diğer portlar DIŞA KAPALIDIR)                                         |  |
-|  |   • / ve /admin -> web SPA                                                                      |  |
-|  |   • /api/* -> backend:8081                                                                      |  |
-|  |                                                                                                 |  |
-|  |   İzole Dahili Ağ (app-network):                                                                |  |
-|  |   +------------------------------------------------------------------------------------------+  |  |
-|  |   | [web] (React)        | [backend] (Spring Boot)   | [leaderboard-service] (Spring Boot)     |  |  |
-|  |   | [postgres] (Port5432)| [leaderboard-postgres]    | [rabbitmq] (Port 5672)                  |  |  |
-|  |   | [redis] (Monolith)   | [leaderboard-redis]       |                                         |  |  |
-|  |   +------------------------------------------------------------------------------------------+  |  |
-|  |                                                                                                 |  |
-|  |   Kalıcı Disk Birimleri (Named Volumes):                                                        |  |
-|  |   postgres_data | leaderboard_postgres_data | media_data | rabbitmq_data | caddy_data           |  |
-|  +-------------------------------------------------------------------------------------------------+  |
-+-------------------------------------------------------------------------------------------------------+
-```
-*(Detaylı topoloji şeması için bkz. [05_CANLI_DAGITIM_VE_AG_TOPOLOJISI.md](file:///c:/Users/yunus/Desktop/staj/content_angagement_app/docs/DIAGRAMS/05_CANLI_DAGITIM_VE_AG_TOPOLOJISI.md))*
-
-## B. Production Topolojisi (Oracle Cloud Free Tier)
-Sistem, Oracle Cloud her zaman ücretsiz (Always Free) VM üzerinde `compose.production.yaml` yapılandırmasıyla 8 izole Docker konteyneri halinde canlıya alınmıştır:
-1. `caddy` (Uç yönlendirme ve SSL/TLS sonlandırma)
-2. `web` (React SPA statik dosyaları)
-3. `backend` (Çekirdek Spring Boot modüler monolit)
-4. `leaderboard-service` (Sıralama Spring Boot mikroservisi)
-5. `postgres` (Monolit veritabanı)
-6. `leaderboard-postgres` (Sıralama veritabanı)
-7. `rabbitmq` (Mesajlaşma brokerı)
-8. `leaderboard-redis` (ve `redis` monolit önbelleği)
-
-**Sıfır Güven Port İzolasyonu:** İnternete **yalnızca Port 80 ve Port 443** açılmıştır. Veritabanları ve RabbitMQ dış dünyaya tamamen kapalı olup yalnızca `app-network` köprü ağı içinde iletişim kurar.
+Şekil 5. Canlı dağıtım ve ağ topolojisi.
 
 ## C. Operasyonel Özellikler
-- **Let's Encrypt Otomasyonu:** Caddy, `hikayeizi.duckdns.org` alan adı için SSL sertifikalarını otomatik üretir ve yeniler.
-- **Sağlık Kontrolleri (Health Checks):** `/actuator/health` uç noktası veritabanı, Redis ve disk durumunu izler; posta kontrolü Actuator'dan ayrılarak bağımsızlaştırılmıştır.
-- **Kalıcı Diskler (Volumes):** Veritabanı tabloları, yüklenen görseller (`media_data`) ve kuyruk verileri konteyner yaşam döngüsünden bağımsız Named Volume'larda tutulur.
-
----
+Caddy sunucusu SSL sertifikalarını Let's Encrypt üzerinden otomatik üretir ve yeniler. Spring Boot Actuator sağlık kontrolleriyle veritabanı ve disk durumu izlenir. Medya varlıkları için uzun süreli önbellekleme başlıkları tanımlanmıştır.
 
 # VIII. TEST VE DOĞRULAMA
 
 ## A. Test Stratejisi
-Projede test piramidi prensiplerine sadık kalınmış; birim testlerle saf iş kuralları, entegrasyon testleriyle veritabanı ve kuyruk sözleşmeleri, mimari testlerle (ArchUnit) modül sınırları doğrulanmıştır.
-
-```text
-       /  API & E2E Testleri  \         (47 Frontend Vitest & Build Doğrulaması)
-      /------------------------\
-     / Concurrency & Broker Test \      (Testcontainers: PostgreSQL, RabbitMQ, Redis)
-    /------------------------------\
-   /    Domain & State Unit Test    \   (130 Monolith + 4 Leaderboard Backend Testi)
-  /----------------------------------\
-```
+Sistem test piramidi ilkelerine göre doğrulanmıştır. Birim testlerle saf domain kuralları, Testcontainers entegrasyon testleriyle gerçek PostgreSQL, RabbitMQ ve Redis davranışları, ArchUnit ile mimari modül sınırları test edilmiştir.
 
 ## B. İş Kuralı ve Test Kanıtı Eşleştirmesi
 
-### TABLO I. İŞ KURALI VE TEST KANITI EŞLEŞTİRMESİ
+TABLO I. İŞ KURALI VE TEST KANITI EŞLEŞTİRMESİ
+
 | Korunan Risk / İş Kuralı | Uygulanan Mekanizma | Doğrulayan Test Kanıtı |
 | :--- | :--- | :--- |
-| **Aynı soruya ikinci cevap** | `UNIQUE(attempt_id, question_id)` + Domain kontrolü | `GameplayIntegrationTest.shouldRejectDuplicateAnswer` |
-| **İkinci tamamlama ile mükerrer XP** | `gameplay_quiz_reward_claims` + `xp_transactions` | `GamificationIdempotencyTest.shouldAwardXpOnlyOnce` |
-| **Doğru cevabın soru öncesi sızması** | Soru DTO'sundan `correctOption` çıkarılması | `QuizAuthoringIntegrationTest.shouldHideCorrectOption` |
-| **Sonuç kartında süre kaybı** | `AWAITING_NEXT_QUESTION` + Yeni deadline | `GameplayIntegrationTest.shouldPauseTimerUntilNextQuestion` |
-| **RabbitMQ tekrar mesajı ile çift XP** | `inbox_messages` tekil `event_id` kalkanı | `MessagingIntegrationTest.shouldIgnoreDuplicateOutboxEvents` |
-| **Leaderboard duplicate XP olayı** | `leaderboard_xp_entries.transaction_id` UK | `LeaderboardServiceIntegrationTest.shouldConsumeIdempotently` |
-| **CSRF saldırısı ve sahte istek** | Cookie + Double submit header kontrolü | `CsrfProtectionIntegrationTest.shouldRejectMissingCsrfHeader` |
-| **İlk admin hesabının tekliği** | Bootstrap tekil kontrolü + Bcrypt özeti | `InitialAdminBootstrapIntegrationTest.shouldCreateOnlyOneAdmin` |
-| **Şifre sıfırlama token güvenliği** | SHA-256 özeti, 30 dk süre ve tek kullanım | `AccountAuthenticationIntegrationTest.shouldResetPasswordWithToken` |
+| Aynı soruya ikinci cevap | Unique kısıtı ve domain kontrolü | GameplayIntegrationTest duplicate cevap testi |
+| İkinci tamamlama ile mükerrer XP | Reward claim ve defter tekilliği | GamificationIdempotencyTest tekil XP testi |
+| Doğru cevabın soru öncesi sızması | DTO'dan doğru şıkkın çıkarılması | QuizAuthoringIntegrationTest gizlilik testi |
+| Sonuç kartında süre kaybı | Awaiting next question durumu | GameplayIntegrationTest sayaç durdurma testi |
+| RabbitMQ tekrarında çift XP | Inbox tablosu tekil event ID | MessagingIntegrationTest mükerrer olay testi |
+| Leaderboard duplicate XP olayı | Transaction ID tekil kısıtı | LeaderboardServiceIntegrationTest idempotency testi |
+| CSRF saldırısı ve sahte istek | Cookie ve double submit header | CsrfProtectionIntegrationTest CSRF testi |
+| İlk admin hesabının tekliği | Bootstrap tekil kontrolü | InitialAdminBootstrapIntegrationTest admin testi |
+| Şifre sıfırlama token güvenliği | SHA-256 özeti ve tek kullanım | AccountAuthenticationIntegrationTest token testi |
 
 ## C. Doğrulama Sonuçları
-- **Backend Testleri:** Java 21 çalışma zamanında `./mvnw.cmd verify` ile monolit paketinde **130/130**, leaderboard servisinde **4/4** test başarıyla tamamlanmıştır.
-- **Frontend Testleri:** 11 test dosyasında **47/47** Vitest testi geçmiş; `tsc --noEmit` strict tip kontrolü ve Vite production build doğrulanmıştır.
-- **Canlı Sistem Doğrulaması:** Oracle Cloud VM üzerinde HTTPS arayüzü (`/`), yönetim paneli (`/admin`) ve API (`/api/v1/...`) erişimleri test edilmiştir.
+Yerel Maven derlemesinde monolit paketinde 130, Leaderboard servisinde 4 test başarıyla tamamlanmıştır. Frontend paketinde 11 dosyada 47 Vitest testi ve TypeScript strict derlemesi doğrulanmıştır. Oracle Cloud sunucusu üzerinde HTTPS kullanıcı arayüzü, yönetim paneli ve API erişimleri canlı ortamda test edilmiştir.
 
 ## D. Sınırlar ve Kapasite Notu
-Mevcut yerel k6 yük testleri ve tek sunuculu Compose dağıtımı mimari tasarımın doğruluğunu ve fonksiyonel yetkinliğini kanıtlar; ancak bu durum çok bölgeli (multi-region) kurumsal production SLA/SLO kapasite garantisi yerine geçmez.
-
----
+Yapılan yerel yük profilleri ve tek sunuculu Compose dağıtımı sistemin mimari tutarlılığını kanıtlar; ancak bu durum çok bölgeli kurumsal üretim kapasitesi garantisi yerine geçmez.
 
 # IX. KARŞILAŞILAN SORUNLAR VE MÜHENDİSLİK ÇÖZÜMLERİ
 
-Bu bölüm, geliştirme sürecinde karşılaşılan somut mühendislik problemlerini, kök neden analizlerini ve uygulanan çözümleri belgeler:
+## A. PostgreSQL ve RabbitMQ Dual-Write Problemi
+Attempt tamamlandığında veritabanı güncellenip RabbitMQ'ya mesaj gönderilirken ağ kesilirse veritabanında tamamlanan işlem için XP olayı iletilemiyordu. Bu sorun Transactional Outbox deseniyle çözüldü; attempt durumu ile olay kaydı aynı yerel transaction'da atomik olarak commit edildi ve arka plan servisiyle kuyruğa taşındı. Dağıtık XA transaction'ları yüksek gecikme sebebiyle elendi. Çözüm TransactionalOutboxIntegrationTest ile kanıtlandı.
 
-### 1. PostgreSQL – RabbitMQ Dual-Write Problemi
-- **Gözlenen Problem:** Attempt tamamlandığında veritabanı güncellenip RabbitMQ'ya mesaj gönderilirken ağ koparsa veritabanında tamamlanmış görünen quiz için XP olayı kuyruğa iletilemiyordu.
-- **Kök Neden:** İlişkisel veritabanı ile mesaj brokerı arasında dağıtık iki fazlı commit (2PC) olmaması (Dual-Write problemi).
-- **Uygulanan Çözüm:** Transactional Outbox deseni uygulandı. Attempt durumu ile `outbox_events` kaydı aynı yerel SQL transaction'ında atomik commit edildi. Ayrı bir worker servisi olayları kuyruğa güvenle taşıdı.
-- **Değerlendirilen Alternatif:** Dağıtık XA transaction'ları değerlendirildi ancak yüksek gecikme ve broker bağımlılığı nedeniyle elendi.
-- **Test Kanıtı:** `TransactionalOutboxIntegrationTest.shouldPersistEventAtomicallyWithBusinessData`.
+## B. AWAITING_NEXT_QUESTION Durumu ve Sütun Uzunluğu Sınırı
+Sonuç ekranında süreyi korumak için eklenen AWAITING_NEXT_QUESTION durumu kaydedilirken veritabanı hata verdi. Kök nedenin eski migration'daki VARCHAR(20) sınırı olduğu tespit edildi. V18 migration dosyası ile sütun uzunluğu VARCHAR(30) yapıldı. Durum adını kısaltmak yerine domain dilinin netliğini korumak tercih edildi. Çözüm GameplayIntegrationTest ile doğrulandı.
 
-### 2. `AWAITING_NEXT_QUESTION` Durumu ve `VARCHAR(20)` Sınırı
-- **Gözlenen Problem:** Sonuç ekranında süreyi korumak için yeni eklenen `AWAITING_NEXT_QUESTION` durumu kaydedilirken `DATA_INTEGRITY_CONFLICT` hatası alındı.
-- **Kök Neden:** Veritabanındaki `gameplay_attempts.status` sütununun eski migration'da `VARCHAR(20)` olarak tanımlanması (22 karakterlik yeni durum sütuna sığmadı).
-- **Uygulanan Çözüm:** Yeni bir `V18__increase_attempt_status_length.sql` migration dosyası oluşturularak sütun uzunluğu `VARCHAR(30)` değerine yükseltildi.
-- **Değerlendirilen Alternatif:** Durum adını kısaltmak değerlendirildi; ancak domain dilinin (Ubiquitous Language) netliğini bozmamak için şema genişletildi.
-- **Test Kanıtı:** `GameplayIntegrationTest.shouldPersistAwaitingNextQuestionState`.
+## C. Sonuç Ekranında Sonraki Soru Süresinin Erimesi
+Kullanıcı bir soruyu cevapladıktan sonra sonuç kartını incelerken geçen sürenin sonraki sorunun 30 saniyelik hakkından eksildiği görüldü. Cevap verildiği anda aktif deadline silinip attempt AWAITING_NEXT_QUESTION durumuna geçirildi. Kullanıcı sonraki soru butonuna bastığında çağrılan uç nokta üzerinden sunucu saatiyle sıfırdan 30 saniyelik yeni bir deadline üretildi. Çözüm GameplayIntegrationTest ile korundu.
 
-### 3. Sonuç Ekranında Sonraki Soru Süresinin Erimesi
-- **Gözlenen Problem:** Kullanıcı bir soruya cevap verdikten sonra sonuç kartındaki doğru şıkkı incelerken geçen süre, sonraki sorunun 30 saniyelik hakkından eksiliyordu.
-- **Kök Neden:** Soru deadline'ının attempt başlatıldığında tüm quiz için tekil veya ardışık otomatik işletilmesi.
-- **Uygulanan Çözüm:** Cevap geldiği anda aktif deadline silinip attempt `AWAITING_NEXT_QUESTION` durumuna geçirildi. Kullanıcı "Sonraki Soru" butonuna bastığında çağrılan `POST /next-question` endpoint'i ile sunucu saatinden sıfırdan 30 saniyelik yeni bir deadline üretildi.
-- **Test Kanıtı:** `GameplayIntegrationTest.shouldGenerateFreshDeadlineOnNextQuestion`.
+## D. Tekrar Çözümde Quiz Kartında Kazanılan XP'nin Sıfır Görünmesi
+Bir quizi ilk çözüşünde 40 XP kazanan kullanıcının, aynı quizi ikinci kez çözdüğünde ana sayfadaki kartta sıfır XP gördüğü tespit edildi. Kök nedenin arayüzün son denemenin anlık kazanımını okuması olduğu anlaşıldı. İlgili sorgu kullanıcının o quizdeki tüm tamamlanmış denemeleri arasından kalıcı en yüksek XP değerini getirecek şekilde güncellendi. Çözüm GameplayIntegrationTest ile kanıtlandı.
 
-### 4. Tekrar Çözümde Quiz Kartında Kazanılan XP'nin Sıfır Görünmesi
-- **Gözlenen Problem:** Bir quizi ilk çözüşünde 40 XP kazanan kullanıcı, quizi pekiştirmek için ikinci kez çözdüğünde (ikinci çözüşte kural gereği 0 XP kazanıldığı için) ana sayfadaki quiz kartında "Kazanılan XP: 0" görünüyordu.
-- **Kök Neden:** Frontend'in son denemenin (`latest attempt`) anlık kazanımını okuması.
-- **Uygulanan Çözüm:** `/api/v1/me/quiz-results` sorgusu kullanıcının o quizdeki tüm tamamlanmış denemeleri arasından kalıcı en yüksek XP değerini (`MAX(earned_xp)`) döndürecek şekilde güncellendi. ADR-0026 kuralı korunurken karttaki görsel tutarsızlık giderildi.
-- **Test Kanıtı:** `GameplayIntegrationTest.shouldReturnMaxEarnedXpForQuizCard`.
-
-### 5. Canlı Ağ Ortamında Soru Görselinin Gecikmeli Yüklenmesi
-- **Gözlenen Problem:** Canlı yayında sonraki soruya geçildiğinde soru metni anında gelirken görselin 200-400 ms sonra açılması kullanıcı deneyimini bozuyordu.
-- **Kök Neden:** Görsel isteğinin ancak soru metni render edildikten sonra tarayıcı tarafından tetiklenmesi.
-- **Uygulanan Çözüm:** `MediaController` endpoint'ine `Cache-Control: public, max-age=2592000, immutable` eklendi; frontend tarafında ise kullanıcı sonuç kartını okurken sıradaki sorunun görselini arka planda sessizce indiren `Image Preloading` mekanizması uygulandı.
-- **Test Kanıtı:** `MediaControllerIntegrationTest.shouldReturnImmutableCacheHeaders`.
-
----
+## E. Canlı Ağ Ortamında Soru Görselinin Gecikmeli Yüklenmesi
+Canlı ortamda sonraki soruya geçildiğinde soru metninin anında geldiği ancak görselin gecikmeli yüklendiği gözlendi. Medya uç noktasına immutable önbellekleme başlıkları tanımlandı; arayüz tarafında ise kullanıcı sonuç kartını incelerken bir sonraki sorunun görselini arka planda indiren preloading mekanizması uygulandı. Çözüm MediaControllerIntegrationTest ile doğrulandı.
 
 # X. TARTIŞMA VE TRADE-OFF DEĞERLENDİRMESİ
 
-Mühendislik kararları mutlak doğrular değil, belirli kısıtlar altında yapılan bilinçli ödünleşimlerdir (trade-offs):
+Modüler monolit seçimi geliştirme hızını artırmış ve transaction yönetimini kolaylaştırmıştır; buna karşılık bağımsız bileşen dağıtımı esnekliği sınırlandırılmıştır.
 
-1. **Modüler Monolit vs Dağıtık Mikroservisler:**  
-   Modüler monolit seçimi geliştirme hızını artırmış, modüller arası transaction yönetimini kolaylaştırmış ve tek veritabanı ile güçlü tutarlılık sağlamıştır. Karşılığında bağımsız dağıtım (deployment) esnekliği sınırlandırılmıştır.
-2. **Eventual Consistency vs Strong Consistency:**  
-   Leaderboard servisinin RabbitMQ ile ayrılması monolit üzerindeki okuma yükünü sıfırlamıştır; ancak XP kazanımı ile liderlik tablosuna yansıması arasında milisaniyelik bir gecikme (eventual consistency) kabul edilmiştir.
-3. **Tek Sunucu (Single Host) vs Yüksek Erişilebilirlik (HA):**  
-   Oracle Cloud Always Free VM üzerinde tek Compose kümesi kurulum ve işletme maliyetini sıfıra indirmiştir. Ancak sunucu arızasında sistemin tamamen durması (Single Point of Failure - SPOF) bilinçli bir MVP ödünleşimidir.
-4. **Redis Read Model vs İlişkisel Veritabanı:**  
-   Redis kullanımı sıralama sorgularını O(log(N)) seviyesine indirmiştir; ancak Redis'in kalıcı kaynak olmaması nedeniyle generation tabanlı senkronizasyon ve fallback mantığı geliştirme maliyeti getirmiştir.
-5. **Sunucu Oturumu (Stateful Session) vs Durumsuz JWT (Stateless JWT):**  
-   `HttpOnly` çerez oturumu XSS saldırılarına karşı üstün güvenlik sağlamış ve anında oturum iptaline izin vermiştir; ancak çoklu backend instance'larına geçildiğinde merkezi bir Redis Session Store ihtiyacı doğuracaktır.
+Leaderboard servisinin ayrılması monolit üzerindeki okuma yükünü sıfırlamıştır; ancak XP kazanımı ile sıralamanın güncellenmesi arasında milisaniyelik bir gecikme kabul edilmiştir.
 
----
+Oracle Cloud sanal sunucusunda tek Compose kümesi kurulum maliyetini sıfıra indirmiştir; fakat sunucu arızasında sistemin durması bilinçli bir MVP ödünleşimidir.
+
+Redis kullanımı sıralama sorgularını hızlandırmıştır; ancak Redis'in kalıcı olmaması nedeniyle generation tabanlı senkronizasyon maliyeti üstlenilmiştir.
+
+HttpOnly çerez oturumu XSS saldırılarına karşı üstün güvenlik sağlamıştır; ancak çoklu sunucu instance'larına geçildiğinde merkezi bir oturum deposu gereksinimi doğacaktır.
 
 # XI. SONUÇ VE GELECEK ÇALIŞMALAR
 
 ## A. Elde Edilen Sonuçlar
-TRT tabii içerikleri için tasarlanan etkileşim ve oyunlaştırma platformu; uçtan uca **yayınla → başlat → cevapla → tamamla → XP ver → sırala** dikey akışını başarıyla tamamlamıştır. Sistem; sunucu otoriter oyun motoru, transactional mesajlaşma, değişmez sürümleme ve canlı Oracle Cloud ortamındaki kararlı çalışmasıyla kurumsal backend hedeflerine ulaşmıştır.
+TRT tabii içerikleri için tasarlanan etkileşim platformu; yayınlama, başlatma, cevaplama, tamamlama, XP kazanımı ve sıralama akışını başarıyla tamamlamıştır. Sistem; sunucu otoriter oyun motoru, transactional mesajlaşma, değişmez sürümleme ve canlı dağıtımıyla hedeflenen kurumsal yetkinliğe ulaşmıştır.
 
 ## B. Bilinen Sınırlamalar
-- Kurumsal merkezi OIDC/Single Sign-On (SSO) sözleşmesi henüz entegre edilmemiştir (yerel hesaplar devrededir).
-- Tek sunucu dağıtımı yüksek erişilebilirlik (High Availability) kümesine sahip değildir.
-- Çok editörlü eşzamanlı quiz taslağı düzenlemeleri için optimistic locking henüz eklenmemiştir.
-- KVKK veri silme/anonimleştirme ve yasal saklama süreleri operasyonu tamamlanmamıştır.
+Kurumsal merkezi OIDC sözleşmesi henüz entegre edilmemiştir. Tek sunucu dağıtımı yüksek erişilebilirlik kümesine sahip değildir. Çok editörlü taslak düzenlemeleri için optimistic locking henüz eklenmemiştir. KVKK veri silme ve yasal saklama süreleri operasyonu tamamlanmamıştır.
 
 ## C. Gelecek Çalışmalar
-- **Canlı TV Senkronizasyonu:** TRT tabii canlı yayın akışıyla zaman uyumlu anlık soru ve yarışma modülünün eklenmesi.
-- **WebSocket Tabanlı Çoklu Oyuncu (Multiplayer):** Kullanıcıların birbirleriyle eşzamanlı düello yapabileceği anlık soket altyapısının kurulması.
-- **Merkezi Kimlik Entegrasyonu:** Keycloak / TRT OIDC altyapısı ile kurumsal kullanıcı oturumlarının birleştirilmesi.
-- **Kubernetes (K8s) Dağıtımı:** Artan trafik için yatay pod ölçekleme (HPA) ve çok düğümlü yüksek erişilebilirlik altyapısına geçiş.
+Gelecekte TRT tabii canlı yayın akışıyla senkronize yarışma modülünün eklenmesi, WebSocket tabanlı çok oyunculu düello altyapısının kurulması, merkezi OIDC kimlik entegrasyonu ve Kubernetes üzerinde yatay ölçekleme altyapısına geçilmesi planlanmaktadır.
 
----
+# BİLGİLENDİRME
 
-# BİLGİLENDİRME (Acknowledgment)
-Bu çalışma, TRT bünyesinde gerçekleştirilen staj programı kapsamında, tabii platformunun etkileşimli geleceğine yönelik kurumsal backend mimarilerini ve modern yazılım mühendisliği pratiklerini araştırmak ve uygulamak amacıyla geliştirilmiştir. Süreç boyunca teknik rehberlik ve destek sağlayan TRT mühendislik ekiplerine teşekkür ederiz.
+Bu çalışma, TRT bünyesinde gerçekleştirilen staj programı kapsamında, tabii platformunun etkileşimli geleceğine yönelik kurumsal backend mimarilerini ve modern yazılım mühendisliği pratiklerini araştırmak ve uygulamak amacıyla geliştirilmiştir. Süreç boyunca teknik rehberlik sağlayan TRT mühendislik ekiplerine teşekkür ederiz.
 
----
+# KAYNAKLAR
 
-# KAYNAKLAR (References)
-
-- **[1]** Spring Boot Documentation Team, "Spring Boot Reference Documentation (v4.1.0)," VMware Tanzu, 2026.
-- **[2]** PostgreSQL Global Development Group, "PostgreSQL 17.5 Documentation: Concurrency Control and Transaction Isolation," 2025.
-- **[3]** C. Richardson, *Microservices Patterns: With examples in Java*, Manning Publications, 2018 (Transactional Outbox and Inbox Patterns, pp. 87-112).
-- **[4]** RabbitMQ Core Team, "Reliable Delivery and Publisher Confirms in RabbitMQ," Broadcom, 2025.
-- **[5]** Redis Documentation, "Redis Sorted Sets and Rank Aggregation Mechanics," Redis Ltd., 2025.
-- **[6]** R. C. Martin, *Clean Architecture: A Craftsman's Guide to Software Structure and Design*, Prentice Hall, 2017.
-- **[7]** World Wide Web Consortium (W3C), "Web Content Accessibility Guidelines (WCAG) 2.2," W3C Recommendation, 2023.
-- **[8]** OpenTelemetry Authors, "W3C Trace Context Specification and Distributed Tracing," Cloud Native Computing Foundation, 2024.
-- **[9]** E. Evans, *Domain-Driven Design: Tackling Complexity in the Heart of Software*, Addison-Wesley, 2003.
-- **[10]** Internet Engineering Task Force (IETF), "HTTP State Management Mechanism (Cookies) and SameSite Attribute," RFC 6265bis, 2024.
+[1] Spring Boot Documentation Team, "Spring Boot Reference Documentation (v4.1.0)," VMware Tanzu, 2026.  
+[2] PostgreSQL Global Development Group, "PostgreSQL 17.5 Documentation: Concurrency Control and Transaction Isolation," 2025.  
+[3] C. Richardson, Microservices Patterns: With examples in Java, Manning Publications, 2018.  
+[4] RabbitMQ Core Team, "Reliable Delivery and Publisher Confirms in RabbitMQ," Broadcom, 2025.  
+[5] Redis Documentation, "Redis Sorted Sets and Rank Aggregation Mechanics," Redis Ltd., 2025.  
+[6] R. C. Martin, Clean Architecture: A Craftsman's Guide to Software Structure and Design, Prentice Hall, 2017.  
+[7] World Wide Web Consortium (W3C), "Web Content Accessibility Guidelines (WCAG) 2.2," W3C Recommendation, 2023.  
+[8] OpenTelemetry Authors, "W3C Trace Context Specification and Distributed Tracing," Cloud Native Computing Foundation, 2024.  
+[9] E. Evans, Domain-Driven Design: Tackling Complexity in the Heart of Software, Addison-Wesley, 2003.  
+[10] Internet Engineering Task Force (IETF), "HTTP State Management Mechanism (Cookies) and SameSite Attribute," RFC 6265bis, 2024.  

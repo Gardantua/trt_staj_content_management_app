@@ -1,5 +1,6 @@
 import { PublicApiRequestError, toApiError } from "./public-api";
 import { CsrfTokenClient } from "../api/csrf";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 
 export interface AccountSession {
   actorId: string;
@@ -64,7 +65,7 @@ export class AuthApi {
     try {
       response = await fetch(`${this.baseUrl}${path}`, { ...init, headers, credentials: "same-origin" });
     } catch {
-      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Giriş servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
+      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.loginUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await toApiError(response);
     if (response.status === 202 || response.status === 204) return undefined as T;

@@ -22,6 +22,8 @@ API-first bir backend projesidir. Ana kullanıcı akışı:
 ## Belgeler
 
 - [Proje özeti](docs/PROJECT_BRIEF.md)
+- [Kapsamlı teknik rapor ve mimari dokümantasyon (Görselli README)](docs/RAPOR_README.md)
+- [IEEE formatında bildiri metni](docs/IEEE_RAPORU_TRT_TABII.md)
 - [Kısa mimari](docs/ARCHITECTURE.md)
 - [Kısa yol haritası](docs/ROADMAP.md)
 - [Güncel durum özeti](docs/CURRENT_STATE.md)
