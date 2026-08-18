@@ -24,10 +24,9 @@
   ve Vite production derlemesi geçti. Mevcut büyük `pdfmake`/font chunk uyarısı sürüyor.
 - React kalite kontrolünde Context değeri memoize edildi, storage erişimi `try/catch`
   ile korundu ve yalnız sürümlü küçük dil kodu saklandı.
-- Görsel tarayıcı incelemesi proje kuralı gereği açık izin bulunmadığından yapılmadı;
-  kullanıcıyla masaüstü/mobil dil seçici yerleşimi ayrıca doğrulanmalıdır.
-- Sıradaki tek iş: Kullanıcı isterse Aşama 13B'de kararlı hata kodlarını koruyarak
-  backend API ve security hata mesajlarına `Accept-Language` desteği eklemek.
+- Oracle Cloud Free Tier canlı ortamı (`https://hikayeizi.duckdns.org`): Güncellenen frontend i18n kaynakları, görseller ve rapor dokümanları sunucuya aktarıldı, `compose.production.yaml` ile `web` container'ı sıfırdan derlenip canlıya alındı ve HTTPS yanıtı (HTTP/2 200) doğrulandı.
+- GitHub repository (`codex/stage-10a-admin-web`): Tüm değişiklikler, rapor belgeleri, diyagramlar ve görseller commit edilerek pushlandı.
+- Sıradaki tek iş: Kullanıcının canlı ortamda Türkçe/İngilizce dil geçişini ve yeni arayüzü denemesi.
 
 ## 17.08.2026 soru görseli alternatif metni ile cevap geri bildirimi ve Oracle güncellemesi
 
