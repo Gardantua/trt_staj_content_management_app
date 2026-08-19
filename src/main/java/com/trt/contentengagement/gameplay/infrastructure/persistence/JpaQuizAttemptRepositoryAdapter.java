@@ -65,24 +65,19 @@ public class JpaQuizAttemptRepositoryAdapter implements QuizAttemptRepository {
                 .map(this::toDomain);
     }
     @Override public List<QuizResultSummary> findLatestCompletedResultsByUserId(UUID userId) {
-        Map<UUID, QuizResultSummary> latestByQuiz = new LinkedHashMap<>();
-        jdbcTemplate.query(
+        return jdbcTemplate.query(
                 """
-                SELECT quiz_id, earned_xp
+                SELECT quiz_id, COALESCE(MAX(earned_xp), 0) AS earned_xp
                 FROM gameplay_attempts
                 WHERE user_id = ? AND status = 'COMPLETED'
-                ORDER BY completed_at DESC NULLS LAST, id DESC
+                GROUP BY quiz_id
                 """,
-                (RowCallbackHandler) resultSet -> latestByQuiz.putIfAbsent(
+                (resultSet, rowNum) -> new QuizResultSummary(
                         resultSet.getObject("quiz_id", UUID.class),
-                        new QuizResultSummary(
-                                resultSet.getObject("quiz_id", UUID.class),
-                                (Integer) resultSet.getObject("earned_xp")
-                        )
+                        (Integer) resultSet.getObject("earned_xp")
                 ),
                 userId
         );
-        return new ArrayList<>(latestByQuiz.values());
     }
     private JpaQuizAttemptEntity toEntity(QuizAttempt attempt) {
         JpaQuizAttemptEntity entity = new JpaQuizAttemptEntity(

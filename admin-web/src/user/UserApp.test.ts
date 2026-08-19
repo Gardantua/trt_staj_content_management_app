@@ -1,5 +1,58 @@
 import { describe, expect, it } from "vitest";
-import { filterContentsBySearch, filterQuizDiscoveries, leaderboardEntryName, orderContentsByRecentViews, paginateContents, publicScopeLabel, questionTimerDeadline, quizContentTitle, quizEarnedXp, quizResultCorrectAnswerSummary, quizResultXpMessage, rememberRecentContent, resolveViewerView, sortQuizDiscoveries } from "./UserApp";
+import { filterContentsBySearch, filterQuizDiscoveries, leaderboardEntryName, orderContentsByRecentViews, paginateContents, publicScopeLabel, questionTimerDeadline, quizContentTitle, quizEarnedXp, quizResultCorrectAnswerSummary, quizResultXpMessage, rememberRecentContent, resolveAnswerRevealDetails, resolveViewerView, sortQuizDiscoveries } from "./UserApp";
+
+describe("resolveAnswerRevealDetails", () => {
+  const visualWithAlt = { alternativeText: "Görseldeki sahne detay açıklaması." };
+  const visualWithoutAlt = { alternativeText: "   " };
+
+  it("prioritizes image alternative text for correct, incorrect and timed out answers without showing correct option text", () => {
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: true, resultStatus: "CORRECT", correctOptionText: "Doğru Seçenek" },
+        visualWithAlt
+      )
+    ).toEqual({ kind: "ALTERNATIVE_TEXT", text: "Görseldeki sahne detay açıklaması." });
+
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: false, resultStatus: "INCORRECT", correctOptionText: "Doğru Seçenek" },
+        visualWithAlt
+      )
+    ).toEqual({ kind: "ALTERNATIVE_TEXT", text: "Görseldeki sahne detay açıklaması." });
+
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: false, resultStatus: "TIMED_OUT", correctOptionText: "Doğru Seçenek" },
+        visualWithAlt
+      )
+    ).toEqual({ kind: "ALTERNATIVE_TEXT", text: "Görseldeki sahne detay açıklaması." });
+  });
+
+  it("falls back to correct option text when there is no alternative text for incorrect and timed out answers", () => {
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: false, resultStatus: "INCORRECT", correctOptionText: "Doğru Seçenek" },
+        null
+      )
+    ).toEqual({ kind: "CORRECT_OPTION", text: "Doğru Seçenek" });
+
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: false, resultStatus: "TIMED_OUT", correctOptionText: "Doğru Seçenek" },
+        visualWithoutAlt
+      )
+    ).toEqual({ kind: "CORRECT_OPTION", text: "Doğru Seçenek" });
+  });
+
+  it("shows no extra box when the answer is correct and no alternative text is provided", () => {
+    expect(
+      resolveAnswerRevealDetails(
+        { correct: true, resultStatus: "CORRECT", correctOptionText: "Doğru Seçenek" },
+        null
+      )
+    ).toEqual({ kind: "NONE", text: null });
+  });
+});
 
 describe("questionTimerDeadline", () => {
   const deadline = "2026-08-13T12:00:30Z";
@@ -53,6 +106,7 @@ describe("leaderboardEntryName", () => {
     const entry = { position: 4, userId: "8345d7b5", displayName: "Yunus", totalXp: 20, firstXpAt: "2026-08-12T10:00:00Z", currentUser: true };
     expect(leaderboardEntryName(entry)).toBe("Yunus");
     expect(leaderboardEntryName({ ...entry, displayName: null })).toBe("Sen");
+    expect(leaderboardEntryName({ ...entry, displayName: null }, "en")).toBe("You");
   });
 });
 
@@ -70,6 +124,7 @@ describe("publicScopeLabel", () => {
     expect(publicScopeLabel({ scopeType: "CONTENT" })).toBe("İçerik geneli");
     expect(publicScopeLabel({ scopeType: "SEASON" })).toBe("Sezon quizi");
     expect(publicScopeLabel({ scopeType: "EPISODE" })).toBe("Bölüm quizi");
+    expect(publicScopeLabel({ scopeType: "CONTENT" }, undefined, "en")).toBe("General content");
   });
 
   it("resolves a quiz to its visible season and episode", () => {

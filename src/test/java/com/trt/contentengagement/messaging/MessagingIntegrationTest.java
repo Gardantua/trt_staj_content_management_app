@@ -194,10 +194,16 @@ class MessagingIntegrationTest {
         RABBITMQ.getDockerClient().unpauseContainerCmd(RABBITMQ.getContainerId()).exec();
         await(() -> {
             jdbcTemplate.update(
-                    "UPDATE outbox_events SET next_attempt_at = now() WHERE event_id = ?",
+                    "UPDATE outbox_events SET next_attempt_at = now() WHERE event_id = ? AND published_at IS NULL",
                     event.eventId()
             );
-            return outboxPublisher.publishPendingBatch() == 1;
+            outboxPublisher.publishPendingBatch();
+            Boolean isPublished = jdbcTemplate.queryForObject(
+                    "SELECT published_at IS NOT NULL FROM outbox_events WHERE event_id = ?",
+                    Boolean.class,
+                    event.eventId()
+            );
+            return Boolean.TRUE.equals(isPublished);
         });
         await(() -> count("xp_transactions") == 1);
 

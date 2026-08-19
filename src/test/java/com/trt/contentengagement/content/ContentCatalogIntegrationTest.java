@@ -70,6 +70,50 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void englishContentTranslationIsStoredAndSelectedByAcceptLanguage() throws Exception {
+        HttpResponse<String> created = createFilm("ROCKY");
+        String contentId = json(created).get("id").stringValue();
+        attachCover(contentId);
+        sendJson("POST", "/api/v1/admin/contents/" + contentId + "/publish", null, EDITOR_ACTOR_ID, "EDITOR");
+
+        HttpResponse<String> saved = sendJson("PUT", "/api/v1/admin/contents/" + contentId + "/translations/en", """
+                {"title":"ROCKY","description":"An amateur boxer gets a championship opportunity.",
+                 "coverAlternativeText":"Rocky film cover","seasons":[]}
+                """, EDITOR_ACTOR_ID, "EDITOR");
+        assertThat(saved.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> secondCreated = createFilm("İKİNCİ FİLM");
+        String secondContentId = json(secondCreated).get("id").stringValue();
+        attachCover(secondContentId);
+        sendJson("POST", "/api/v1/admin/contents/" + secondContentId + "/publish", null, EDITOR_ACTOR_ID, "EDITOR");
+        HttpResponse<String> secondSaved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + secondContentId + "/translations/en",
+                """
+                {"title":"SECOND FILM","description":"The second translated film.",
+                 "coverAlternativeText":"Second film cover","seasons":[]}
+                """,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        assertThat(secondSaved.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> english = sendGetWithLanguage(
+                "/api/v1/contents/" + contentId, USER_ACTOR_ID, "USER", "en");
+        HttpResponse<String> englishPage = sendGetWithLanguage(
+                "/api/v1/contents?page=0&size=20", USER_ACTOR_ID, "USER", "en");
+        assertThat(english.body()).contains("An amateur boxer gets a championship opportunity.")
+                .contains("Rocky film cover");
+        assertThat(englishPage.body())
+                .contains("An amateur boxer gets a championship opportunity.")
+                .contains("The second translated film.");
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM admin_audit_entries
+                WHERE action = 'CONTENT_TRANSLATION_UPDATED' AND resource_id = ?::uuid
+                """, Integer.class, contentId)).isEqualTo(1);
+    }
+
+    @Test
     void editorCanCreateMultipleSeasonsAndEpisodesWithOnePlan() throws Exception {
         HttpResponse<String> createdContent = sendJson(
                 "POST",
@@ -398,6 +442,47 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void editorCanFilterContentByOfficialWatchLinkAvailability() throws Exception {
+        HttpResponse<String> linkedContent = createFilm("İzleme Bağlantılı Film");
+        String linkedContentId = json(linkedContent).get("id").stringValue();
+        HttpResponse<String> missingContent = createFilm("Bağlantısız Film");
+        String missingContentId = json(missingContent).get("id").stringValue();
+
+        HttpResponse<String> watchUrlSaved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + linkedContentId + "/watch-url",
+                "{\"watchUrl\":\"https://www.tabii.com/detail/588337\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        assertThat(watchUrlSaved.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> linkedOnly = sendGet(
+                "/api/v1/admin/contents?watchLink=PRESENT&page=0&size=20",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> missingOnly = sendGet(
+                "/api/v1/admin/contents?watchLink=MISSING&page=0&size=20",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+
+        assertThat(linkedOnly.statusCode()).isEqualTo(200);
+        assertThat(linkedOnly.body())
+                .contains("\"totalItems\":1")
+                .contains(linkedContentId)
+                .contains("\"hasWatchUrl\":true")
+                .doesNotContain(missingContentId);
+        assertThat(missingOnly.statusCode()).isEqualTo(200);
+        assertThat(missingOnly.body())
+                .contains("\"totalItems\":1")
+                .contains(missingContentId)
+                .contains("\"hasWatchUrl\":false")
+                .doesNotContain(linkedContentId);
+    }
+
+    @Test
     void normalUserCannotManageContent() throws Exception {
         HttpResponse<String> response = sendJson(
                 "POST",
@@ -568,6 +653,60 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void editorCanSaveOnlyOfficialTabiiWatchUrlAndUserCanReadIt() throws Exception {
+        String contentId = json(createFilm("Watchable Film")).get("id").stringValue();
+        attachCover(contentId);
+        sendJson(
+                "POST",
+                "/api/v1/admin/contents/" + contentId + "/publish",
+                null,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        String officialUrl = "https://www.tabii.com/detail/588337";
+
+        HttpResponse<String> saved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"" + officialUrl + "\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> publicDetails = sendGet(
+                "/api/v1/contents/" + contentId,
+                USER_ACTOR_ID,
+                "USER"
+        );
+        HttpResponse<String> rejectedLookalike = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"https://tabii.com.example.org/tr/detail/115660/ibi\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> rejectedUser = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"" + officialUrl + "\"}",
+                USER_ACTOR_ID,
+                "USER"
+        );
+
+        assertThat(saved.statusCode()).isEqualTo(200);
+        assertThat(saved.body()).contains(officialUrl);
+        assertThat(publicDetails.statusCode()).isEqualTo(200);
+        assertThat(publicDetails.body()).contains(officialUrl);
+        assertThat(rejectedLookalike.statusCode()).isEqualTo(409);
+        assertThat(rejectedLookalike.body()).contains("CONTENT_WATCH_URL_INVALID");
+        assertThat(rejectedUser.statusCode()).isEqualTo(403);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE catalog_contents SET watch_url = ? WHERE id = ?::uuid",
+                "javascript:alert(1)",
+                contentId
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void postgresqlConstraintsRejectDuplicateHierarchyNumbers() {
         UUID contentId = UUID.randomUUID();
         UUID seasonId = UUID.randomUUID();
@@ -662,6 +801,16 @@ class ContentCatalogIntegrationTest {
     private HttpResponse<String> sendGet(String path, UUID actorId, String role)
             throws IOException, InterruptedException {
         return sendJson("GET", path, null, actorId, role);
+    }
+
+    private HttpResponse<String> sendGetWithLanguage(String path, UUID actorId, String role, String language)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:" + serverPort + path))
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ID_HEADER, actorId.toString())
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ROLES_HEADER, role)
+                .header("Accept-Language", language).GET().build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> sendJson(

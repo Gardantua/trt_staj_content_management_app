@@ -146,6 +146,38 @@ class ApplicationFoundationIntegrationTest {
     }
 
     @Test
+    void apiAndSecurityErrorsFollowAcceptLanguageWithoutChangingTheirContracts()
+            throws IOException, InterruptedException {
+        HttpResponse<String> turkishNotFound = sendLocalizedUnknownRoute("tr", "localized-trace-tr");
+        HttpResponse<String> englishNotFound = sendLocalizedUnknownRoute("en-US", "localized-trace-en");
+        HttpRequest englishAuthenticationRequest = HttpRequest.newBuilder()
+                .uri(createLocalUri("/api/v1/identity/me"))
+                .header("Accept-Language", "en")
+                .GET()
+                .build();
+        HttpResponse<String> englishAuthentication = httpClient.send(
+                englishAuthenticationRequest,
+                HttpResponse.BodyHandlers.ofString()
+        );
+
+        assertThat(turkishNotFound.statusCode()).isEqualTo(404);
+        assertThat(turkishNotFound.body())
+                .contains("\"code\":\"RESOURCE_NOT_FOUND\"")
+                .contains("\"message\":\"İstenen kaynak bulunamadı.\"")
+                .contains("\"traceId\":\"localized-trace-tr\"");
+        assertThat(englishNotFound.statusCode()).isEqualTo(404);
+        assertThat(englishNotFound.body())
+                .contains("\"code\":\"RESOURCE_NOT_FOUND\"")
+                .contains("\"message\":\"The requested resource was not found.\"")
+                .contains("\"traceId\":\"localized-trace-en\"");
+        assertThat(englishAuthentication.statusCode()).isEqualTo(401);
+        assertThat(englishAuthentication.body())
+                .contains("\"code\":\"AUTHENTICATION_REQUIRED\"")
+                .contains("\"message\":\"Authentication is required to access this resource.\"")
+                .contains("\"traceId\":");
+    }
+
+    @Test
     void protectedEndpointRejectsRequestWithoutIdentity()
             throws IOException, InterruptedException {
         HttpResponse<String> response = sendGetRequest("/api/v1/identity/me");
@@ -247,6 +279,19 @@ class ApplicationFoundationIntegrationTest {
                 .build();
 
         return httpClient.send(httpRequest, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> sendLocalizedUnknownRoute(String language, String traceId)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(createLocalUri("/api/v1/unknown-localized-route"))
+                .header("Accept-Language", language)
+                .header("X-Trace-Id", traceId)
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ID_HEADER, USER_ACTOR_ID.toString())
+                .header(TemporaryHeaderAuthenticationFilter.ACTOR_ROLES_HEADER, "USER")
+                .GET()
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> sendAuthenticatedGetRequest(

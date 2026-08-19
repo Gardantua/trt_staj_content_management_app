@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { MediaApi } from "../api/media-api";
+import { useI18n } from "../i18n/I18nContext";
 
 interface ProtectedImageProps {
   contentUrl: string;
@@ -9,6 +10,7 @@ interface ProtectedImageProps {
 }
 
 export function ProtectedImage({ contentUrl, alternativeText, mediaApi, className }: ProtectedImageProps) {
+  const { t } = useI18n();
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,5 +29,5 @@ export function ProtectedImage({ contentUrl, alternativeText, mediaApi, classNam
 
   return objectUrl
     ? <img className={className} src={objectUrl} alt={alternativeText} />
-    : <span className={`${className ?? ""} protected-image-placeholder`} aria-hidden="true">Görsel yükleniyor…</span>;
+    : <span className={`${className ?? ""} protected-image-placeholder`} aria-hidden="true">{t("admin.imageLoading")}</span>;
 }

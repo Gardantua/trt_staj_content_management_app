@@ -7,8 +7,9 @@ import com.trt.contentengagement.content.domain.PublicationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-interface SpringDataContentRepository extends JpaRepository<JpaContentEntity, UUID> {
+interface SpringDataContentRepository extends JpaRepository<JpaContentEntity, UUID>, JpaSpecificationExecutor<JpaContentEntity> {
 
     @Override
     Optional<JpaContentEntity> findById(UUID contentId);

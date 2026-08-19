@@ -22,6 +22,7 @@
         <jackson-bom.version>3.1.5</jackson-bom.version>
         <netty.version>4.2.16.Final</netty.version>
         <postgresql.version>42.7.12</postgresql.version>
+        <log4j2.version>2.25.5</log4j2.version>
         <test.excluded.groups>load</test.excluded.groups>
     </properties>
 

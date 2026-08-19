@@ -1,5 +1,242 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 19.08.2026 Aşama 13B backend hata mesajı yerelleştirmesi
+
+- Backend hata zarfının `code`, HTTP durumu, `traceId` ve `timestamp` alanları
+  değiştirilmeden yalnız güvenli `message` alanı `Accept-Language` üzerinden Türkçe
+  veya İngilizce seçilir. Desteklenmeyen, eksik ya da bozuk dil başlığı Türkçeye düşer.
+- `ApiErrorMessageResolver`, hata kodunu `messages.properties` ve
+  `messages_en.properties` sözlüklerine bağlar. Controller/advice yolu mevcut locale
+  context'ini; security, CSRF, geçici kimlik ve rate-limit filtreleri doğrudan HTTP
+  isteğinin dil başlığını kullanır. Böylece domain exception sınıfları Spring'e veya
+  kullanıcı diline bağımlı hale gelmez.
+- Bilinen kullanıcı hataları için açık metinler bulunur. Yeni bir hata kodunun Türkçe
+  sözlük kaydı unutulursa güvenli genel Türkçe iş kuralı mesajı; İngilizce istekte ise
+  exception handler'ın mevcut güvenli İngilizce metni kullanılır. Exception ayrıntısı,
+  token veya kişisel veri istemciye eklenmez.
+- Kullanıcı, yönetim, authentication, form yükleme, medya ve CSRF istemcileri artık
+  saklanan `tr/en` tercihini bütün API isteklerinde `Accept-Language` olarak gönderir.
+  İlk entegrasyon testi, sistem locale fallback'inin Türkçe isteği İngilizceye
+  çevirebildiğini yakaladı; açık Türkçe varsayılan locale resolver ve sistem-locale
+  fallback'inin kapatılmasıyla düzeltildi.
+- Alternatif olarak domain exception metinlerini doğrudan çevirmek daha az dosya
+  üretirdi; fakat domain'i web isteğine/dile bağlar ve aynı hata kodunun farklı
+  katmanlarda tutarsız metin üretmesine yol açardı. Seçilen merkezi sözlük kararı
+  ADR-0037'de kayıtlıdır.
+- İş kuralı/test eşleşmesi: sözlük dil seçimi, desteklenmeyen dil ve güvenli fallback
+  `ApiErrorMessageResolverTest`; API 404, authentication ve code/trace korunumu
+  `ApplicationFoundationIntegrationTest`; CSRF reddinin Türkçe zarfı
+  `CsrfProtectionIntegrationTest`; frontend dil başlığı `auth-api.test.ts` ve mevcut
+  public API testleriyle korunur.
+- Testler: hedeflenen backend paketi `14/14`, tam Java 21 backend paketi `140/140`,
+  frontend Vitest `62/62` geçti. Strict TypeScript ve Vite production build başarılı;
+  mevcut büyük PDF/font chunk uyarısı devam eder.
+- Sıradaki tek iş: Kullanıcı yeni bir roadmap dilimini açıkça seçene kadar özellik
+  eklememek; ayrı operasyon işi olarak Oracle smoke ve dış backup/restore provasını
+  planlamak.
+
+## 19.08.2026 Aşama 13E liste performansı ve sade kullanılabilirlik
+
+- Son yavaşlamanın nedeni İngilizce katalog ve quiz listelerinde her kayıt için ayrı
+  çeviri sorguları çalıştırılmasıydı (`N+1`: ilk liste sorgusuna ek olarak kayıt sayısı
+  kadar tekrar sorgu). İçerik ve quiz çevirileri artık listedeki kimlikleri tek seferde
+  toplar; kök, alt öğe ve seçenek/bölüm verileri kayıt sayısından bağımsız en fazla üç
+  toplu sorguyla okunur. Redis veya yeni bir önbellek eklenmedi; veri güncelliği ve
+  PostgreSQL'in doğru kaynak olması korunur.
+- Yönetim kataloğuna `Tümü / Bağlantı var / Bağlantı eksik` filtresi ve her kartta sade
+  bağlantı durumu eklendi. Filtre sunucuda sayfalama ile birlikte uygulanır; arama
+  metnindeki `%`, `_` ve ters eğik çizgi joker olarak yorumlanmaz.
+- İzleme bağlantısı alanı yalnız istemci güvenlik kontrolünden geçen resmî tabii URL'si
+  için `Yeni sekmede kontrol et` eylemi gösterir. Kayıt başarılı olduğunda açık bildirim
+  verilir; değişiklik yoksa kayıt düğmesi pasiftir. Yeni sekme `noopener noreferrer`
+  korumasını sürdürür.
+- İçerik bilgisi veya izleme bağlantısı değiştirilip kaydedilmeden sayfadan/çalışma
+  alanından çıkılmak istenirse kullanıcıdan onay alınır. Yeni sekmede bağlantı kontrolü
+  mevcut sayfayı terk etmediği için gereksiz uyarı üretmez.
+- Ham `RESOURCE_NOT_FOUND` ve geçersiz izleme URL'si cevapları Türkçe/İngilizce daha
+  anlaşılır metne çevrildi; kararlı hata kodu ve trace ID görünür kalır.
+- Küçük ekranlarda kullanıcı ve yönetim gezinmesi yatay taşmaya dayanıklı hale getirildi;
+  çok dar ekranda marka/dil etiketi sadeleşir ve içerik kartları tek sütuna iner.
+  Quizde `Soru 3/10` ve ilerleme çubuğu zaten bulunduğu için ikinci bir gösterge
+  eklenmedi. Kullanıcının istemediği tabii kart ikonu da eklenmedi.
+- Kalıcı tercih ADR-0036'da kayıtlıdır. Alternatif bir çeviri önbelleği daha sonraki
+  okumaları hızlandırabilirdi; ancak invalidation, eski veri ve ek operasyon maliyeti
+  getirirdi. Mevcut problem sorgu şekliyle çözülebildiği için toplu PostgreSQL okuması
+  seçildi.
+- Testler: Java 21 ile tam backend paketi `136/136`, son değişiklikten sonra içerik
+  entegrasyon paketi `15/15`; frontend Vitest `62/62` geçti. Strict TypeScript ve Vite
+  production build başarılıdır. Mevcut büyük PDF/font chunk uyarısı devam eder.
+- Görsel tarayıcı kontrolü bu turda browser eklentisinin yerel güvenilir modül yolu
+  hatası nedeniyle açılamadı. Çalışan kullanıcı sunucuları kapatılmadı veya yeniden
+  başlatılmadı; kullanıcı güncel kodu kendisi başlattığında mobil ve masaüstü görünüm
+  son kez elle kontrol edilmelidir.
+- Sıradaki tek iş: Kullanıcı isterse Aşama 13B ile kalan backend hata metinlerine
+  `Accept-Language` desteği eklemek; aksi halde yeni özellik eklememek.
+
+## 19.08.2026 Aşama 13D güvenli resmî tabii izleme bağlantısı
+
+- Film ve dizi detayına, yalnız içerikte doğrulanmış bir bağlantı bulunduğunda görünen
+  `tabii'de izle / Watch on tabii` eylemi eklendi. Bağlantı yeni sekmede açılır ve yeni
+  sayfanın kaynak sekmeye erişmesini engelleyen `noopener noreferrer` kullanır.
+- Editör ve yönetici, içerik detayındaki ayrı alandan bağlantıyı ekleyebilir, değiştirebilir
+  veya boş değerle kaldırabilir. İşlem ayrı `PUT` endpoint'i ve
+  `CONTENT_WATCH_URL_UPDATED` audit olayı üzerinden izlenir; normal kullanıcı 403 alır.
+- Güven sınırı: yalnız HTTPS, tam `tabii.com`/`www.tabii.com` alan adı ve resmî
+  `/detail/{id}` veya yerelleştirilmiş sayısal içerik detay yolu kabul edilir. Kullanıcı
+  bilgisi, özel port, query, fragment,
+  HTTP, `javascript:` ve benzer görünümlü alan adları domain kuralında reddedilir.
+- V20 migration'ı nullable `watch_url` alanını ve aynı izin listesini uygulayan PostgreSQL
+  `CHECK` constraint'ini ekler. Böylece uygulama katmanı atlanırsa dahi geçersiz kalıcı
+  veri engellenir. İstemci de düğmeyi oluşturmadan önce URL'yi bağımsız doğrular.
+- Mevcut içeriklere tahminî bağlantı yazılmadı; gerçek tabii içerik URL'si editör
+  tarafından girilene kadar düğme görünmez. Sunucu URL'yi kendisi çağırmadığı için bu
+  özellik yeni bir SSRF yüzeyi oluşturmaz.
+- İlk yerel denemede arayüz güncelken 08:52'den beri çalışan backend eski kaldığı için
+  yeni endpoint 404 `RESOURCE_NOT_FOUND` döndürdü. Backend güncel kodla yeniden
+  başlatıldı ve yerel PostgreSQL şeması V19'dan V20'ye başarıyla geçirildi. Resmî Zlatan
+  adresinin `/detail/588337` biçiminde dil öneki taşımadığı doğrulanınca izin listesi,
+  güvenlik sınırları gevşetilmeden bu ikinci resmî yol biçimini de kabul edecek şekilde
+  düzeltildi.
+- İş kuralı/test eşleşmesi: domain URL normalizasyonu ve saldırı örnekleri `ContentTest`;
+  migration, yayınlanan API cevabı, 403 yetki ve veritabanı constraint'i
+  `ContentCatalogIntegrationTest`; yeni sekme nitelikleri ile istemci savunması
+  `OfficialWatchLink.test.tsx`; yönetim endpoint sözleşmesi `content-api.test.ts` ile
+  korunur. Tam Maven `verify` 135/135, odak backend testleri 21/21, frontend Vitest
+  61/61 geçti; strict TypeScript ve production build başarılı oldu. Mevcut büyük
+  PDF/font chunk uyarısı devam ediyor.
+- Alternatif genel HTTPS URL alanı daha esnek fakat kimlik avı yüzeyini büyüttüğü için;
+  uygulama içi redirect endpoint'i ise açık yönlendirme riski ve gereksiz bakım yüzeyi
+  oluşturduğu için seçilmedi. Karar ADR-0035'te kayıtlıdır.
+- Mutlak “hacklenemezlik” garanti edilemez. Bu dilimde URL/yeni sekme riskleri katmanlı
+  olarak sınırlandı; tabii oturumu, bölgesel erişim ve dış servisin çalışabilirliği dış
+  sistem sorumluluğundadır. Görsel tarayıcı incelemesi yapılmadı; proje kuralı gereği
+  ayrıca açık izin gerekir.
+- Sıradaki tek iş: Editörün mevcut film ve diziler için doğrulanmış gerçek tabii içerik
+  bağlantılarını girmesi; sonrasında kullanıcı isterse Aşama 13B hata yerelleştirmesi.
+
+## 19.08.2026 dil seçici görsel düzenlemesi
+
+- Yönetim ve kullanıcı ekranları masaüstü tarayıcıda görsel olarak incelendi. Eski iki
+  bayrak düğmesinin gezinme öğeleriyle yarıştığı ve yönetim başlığındaki dördüncü grid
+  öğesinin hesap/çıkış alanını ikinci satıra düşürdüğü doğrulandı.
+- Dil seçici, ülke bayrakları yerine dili açıkça gösteren tek yerel seçim kontrolüne
+  dönüştürüldü: `TR · Türkçe` ve `EN · English`. Kontrol erişilebilir `Dil/Language`
+  etiketi taşır ve mevcut `app_language:v1` tercih davranışını korur.
+- Yönetim başlığında dil seçici ile hesap/çıkış aynı sağ eylem kümesine alındı. Kullanıcı
+  başlığında da dil seçici hesap alanıyla; giriş ekranında hesap oluştur/giriş eylemiyle
+  gruplanarak başlık hiyerarşisi sadeleştirildi.
+- Kullanıcı başlığındaki `Keşfet / Quizler / Profil` sekmeleri eşit yan sütunlar
+  arasında ekranın gerçek merkezine sabitlendi. Hesap işlemleri sağ tarafta kalırken
+  dil seçici bu kümenin en sonuna alınarak başlığın sağ kenarına yerleştirildi.
+- Alternatif iki metinli sekme, iki ayrı klavye odağı ve daha fazla yatay alan
+  gerektirdiği için seçilmedi. Yerel `select`, klavye ve ekran okuyucu davranışını
+  tarayıcıdan hazır alır; karşılığında açılan seçenek listesinin görünümü işletim
+  sistemine göre küçük farklılık gösterebilir.
+- İş kuralı/test eşleşmesi: tek etiketli seçim kontrolü ile iki dil seçeneğinin varlığı
+  `i18n.test.ts`; dil kodu doğrulama, saklama ve belge dili mevcut i18n testleriyle
+  korunur. Frontend Vitest `57/57` geçti; strict TypeScript ve production build
+  başarılı oldu. Mevcut büyük PDF/font chunk uyarısı devam ediyor.
+- Görsel doğrulama yerel yönetim ve kullanıcı ana sayfasında yapıldı: başlık öğeleri tek
+  satırda hizalandı, dil kontrolünün odak çerçevesi görünür kaldı ve hesap işlemleriyle
+  aynı kümede yer aldı.
+- Bilinen konu: değişiklik henüz canlı sunucuya dağıtılmadı. Sıradaki tek iş, kullanıcı
+  yeni yerleşimi onaylarsa mevcut production dağıtım akışıyla canlıya almaktır.
+
+## 18.08.2026 Aşama 13C içerik ve quiz çevirileri
+
+- Film/dizi, sezon/bölüm, quiz sürümü, soru, seçenek ve erişilebilirlik metinleri için
+  kaynak kimliklere yabancı anahtarla bağlı İngilizce çeviri tabloları V19 migration'ıyla
+  eklendi. Türkçe mevcut alanlarda ana/fallback dil olarak kaldı.
+- Kullanıcı istemcisi her JSON isteğinde `Accept-Language` gönderir. Dil değişince API
+  nesnesi yenilenerek katalog ve quiz verileri tekrar okunur. İngilizce çeviri varsa
+  gösterilir; eksik öğe Türkçeye düşer.
+- Gameplay yalnız gösterim metnini yerelleştirir. Soru/seçenek/doğru cevap kimlikleri,
+  süre, skor, attempt, ilk tamamlama ve XP davranışı değişmedi.
+- Admin içerik ekranına film/dizi, kapak, sezon ve bölüm için; quiz çalışma alanına
+  başlık, soru, dört şık, görsel alternatif metni ve erişilebilir açıklama için
+  `🇬🇧 İngilizce içerik` formları eklendi. Çeviri `PUT` işlemleri audit kaydı üretir.
+- Dil seçici TR/EN yazısı yerine erişilebilir Türkiye/Birleşik Krallık bayraklarıyla
+  gösterilir. Üst menüde ayrı grid alanına alındı ve quiz çözme sırasında gizlenir.
+- Migration, repoda bulunan altı demo katalog özetini ve kullanıcının paylaştığı Rocky
+  içerik metni/birinci soru metinlerini İngilizce geri doldurur. Çalışma alanında veya
+  erişilebilir yerel veritabanında bulunmayan diğer quiz metinleri uydurulmadı; admin
+  formundan girilmeleri gerekir.
+- Testler: Java 21 ve yerel Testcontainers altyapısıyla tam backend paketi `133/133`;
+  içerik ve quiz çeviri odaklı entegrasyon paketi `28/28`; frontend Vitest `56/56`
+  geçti ve üretim derlemesi tamamlandı.
+  TypeScript strict kontrolü ve production build başarılı; mevcut büyük PDF/font chunk
+  uyarısı devam ediyor.
+- Görsel tarayıcı incelemesi yapılmadı; proje kuralı gereği ayrıca açık izin gerekir.
+- Karar ADR-0034'te kayıtlıdır. Alternatif olan her dil için ayrı quiz kopyası, geçmiş ve
+  XP kimliğini böleceği için seçilmedi.
+- Sıradaki tek iş: Yerel admin ekranında kalan mevcut quizlerin İngilizce alanlarını
+  kaynak metinlerinden doldurmak; sonrasında istenirse Aşama 13B backend hata metinleri.
+
+## 18.08.2026 Aşama 13A Türkçe–İngilizce arayüz yerelleştirmesi
+
+- Kullanıcı ve yönetici web girişleri ortak, bağımlılıksız ve TypeScript anahtarlarıyla
+  kontrol edilen `I18nProvider` üzerinden Türkçe (`tr`) ve İngilizce (`en`) çalışır.
+- Dil seçici; kullanıcı/admin giriş ekranları ile oturum açılmış üst menülerde bulunur.
+  Tercih yalnız `app_language:v1` altında saklanır; geçersiz veya okunamayan storage
+  Türkçeye düşer. Dil değişiminde `html lang` ve belge başlığı da güncellenir.
+- Kullanıcı keşif, quiz, cevap geri bildirimi, sonuç, profil ve leaderboard yüzeyleri;
+  admin içerik, kapak, sezon/bölüm, quiz yazarlığı, quiz geçmişi ve PDF şablon metinleri
+  ortak sözlüklere taşındı. Frontend'in ağ/fallback hata metinleri de seçili dili kullanır.
+- Gameplay, doğru cevap, attempt, XP, leaderboard ve backend API sözleşmeleri
+  değiştirilmedi. Backend hata yerelleştirmesi ile içerik/quiz veri çevirileri bu aşamaya
+  dahil edilmedi.
+- Karar: İki dil ve mevcut istemci ölçeğinde harici i18n paketi yerine tip kontrollü
+  sözlük kullanıldı. `react-i18next` daha gelişmiş çoğul/namespace desteği sunabilirdi;
+  mevcut kapsam için ek bağımlılık ve yapılandırma maliyeti nedeniyle seçilmedi.
+  Karar ADR-0033'te kayıtlıdır.
+- İş kuralı/test eşleşmesi: sözlük anahtar eşitliği ve parametreler `i18n.test.ts`;
+  storage fallback/saklama ve belge dili aynı test dosyası; İngilizce scope ve kullanıcı
+  adı fallback'leri `UserApp.test.ts` ile korunur.
+- `npm test`: 12 dosyada 56/56 test geçti. `npm run build`: strict TypeScript kontrolü
+  ve Vite production derlemesi geçti. Mevcut büyük `pdfmake`/font chunk uyarısı sürüyor.
+- React kalite kontrolünde Context değeri memoize edildi, storage erişimi `try/catch`
+  ile korundu ve yalnız sürümlü küçük dil kodu saklandı.
+- Oracle Cloud Free Tier canlı ortamı (`https://hikayeizi.duckdns.org`): Güncellenen frontend i18n kaynakları, görseller ve rapor dokümanları sunucuya aktarıldı, `compose.production.yaml` ile `web` container'ı sıfırdan derlenip canlıya alındı ve HTTPS yanıtı (HTTP/2 200) doğrulandı.
+- GitHub repository (`codex/stage-10a-admin-web`): Tüm değişiklikler, rapor belgeleri, diyagramlar ve görseller commit edilerek pushlandı.
+- Sıradaki tek iş: Kullanıcının canlı ortamda Türkçe/İngilizce dil geçişini ve yeni arayüzü denemesi.
+
+## 17.08.2026 soru görseli alternatif metni ile cevap geri bildirimi ve Oracle güncellemesi
+
+- Soru çözüldüğünde (`AnswerReveal`), eğer soru görselinde **alternatif metin** (`alternativeText`) tanımlıysa:
+  - Hem doğru hem de yanlış/timeout sonuçlarında, doğru cevap kutucuğu formatında ve başlıksız (`Doğru Cevap:` ibaresi olmadan) doğrudan alternatif metin gösterilir.
+  - Alternatif metin bulunduğu durumda doğru cevap metni (`correctOptionText`) gizlenir.
+- Eğer soru görselinde alternatif metin yoksa:
+  - Yanlış ve süre dolumu durumlarında `Doğru Cevap:` başlığıyla doğru cevap seçeneği gösterilmeye devam eder; doğru cevaplandığında ekstra kutucuk açılmaz.
+- `resolveAnswerRevealDetails` saf fonksiyonu eklendi; `UserApp.test.ts` içine 3 yeni birim test eklenerek tüm durumlar (alt metin var/doğru, alt metin var/yanlış, alt metin yok/yanlış, alt metin yok/doğru) doğrulandı.
+- Frontend testleri: `11` dosyada `50/50` Vitest testi başarıyla geçti; `tsc --noEmit` ve `npm run build` production derlemesi doğrulandı.
+- Oracle Cloud Free Tier canlı ortamı (`https://hikayeizi.duckdns.org`): Güncellenen kaynak dosyalar aktarıldı, `compose.production.yaml` ile `web` container'ı sıfırdan derlenip canlıya alındı ve HTTPS yanıtı (HTTP/2 200) doğrulandı.
+- Sıradaki tek iş: Kullanıcının yeni görsel alternatif metinlerini ve quiz akışını canlı ortamda denemesi.
+
+## 17.08.2026 ana README çalıştırma rehberi
+
+- Ana `README.md`; Java, Docker ve Node.js gereksinimleriyle birlikte altyapı,
+  backend ve web uygulamasını ayrı adımlarda başlatacak şekilde güncellendi.
+- Kullanıcı, yönetim, health ve RabbitMQ adresleri ile yerel portlar açıkça yazıldı.
+- İlk admin bootstrap ayarları tek kullanımlık ve şifre sıfırlama SMTP ayarları
+  isteğe bağlı olarak belirtildi; secret değerlerin repoya yazılmaması korundu.
+- Test ve `docker compose down` komutları eklendi. Uygulama kodu değişmediği için
+  yeni test çalıştırılmadı; komutlar mevcut yapılandırma dosyalarıyla doğrulandı.
+- Sıradaki tek iş: Yeni geliştiricinin README adımlarını temiz bir ortamda uygulayıp
+  eksik bir önkoşul olup olmadığını doğrulaması.
+
+## 14.08.2026 Oracle Cloud Free Tier canlıya alma ve production dağıtımı
+
+- Oracle Cloud Free Tier VM (AMD EPYC, 12 GB RAM, 4 GB Swap) üzerinde `compose.production.yaml` ile tüm mimari başarıyla canlıya alındı.
+- Canlı alan adı: `https://hikayeizi.duckdns.org` (Caddy Let's Encrypt otomatik SSL/TLS sertifikası ile).
+- Servis topolojisi: 8 izole container (`postgres`, `leaderboard-postgres`, `rabbitmq`, `redis`, `leaderboard-redis`, `leaderboard-service`, `backend`, `web`) birbirine bağlı iç Docker ağında `healthy` durumunda çalışmaktadır. Yalnızca Port 80 ve 443 internete açıktır.
+- `RemoteLeaderboardClient` doğrudan `RestClient.builder()` kullanacak şekilde sadeleştirildi; `application.yml` içinde `management.health.mail.enabled: false` yapılarak SMTP bağlantı kontrolü Actuator healthcheck'inden ayrıştırıldı ve Redis timeout değerleri optimize edildi.
+- Testler ve doğrulama: Yerel Maven suite'inde `130/130` backend testi geçti; Oracle sunucusunda HTTPS kullanıcı arayüzü (`/`), yönetim paneli (`/admin`) ve API (`/api/v1/...`) erişimleri doğrulandı.
+- İlk yönetici hesabı (`admin@hikayeizi.duckdns.org`) ve CSRF/HttpOnly oturum güvenliği devrede.
+- Quiz kartlarında gösterilen `Kazanılan XP` sorgusu (`/api/v1/me/quiz-results`), kullanıcının o quizden kazandığı kalıcı XP'yi (`MAX(earned_xp)`) gösterecek şekilde güncellendi. Böylece ADR-0026 kuralı (2. çözüşte 0 ek XP kazanılması ve toplam XP'nin korunması) tam olarak muhafaza edilirken, tekrar çözülen quizlerin kartlarında kazanılmış önceki XP değerinin 0'a düşmesi engellendi.
+- Soru görselleri için `MediaController` endpoint'ine `CacheControl.maxAge(30 days).cachePublic().immutable()` eklendi; frontend'de ise kullanıcı cevap verdikten sonra sonuç kartını incelerken bir sonraki sorunun görselini arka planda sessizce önden indiren (preloading) mekanizma uygulandı. Böylece canlı ağ ortamında soru metni ile görselin eşzamanlı ve sıfır gecikmeyle açılması sağlandı.
+- Quiz esnasında `Quizden çık` butonuna basıldığında aktif oturumu güvenle tamamlayan `POST /api/v1/attempts/{attemptId}/abandon` uç noktası eklendi. Kullanıcı ilk kez çözüyorsa o ana kadar bildiği sorulardan kazandığı XP hesabına kalıcı olarak işlenir, oturum kapatılır ve kullanıcı quize bir sonraki girişinde yarım kalmış eski soruda takılmak yerine doğrudan 1. sorudan tertemiz başlar.
+- Sıradaki tek iş: İlk yönetici girişi sonrasında `.env.production` içindeki `INITIAL_ADMIN_ENABLED=false` yapılarak başlangıç parolasının kaldırılması ve canlı sistem üzerinde smoke kontrollerinin tamamlanması.
+
 ## 13.08.2026 cevaptan sonra doğru cevap metni gösterimi
 
 - Kullanıcı soruyu yanlış cevapladığında veya süre dolduğunda çıkan `AnswerReveal` (puan/sonuç) kartına **doğru şıkkın metni** (`correctOptionText`) eklendi.
