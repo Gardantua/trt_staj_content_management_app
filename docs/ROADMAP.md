@@ -27,6 +27,8 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
   iki dilli hale getirilmesi.
 - Aşama 13C: Film/dizi, sezon/bölüm ve quiz metinlerinin aynı domain kimliklerine bağlı
   İngilizce sunum projeksiyonları, admin çeviri alanları ve `Accept-Language` seçimi.
+- Aşama 13D: Film ve dizi detaylarında editörün yönettiği, yalnız HTTPS resmî tabii
+  içerik sayfalarını kabul eden ve güvenli yeni sekmede açılan izleme bağlantısı.
 
 ## Güncel ürün durumu
 
@@ -61,7 +63,7 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
 
 ## Sıradaki iş
 
-Aşama 13C tamamlandı. Kullanıcı yeni dil dilimini seçerse sıradaki tek geliştirme işi
+Aşama 13D tamamlandı. Kullanıcı yeni dil dilimini seçerse sıradaki tek geliştirme işi
 Aşama 13B'de kararlı hata kodu ve trace ID sözleşmesini koruyarak backend API,
 authentication, authorization ve CSRF hata mesajlarına `Accept-Language` desteği
 eklemektir. Oracle VM smoke testi ve ilk dış backup/restore provası ayrı operasyon

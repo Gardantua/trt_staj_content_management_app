@@ -14,6 +14,7 @@ public record ContentDetails(
         UUID id,
         String title,
         String description,
+        String watchUrl,
         UUID coverMediaId,
         String coverImageUrl,
         String coverAlternativeText,
@@ -29,6 +30,7 @@ public record ContentDetails(
                 content.id(),
                 content.title(),
                 content.description(),
+                content.watchUrl(),
                 content.coverMediaId(),
                 content.coverMediaId() == null
                         ? null : "/api/v1/media/" + content.coverMediaId() + "/content",

@@ -19,6 +19,7 @@ export interface Content {
   id: string;
   title: string;
   description: string | null;
+  watchUrl: string | null;
   coverMediaId: string | null;
   coverImageUrl: string | null;
   coverAlternativeText: string | null;

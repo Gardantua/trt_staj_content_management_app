@@ -72,7 +72,7 @@ public class ContentTranslationService {
     private ContentDetails apply(ContentDetails source, ContentTranslation text) {
         Map<UUID, ContentTranslation.SeasonTranslation> seasons = text.seasons().stream()
                 .collect(Collectors.toMap(ContentTranslation.SeasonTranslation::seasonId, item -> item));
-        return new ContentDetails(source.id(), text.title(), text.description(), source.coverMediaId(),
+        return new ContentDetails(source.id(), text.title(), text.description(), source.watchUrl(), source.coverMediaId(),
                 source.coverImageUrl(), text.coverAlternativeText() == null ? source.coverAlternativeText() : text.coverAlternativeText(),
                 source.contentType(), source.publicationStatus(), source.createdAt(), source.updatedAt(),
                 source.seasons().stream().map(season -> {

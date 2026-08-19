@@ -68,6 +68,8 @@ için genişletilebilir. Bu özellikler MVP kapsamında değildir.
 
 ### Destekleyici
 
+- Film ve diziler için yalnız resmî tabii içerik sayfalarına giden, editör tarafından
+  yönetilen güvenli izleme bağlantısı
 - Admin audit kayıtları
 - OpenAPI sözleşmesi
 - Kararlı hata kodu ve trace ID

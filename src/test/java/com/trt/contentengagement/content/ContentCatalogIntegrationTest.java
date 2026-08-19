@@ -591,6 +591,60 @@ class ContentCatalogIntegrationTest {
     }
 
     @Test
+    void editorCanSaveOnlyOfficialTabiiWatchUrlAndUserCanReadIt() throws Exception {
+        String contentId = json(createFilm("Watchable Film")).get("id").stringValue();
+        attachCover(contentId);
+        sendJson(
+                "POST",
+                "/api/v1/admin/contents/" + contentId + "/publish",
+                null,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        String officialUrl = "https://www.tabii.com/detail/588337";
+
+        HttpResponse<String> saved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"" + officialUrl + "\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> publicDetails = sendGet(
+                "/api/v1/contents/" + contentId,
+                USER_ACTOR_ID,
+                "USER"
+        );
+        HttpResponse<String> rejectedLookalike = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"https://tabii.com.example.org/tr/detail/115660/ibi\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> rejectedUser = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + contentId + "/watch-url",
+                "{\"watchUrl\":\"" + officialUrl + "\"}",
+                USER_ACTOR_ID,
+                "USER"
+        );
+
+        assertThat(saved.statusCode()).isEqualTo(200);
+        assertThat(saved.body()).contains(officialUrl);
+        assertThat(publicDetails.statusCode()).isEqualTo(200);
+        assertThat(publicDetails.body()).contains(officialUrl);
+        assertThat(rejectedLookalike.statusCode()).isEqualTo(409);
+        assertThat(rejectedLookalike.body()).contains("CONTENT_WATCH_URL_INVALID");
+        assertThat(rejectedUser.statusCode()).isEqualTo(403);
+        assertThatThrownBy(() -> jdbcTemplate.update(
+                "UPDATE catalog_contents SET watch_url = ? WHERE id = ?::uuid",
+                "javascript:alert(1)",
+                contentId
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
     void postgresqlConstraintsRejectDuplicateHierarchyNumbers() {
         UUID contentId = UUID.randomUUID();
         UUID seasonId = UUID.randomUUID();

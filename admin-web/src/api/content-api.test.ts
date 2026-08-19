@@ -31,6 +31,20 @@ describe("ContentApi", () => {
     }));
   });
 
+  it("saves the official watch URL through the protected content endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "content-1" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new ContentApi(new ApiClient({ id: "editor-1", roles: ["EDITOR"] }));
+    const watchUrl = "https://www.tabii.com/tr/detail/115660/ibi";
+
+    await api.setWatchUrl("content-1", watchUrl);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/contents/content-1/watch-url",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ watchUrl }) })
+    );
+  });
+
   it("hard deletes content through the protected admin endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);

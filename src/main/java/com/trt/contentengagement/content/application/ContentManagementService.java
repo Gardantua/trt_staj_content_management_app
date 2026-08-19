@@ -74,6 +74,16 @@ public class ContentManagementService {
     }
 
     @Transactional
+    public ContentDetails setWatchUrl(UUID contentId, String watchUrl) {
+        Instant occurredAt = clock.instant();
+        Content content = requireContent(contentId);
+        content.setWatchUrl(watchUrl, occurredAt);
+        Content savedContent = contentCatalogRepository.save(content);
+        audit("CONTENT_WATCH_URL_UPDATED", "CONTENT", contentId, occurredAt);
+        return ContentDetails.from(savedContent);
+    }
+
+    @Transactional
     public ContentDetails setCover(UUID contentId, UUID mediaAssetId, String alternativeText) {
         mediaReferenceVerifier.requireImage(mediaAssetId);
         Instant occurredAt = clock.instant();

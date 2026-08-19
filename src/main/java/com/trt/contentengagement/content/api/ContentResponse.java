@@ -9,6 +9,7 @@ public record ContentResponse(
         String id,
         String title,
         String description,
+        String watchUrl,
         String coverMediaId,
         String coverImageUrl,
         String coverAlternativeText,
@@ -24,6 +25,7 @@ public record ContentResponse(
                 contentDetails.id().toString(),
                 contentDetails.title(),
                 contentDetails.description(),
+                contentDetails.watchUrl(),
                 contentDetails.coverMediaId() == null
                         ? null : contentDetails.coverMediaId().toString(),
                 contentDetails.coverImageUrl(),

@@ -59,3 +59,5 @@ Mevcut kayıtlar:
 - [ADR-0030: Tek kullanımlık şifre sıfırlama ve MailerSend SMTP](ADR-0030-password-reset-and-mailersend-smtp.md)
 - [ADR-0032: Tek sunucu production dağıtımı ve ilk yönetici hesabı](ADR-0032-single-server-production-and-admin-bootstrap.md)
 - [ADR-0033: Frontend arayüz yerelleştirmesi](ADR-0033-frontend-interface-localization.md)
+- [ADR-0034: Domain içeriğinin yerelleştirilmiş sunum projeksiyonları](ADR-0034-localized-domain-content-projections.md)
+- [ADR-0035: Resmî tabii izleme bağlantılarının güvenli saklanması](ADR-0035-secure-official-tabii-watch-links.md)

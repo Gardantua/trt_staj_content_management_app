@@ -30,6 +30,10 @@ export class ContentApi {
     return this.client.request(`/api/v1/admin/contents/${contentId}`, { method: "PUT", body: JSON.stringify(input) });
   }
 
+  setWatchUrl(contentId: string, watchUrl: string): Promise<Content> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/watch-url`, { method: "PUT", body: JSON.stringify({ watchUrl }) });
+  }
+
   publish(contentId: string): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}/publish`, { method: "POST" });
   }

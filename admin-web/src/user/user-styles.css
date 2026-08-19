@@ -78,6 +78,9 @@ h1, h2 { text-wrap: balance; }
 .detail-hero-viewer > div { align-self: center; max-width: 55rem; padding: clamp(2rem, 6vw, 6rem); }
 .detail-hero-viewer h1, .local-access h1 { font: 750 clamp(3rem, 7vw, 6.5rem)/.88 "Segoe UI Variable", "Segoe UI", sans-serif; letter-spacing: -.075em; margin-bottom: 1.2rem; }
 .detail-hero-viewer > div > p:last-child { color: var(--text-soft); font-size: 1.06rem; max-width: 42rem; }
+.watch-on-tabii { align-items: center; background: var(--mint); color: #05211c; display: inline-flex; font-weight: 900; gap: .55rem; margin-top: 1.15rem; min-height: 3rem; padding: .7rem 1.15rem; text-decoration: none; }
+.watch-on-tabii:hover { background: var(--sky); }
+.watch-on-tabii span { font-size: .8rem; }
 .text-button { background: transparent; border: 0; color: var(--mint); font-weight: 800; padding: 0; text-decoration: underline; text-underline-offset: .3rem; }
 .text-button.light { margin-bottom: 3rem; }
 .quiz-shelf { margin-bottom: 4rem; }

@@ -12,6 +12,7 @@ import { QuizOverview } from "./components/QuizOverview";
 import { QuizStudio } from "./components/QuizStudio";
 import { ContentTranslationEditor } from "./components/TranslationEditors";
 import { SeasonEditor } from "./components/SeasonEditor";
+import { WatchUrlEditor } from "./components/WatchUrlEditor";
 import type { Content, ContentPage, ContentSummary } from "./domain/content";
 import { readStoredLanguage, translate, useI18n } from "./i18n/I18nContext";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
@@ -210,6 +211,7 @@ function ContentDetail({ api, mediaApi, quizApi, contentId, navigate }: { api: C
     {activeTab === "content" ? <>
       {!editableHierarchy ? <p className="notice notice--info">{t("admin.publishedEditNotice")}</p> : <p className="notice notice--info">{t("admin.draftEditNotice")}</p>}
       <CoverEditor content={content} onUploadImage={(file) => mediaApi.uploadImage(file)} onBindCover={(input) => api.setCover(content.id, input)} onContentChanged={setContent} onError={handleError} />
+      <WatchUrlEditor watchUrl={content.watchUrl} onSave={async (watchUrl) => { try { setError(null); setContent(await api.setWatchUrl(content.id, watchUrl)); } catch (reason) { setError(asApiError(reason)); } }} />
       <ContentForm initialValue={{ title: content.title, description: content.description ?? "", contentType: content.contentType }} includeContentType={false} submitLabel={t("admin.saveContentInformation")} onSubmit={async (input) => { try { setError(null); setContent(await api.update(content.id, input)); } catch (reason) { setError(asApiError(reason)); } }} />
       {content.contentType === "SERIES" ? <SeasonEditor content={content} onContentChanged={setContent} onError={handleError}
         onAddSeasonPlan={(input) => api.addSeasonPlan(content.id, input)} onUpdateSeason={(season, input) => api.updateSeason(content.id, season.id, input)}

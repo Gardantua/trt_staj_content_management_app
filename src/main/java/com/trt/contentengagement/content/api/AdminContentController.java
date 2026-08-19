@@ -107,6 +107,17 @@ public class AdminContentController {
         ));
     }
 
+    @PutMapping("/{contentId}/watch-url")
+    public ContentResponse setWatchUrl(
+            @PathVariable UUID contentId,
+            @Valid @RequestBody WatchUrlRequest request
+    ) {
+        return ContentResponse.from(contentManagementService.setWatchUrl(
+                contentId,
+                request.watchUrl()
+        ));
+    }
+
     @PostMapping("/{contentId}/publish")
     public ContentResponse publishContent(@PathVariable UUID contentId) {
         return ContentResponse.from(contentManagementService.publish(contentId));
@@ -242,6 +253,9 @@ public class AdminContentController {
             @NotBlank @Size(max = 200) String title,
             @Size(max = 2000) String description
     ) {
+    }
+
+    public record WatchUrlRequest(@Size(max = 500) String watchUrl) {
     }
 
     public record CoverRequest(

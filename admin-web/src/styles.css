@@ -92,6 +92,7 @@ h3 { line-height: 1.2; }
 .content-search input { min-width: 0; }
 .content-search p { color: var(--muted); font-size: .8rem; margin: .5rem 0 0; }
 .content-form { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1rem 3rem rgba(28, 29, 29, .05); padding: clamp(1.2rem, 3vw, 2.2rem); }
+.watch-url-editor { background: var(--surface); border: 1px solid var(--line); box-shadow: 0 1rem 3rem rgba(28, 29, 29, .05); margin: 1.25rem 0; padding: clamp(1.2rem, 3vw, 2.2rem); }
 .stack { display: grid; gap: 1.25rem; }
 label { color: #333942; display: grid; font-size: .88rem; font-weight: 700; gap: .45rem; }
 input, textarea, select { background: #fff; border: 1px solid #b8b6b0; border-radius: .25rem; color: var(--ink); padding: .78rem .85rem; width: 100%; }

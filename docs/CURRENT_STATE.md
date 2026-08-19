@@ -1,5 +1,46 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 19.08.2026 Aşama 13D güvenli resmî tabii izleme bağlantısı
+
+- Film ve dizi detayına, yalnız içerikte doğrulanmış bir bağlantı bulunduğunda görünen
+  `tabii'de izle / Watch on tabii` eylemi eklendi. Bağlantı yeni sekmede açılır ve yeni
+  sayfanın kaynak sekmeye erişmesini engelleyen `noopener noreferrer` kullanır.
+- Editör ve yönetici, içerik detayındaki ayrı alandan bağlantıyı ekleyebilir, değiştirebilir
+  veya boş değerle kaldırabilir. İşlem ayrı `PUT` endpoint'i ve
+  `CONTENT_WATCH_URL_UPDATED` audit olayı üzerinden izlenir; normal kullanıcı 403 alır.
+- Güven sınırı: yalnız HTTPS, tam `tabii.com`/`www.tabii.com` alan adı ve resmî
+  `/detail/{id}` veya yerelleştirilmiş sayısal içerik detay yolu kabul edilir. Kullanıcı
+  bilgisi, özel port, query, fragment,
+  HTTP, `javascript:` ve benzer görünümlü alan adları domain kuralında reddedilir.
+- V20 migration'ı nullable `watch_url` alanını ve aynı izin listesini uygulayan PostgreSQL
+  `CHECK` constraint'ini ekler. Böylece uygulama katmanı atlanırsa dahi geçersiz kalıcı
+  veri engellenir. İstemci de düğmeyi oluşturmadan önce URL'yi bağımsız doğrular.
+- Mevcut içeriklere tahminî bağlantı yazılmadı; gerçek tabii içerik URL'si editör
+  tarafından girilene kadar düğme görünmez. Sunucu URL'yi kendisi çağırmadığı için bu
+  özellik yeni bir SSRF yüzeyi oluşturmaz.
+- İlk yerel denemede arayüz güncelken 08:52'den beri çalışan backend eski kaldığı için
+  yeni endpoint 404 `RESOURCE_NOT_FOUND` döndürdü. Backend güncel kodla yeniden
+  başlatıldı ve yerel PostgreSQL şeması V19'dan V20'ye başarıyla geçirildi. Resmî Zlatan
+  adresinin `/detail/588337` biçiminde dil öneki taşımadığı doğrulanınca izin listesi,
+  güvenlik sınırları gevşetilmeden bu ikinci resmî yol biçimini de kabul edecek şekilde
+  düzeltildi.
+- İş kuralı/test eşleşmesi: domain URL normalizasyonu ve saldırı örnekleri `ContentTest`;
+  migration, yayınlanan API cevabı, 403 yetki ve veritabanı constraint'i
+  `ContentCatalogIntegrationTest`; yeni sekme nitelikleri ile istemci savunması
+  `OfficialWatchLink.test.tsx`; yönetim endpoint sözleşmesi `content-api.test.ts` ile
+  korunur. Tam Maven `verify` 135/135, odak backend testleri 21/21, frontend Vitest
+  61/61 geçti; strict TypeScript ve production build başarılı oldu. Mevcut büyük
+  PDF/font chunk uyarısı devam ediyor.
+- Alternatif genel HTTPS URL alanı daha esnek fakat kimlik avı yüzeyini büyüttüğü için;
+  uygulama içi redirect endpoint'i ise açık yönlendirme riski ve gereksiz bakım yüzeyi
+  oluşturduğu için seçilmedi. Karar ADR-0035'te kayıtlıdır.
+- Mutlak “hacklenemezlik” garanti edilemez. Bu dilimde URL/yeni sekme riskleri katmanlı
+  olarak sınırlandı; tabii oturumu, bölgesel erişim ve dış servisin çalışabilirliği dış
+  sistem sorumluluğundadır. Görsel tarayıcı incelemesi yapılmadı; proje kuralı gereği
+  ayrıca açık izin gerekir.
+- Sıradaki tek iş: Editörün mevcut film ve diziler için doğrulanmış gerçek tabii içerik
+  bağlantılarını girmesi; sonrasında kullanıcı isterse Aşama 13B hata yerelleştirmesi.
+
 ## 19.08.2026 dil seçici görsel düzenlemesi
 
 - Yönetim ve kullanıcı ekranları masaüstü tarayıcıda görsel olarak incelendi. Eski iki
