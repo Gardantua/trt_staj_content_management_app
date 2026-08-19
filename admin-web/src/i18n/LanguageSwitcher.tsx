@@ -2,19 +2,17 @@ import { useI18n } from "./I18nContext";
 
 export function LanguageSwitcher() {
   const { language, setLanguage, t } = useI18n();
-  const flags = { tr: "🇹🇷", en: "🇬🇧" } as const;
 
-  return <div className="language-switcher" role="group" aria-label={t("language.label")}>
-    {(["tr", "en"] as const).map((candidateLanguage) => {
-      const label = t(candidateLanguage === "tr" ? "language.tr" : "language.en");
-      return <button
-        key={candidateLanguage}
-        type="button"
-        className={language === candidateLanguage ? "is-active" : ""}
-        aria-pressed={language === candidateLanguage}
-        aria-label={t("language.switchTo", { language: label })}
-        onClick={() => setLanguage(candidateLanguage)}
-      ><span aria-hidden="true">{flags[candidateLanguage]}</span></button>;
-    })}
-  </div>;
+  return <label className="language-switcher">
+    <span className="language-switcher__icon" aria-hidden="true">文</span>
+    <span className="language-switcher__label">{t("language.label")}</span>
+    <select
+      value={language}
+      aria-label={t("language.label")}
+      onChange={(event) => setLanguage(event.target.value === "en" ? "en" : "tr")}
+    >
+      <option value="tr">TR · Türkçe</option>
+      <option value="en">EN · English</option>
+    </select>
+  </label>;
 }

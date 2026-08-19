@@ -1,5 +1,33 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 19.08.2026 dil seçici görsel düzenlemesi
+
+- Yönetim ve kullanıcı ekranları masaüstü tarayıcıda görsel olarak incelendi. Eski iki
+  bayrak düğmesinin gezinme öğeleriyle yarıştığı ve yönetim başlığındaki dördüncü grid
+  öğesinin hesap/çıkış alanını ikinci satıra düşürdüğü doğrulandı.
+- Dil seçici, ülke bayrakları yerine dili açıkça gösteren tek yerel seçim kontrolüne
+  dönüştürüldü: `TR · Türkçe` ve `EN · English`. Kontrol erişilebilir `Dil/Language`
+  etiketi taşır ve mevcut `app_language:v1` tercih davranışını korur.
+- Yönetim başlığında dil seçici ile hesap/çıkış aynı sağ eylem kümesine alındı. Kullanıcı
+  başlığında da dil seçici hesap alanıyla; giriş ekranında hesap oluştur/giriş eylemiyle
+  gruplanarak başlık hiyerarşisi sadeleştirildi.
+- Kullanıcı başlığındaki `Keşfet / Quizler / Profil` sekmeleri eşit yan sütunlar
+  arasında ekranın gerçek merkezine sabitlendi. Hesap işlemleri sağ tarafta kalırken
+  dil seçici bu kümenin en sonuna alınarak başlığın sağ kenarına yerleştirildi.
+- Alternatif iki metinli sekme, iki ayrı klavye odağı ve daha fazla yatay alan
+  gerektirdiği için seçilmedi. Yerel `select`, klavye ve ekran okuyucu davranışını
+  tarayıcıdan hazır alır; karşılığında açılan seçenek listesinin görünümü işletim
+  sistemine göre küçük farklılık gösterebilir.
+- İş kuralı/test eşleşmesi: tek etiketli seçim kontrolü ile iki dil seçeneğinin varlığı
+  `i18n.test.ts`; dil kodu doğrulama, saklama ve belge dili mevcut i18n testleriyle
+  korunur. Frontend Vitest `57/57` geçti; strict TypeScript ve production build
+  başarılı oldu. Mevcut büyük PDF/font chunk uyarısı devam ediyor.
+- Görsel doğrulama yerel yönetim ve kullanıcı ana sayfasında yapıldı: başlık öğeleri tek
+  satırda hizalandı, dil kontrolünün odak çerçevesi görünür kaldı ve hesap işlemleriyle
+  aynı kümede yer aldı.
+- Bilinen konu: değişiklik henüz canlı sunucuya dağıtılmadı. Sıradaki tek iş, kullanıcı
+  yeni yerleşimi onaylarsa mevcut production dağıtım akışıyla canlıya almaktır.
+
 ## 18.08.2026 Aşama 13C içerik ve quiz çevirileri
 
 - Film/dizi, sezon/bölüm, quiz sürümü, soru, seçenek ve erişilebilirlik metinleri için

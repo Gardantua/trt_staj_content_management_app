@@ -64,8 +64,10 @@ export function App() {
         <a className={path === "/admin/quizzes" ? "is-active" : ""} href="/admin/quizzes" onClick={(event) => { event.preventDefault(); navigate("/admin/quizzes"); }}>{t("admin.quizzes")}</a>
         <a className={path === "/admin/quiz-history" ? "is-active" : ""} href="/admin/quiz-history" onClick={(event) => { event.preventDefault(); navigate("/admin/quiz-history"); }}>{t("admin.quizHistory")}</a>
       </nav>
-      <LanguageSwitcher />
-      <p className="actor-context"><span>{account.displayName}</span><strong>{account.roles.join(", ")}</strong><button type="button" onClick={async () => { await authApi.logout(); setAccount(null); }}>{t("admin.signOut")}</button></p>
+      <div className="app-header__actions">
+        <LanguageSwitcher />
+        <p className="actor-context"><span>{account.displayName}</span><strong>{account.roles.join(", ")}</strong><button type="button" onClick={async () => { await authApi.logout(); setAccount(null); }}>{t("admin.signOut")}</button></p>
+      </div>
     </header>
     {detailMatch
       ? <ContentDetail api={contentApi} mediaApi={mediaApi} quizApi={quizApi} contentId={detailMatch[1]} navigate={navigate} />

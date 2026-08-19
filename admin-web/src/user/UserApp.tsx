@@ -54,7 +54,7 @@ export function UserApp() {
 function SiteHeader({ account, view, showLanguageSwitcher, onNavigate, onSignOut }: { account: AccountSession; view: View; showLanguageSwitcher: boolean; onNavigate: (view: View) => void; onSignOut: () => Promise<void> }) {
   const { t } = useI18n();
   return <header className="viewer-header"><a className="viewer-brand" href="/" onClick={(event) => { event.preventDefault(); onNavigate("home"); }} aria-label={t("viewer.homeAria")}><img src={tabiiLogoUrl} alt="tabii" /><span><strong>Hikâye</strong> İzi</span><em>{t("viewer.tagline")}</em></a>
-    <nav aria-label={t("viewer.menu")}><button className={view === "home" ? "active" : ""} onClick={() => onNavigate("home")}>{t("viewer.discover")}</button><button className={view === "quizzes" ? "active" : ""} onClick={() => onNavigate("quizzes")}>{t("viewer.quizzes")}</button><button className={view === "profile" ? "active" : ""} onClick={() => onNavigate("profile")}>{t("viewer.profile")}</button></nav>{showLanguageSwitcher && <LanguageSwitcher />}<p><span>{account.displayName}</span><button className="sign-out" onClick={() => void onSignOut()}>{t("viewer.signOut")}</button></p></header>;
+    <nav aria-label={t("viewer.menu")}><button className={view === "home" ? "active" : ""} onClick={() => onNavigate("home")}>{t("viewer.discover")}</button><button className={view === "quizzes" ? "active" : ""} onClick={() => onNavigate("quizzes")}>{t("viewer.quizzes")}</button><button className={view === "profile" ? "active" : ""} onClick={() => onNavigate("profile")}>{t("viewer.profile")}</button></nav><div className="viewer-header__actions"><p><span>{account.displayName}</span><button className="sign-out" onClick={() => void onSignOut()}>{t("viewer.signOut")}</button></p>{showLanguageSwitcher && <LanguageSwitcher />}</div></header>;
 }
 
 function AccountAccess({ authApi, onSignedIn }: { authApi: AuthApi; onSignedIn: (account: AccountSession) => void }) {
@@ -90,8 +90,10 @@ function AccountAccess({ authApi, onSignedIn }: { authApi: AuthApi; onSignedIn: 
     <div className="sign-in-backdrop" aria-hidden="true"><img src={platformArtworkUrl} alt="" /></div>
     <header className="sign-in-header">
       <a className="sign-in-brand" href="/" aria-label={t("viewer.homeAria")}><img className="sign-in-wordmark" src={platformArtworkUrl} alt="tabii" /><span>Hikâye İzi</span></a>
-      <LanguageSwitcher />
-      <button className="auth-switch auth-switch--header" type="button" onClick={() => changeMode(isLogin ? "register" : "login")}>{isLogin ? t("viewer.createAccount") : t("admin.signIn")}</button>
+      <div className="sign-in-actions">
+        <LanguageSwitcher />
+        <button className="auth-switch auth-switch--header" type="button" onClick={() => changeMode(isLogin ? "register" : "login")}>{isLogin ? t("viewer.createAccount") : t("admin.signIn")}</button>
+      </div>
     </header>
     <section className="local-access" aria-labelledby="account-access-title">
       <p className="kicker">Hikâye İzi</p>

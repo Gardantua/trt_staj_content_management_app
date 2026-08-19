@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { en } from "./en";
-import { applyDocumentLanguage, isLanguage, readStoredLanguage, storeLanguage, translate, LANGUAGE_STORAGE_KEY } from "./I18nContext";
+import { applyDocumentLanguage, I18nProvider, isLanguage, readStoredLanguage, storeLanguage, translate, LANGUAGE_STORAGE_KEY } from "./I18nContext";
+import { LanguageSwitcher } from "./LanguageSwitcher";
 import { tr } from "./tr";
 
 describe("i18n dictionaries", () => {
@@ -12,6 +15,14 @@ describe("i18n dictionaries", () => {
     expect(translate("en", "viewer.questionProgress", { current: 2, total: 10 })).toBe("Question 2 / 10");
     expect(translate("tr", "viewer.yourRank", { position: 4, xp: 80 })).toBe("Senin sıran: #4 · 80 XP");
     expect(translate("en", "viewer.yourRank", { position: 4 })).toContain("{xp}");
+  });
+
+  it("presents both languages through one labelled native selection control", () => {
+    const markup = renderToStaticMarkup(createElement(I18nProvider, null, createElement(LanguageSwitcher)));
+
+    expect(markup).toContain('<select aria-label="Dil">');
+    expect(markup).toContain('value="tr" selected="">TR · Türkçe');
+    expect(markup).toContain('value="en">EN · English');
   });
 });
 
