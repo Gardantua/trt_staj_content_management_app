@@ -1,6 +1,8 @@
 spring:
   application:
     name: content-engagement-platform
+  messages:
+    fallback-to-system-locale: false
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/content_engagement}
     username: ${DATABASE_USERNAME:content_engagement}

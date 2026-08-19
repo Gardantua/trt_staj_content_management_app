@@ -13,7 +13,8 @@ import { QuizStudio } from "./components/QuizStudio";
 import { ContentTranslationEditor } from "./components/TranslationEditors";
 import { SeasonEditor } from "./components/SeasonEditor";
 import { WatchUrlEditor } from "./components/WatchUrlEditor";
-import type { Content, ContentPage, ContentSummary } from "./domain/content";
+import type { Content, ContentPage, ContentSummary, WatchLinkFilter } from "./domain/content";
+import { useUnsavedChanges } from "./hooks/useUnsavedChanges";
 import { readStoredLanguage, translate, useI18n } from "./i18n/I18nContext";
 import { LanguageSwitcher } from "./i18n/LanguageSwitcher";
 import { AuthApi, type AccountSession } from "./user/auth-api";
@@ -127,6 +128,7 @@ function ContentList({ api, mediaApi, navigate }: { api: ContentApi; mediaApi: M
   const [reloadVersion, setReloadVersion] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState("");
+  const [watchLinkFilter, setWatchLinkFilter] = useState<WatchLinkFilter>("ALL");
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -139,11 +141,11 @@ function ContentList({ api, mediaApi, navigate }: { api: ContentApi; mediaApi: M
   useEffect(() => {
     let isCurrent = true;
     setIsLoading(true); setError(null);
-    api.list(currentPage, PAGE_SIZE, activeSearchQuery).then((result) => { if (isCurrent) setPage(result); })
+    api.list(currentPage, PAGE_SIZE, activeSearchQuery, watchLinkFilter).then((result) => { if (isCurrent) setPage(result); })
       .catch((reason: unknown) => { if (isCurrent) setError(asApiError(reason)); })
       .finally(() => { if (isCurrent) setIsLoading(false); });
     return () => { isCurrent = false; };
-  }, [activeSearchQuery, api, currentPage, reloadVersion]);
+  }, [activeSearchQuery, api, currentPage, reloadVersion, watchLinkFilter]);
 
   return <section className="management-list">
     <div className="list-heading"><h2>{t("admin.existingContents")}</h2><p>{t("admin.openToEdit")}</p></div>
@@ -153,6 +155,13 @@ function ContentList({ api, mediaApi, navigate }: { api: ContentApi; mediaApi: M
       {searchQuery ? <button className="button-secondary" type="button" onClick={() => setSearchQuery("")}>{t("common.clear")}</button> : null}</div>
       <p>{t("admin.searchHelp")}</p>
     </div>
+    <label className="watch-link-filter" htmlFor="watch-link-filter">{t("admin.watchLinkFilter")}
+      <select id="watch-link-filter" value={watchLinkFilter} onChange={(event) => { setCurrentPage(0); setWatchLinkFilter(event.target.value as WatchLinkFilter); }}>
+        <option value="ALL">{t("admin.watchLinkAll")}</option>
+        <option value="PRESENT">{t("admin.watchLinkPresent")}</option>
+        <option value="MISSING">{t("admin.watchLinkMissing")}</option>
+      </select>
+    </label>
     <ApiErrorNotice error={error} onRetry={error ? () => setReloadVersion((version) => version + 1) : undefined} />
     {isLoading ? <p aria-live="polite">{t("admin.contentsLoading")}</p> : page ? <>
       <div className="catalogue-meta" aria-live="polite"><p>{t(activeSearchQuery ? "admin.matchingContents" : "admin.totalContents", { count: page.totalItems })}</p><p>{t("common.page", { current: page.page + 1, total: Math.max(page.totalPages, 1) })}</p></div>
@@ -169,7 +178,7 @@ function ContentListItem({ content, mediaApi, onOpen }: { content: ContentSummar
     <div className={`content-poster content-poster--${content.contentType.toLowerCase()}`}>{content.coverImageUrl
       ? <ProtectedImage contentUrl={content.coverImageUrl} alternativeText={content.coverAlternativeText ?? t("admin.coverAlt", { title: content.title })} mediaApi={mediaApi} />
       : <><span>{t(content.contentType === "SERIES" ? "common.series" : "common.film")}</span><strong aria-hidden="true">{content.title.slice(0, 1)}</strong></>}</div>
-    <div className="content-card__body"><div className="content-card__meta"><span className="content-type">{t(content.contentType === "SERIES" ? "common.series" : "common.film")}</span></div><h2>{content.title}</h2><p>{content.description || t("admin.noDescription")}</p></div>
+    <div className="content-card__body"><div className="content-card__meta"><span className="content-type">{t(content.contentType === "SERIES" ? "common.series" : "common.film")}</span><span className={`watch-link-status ${content.hasWatchUrl ? "is-present" : "is-missing"}`}>{t(content.hasWatchUrl ? "admin.watchLinkAvailable" : "admin.watchLinkUnavailable")}</span></div><h2>{content.title}</h2><p>{content.description || t("admin.noDescription")}</p></div>
     <button className="button-secondary" onClick={onOpen} aria-label={t("admin.openContentAria", { title: content.title })}>{t("common.open")} <span aria-hidden="true">→</span></button>
   </article></li>;
 }
@@ -182,7 +191,12 @@ function ContentDetail({ api, mediaApi, quizApi, contentId, navigate }: { api: C
   const [isLoading, setIsLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isContentFormDirty, setIsContentFormDirty] = useState(false);
+  const [isWatchUrlDirty, setIsWatchUrlDirty] = useState(false);
   const handleError = useCallback((reason: unknown) => setError(asApiError(reason)), []);
+  const hasUnsavedChanges = isContentFormDirty || isWatchUrlDirty;
+  const confirmWorkspaceChange = () => !hasUnsavedChanges || window.confirm(t("admin.unsavedChangesConfirm"));
+  useUnsavedChanges(hasUnsavedChanges, t("admin.unsavedChangesConfirm"));
 
   useEffect(() => {
     let isCurrent = true;
@@ -207,12 +221,12 @@ function ContentDetail({ api, mediaApi, quizApi, contentId, navigate }: { api: C
       <span className={content.publicationStatus === "PUBLISHED" ? "is-complete" : ""}>{t("admin.publicationStepContent")} {content.publicationStatus === "PUBLISHED" ? "✓" : ""}</span>
       <span>{t("admin.publicationStepQuiz")}</span>
     </section>
-    <nav className="detail-tabs" aria-label={t("admin.workspaces")}><button type="button" className={activeTab === "content" ? "is-active" : ""} onClick={() => { setError(null); setActiveTab("content"); }}>{t("admin.contentInformation")}</button><button type="button" className={activeTab === "quiz" ? "is-active" : ""} onClick={() => { setError(null); setActiveTab("quiz"); }}>{t("admin.quizzes")}</button></nav>
+    <nav className="detail-tabs" aria-label={t("admin.workspaces")}><button type="button" className={activeTab === "content" ? "is-active" : ""} onClick={() => { if (activeTab !== "content" && !confirmWorkspaceChange()) return; setError(null); setActiveTab("content"); }}>{t("admin.contentInformation")}</button><button type="button" className={activeTab === "quiz" ? "is-active" : ""} onClick={() => { if (activeTab !== "quiz" && !confirmWorkspaceChange()) return; setError(null); setActiveTab("quiz"); }}>{t("admin.quizzes")}</button></nav>
     {activeTab === "content" ? <>
       {!editableHierarchy ? <p className="notice notice--info">{t("admin.publishedEditNotice")}</p> : <p className="notice notice--info">{t("admin.draftEditNotice")}</p>}
       <CoverEditor content={content} onUploadImage={(file) => mediaApi.uploadImage(file)} onBindCover={(input) => api.setCover(content.id, input)} onContentChanged={setContent} onError={handleError} />
-      <WatchUrlEditor watchUrl={content.watchUrl} onSave={async (watchUrl) => { try { setError(null); setContent(await api.setWatchUrl(content.id, watchUrl)); } catch (reason) { setError(asApiError(reason)); } }} />
-      <ContentForm initialValue={{ title: content.title, description: content.description ?? "", contentType: content.contentType }} includeContentType={false} submitLabel={t("admin.saveContentInformation")} onSubmit={async (input) => { try { setError(null); setContent(await api.update(content.id, input)); } catch (reason) { setError(asApiError(reason)); } }} />
+      <WatchUrlEditor watchUrl={content.watchUrl} onDirtyChange={setIsWatchUrlDirty} manageNavigationWarning={false} onSave={async (watchUrl) => { try { setError(null); setContent(await api.setWatchUrl(content.id, watchUrl)); } catch (reason) { setError(asApiError(reason)); throw reason; } }} />
+      <ContentForm initialValue={{ title: content.title, description: content.description ?? "", contentType: content.contentType }} includeContentType={false} submitLabel={t("admin.saveContentInformation")} onDirtyChange={setIsContentFormDirty} manageNavigationWarning={false} onSubmit={async (input) => { try { setError(null); setContent(await api.update(content.id, input)); } catch (reason) { setError(asApiError(reason)); throw reason; } }} />
       {content.contentType === "SERIES" ? <SeasonEditor content={content} onContentChanged={setContent} onError={handleError}
         onAddSeasonPlan={(input) => api.addSeasonPlan(content.id, input)} onUpdateSeason={(season, input) => api.updateSeason(content.id, season.id, input)}
         onAddEpisode={(season, input) => api.addEpisode(content.id, season.id, input)}

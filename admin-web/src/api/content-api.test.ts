@@ -45,6 +45,19 @@ describe("ContentApi", () => {
     );
   });
 
+  it("adds the selected watch-link filter to the admin catalog request", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const api = new ContentApi(new ApiClient({ id: "editor-1", roles: ["EDITOR"] }));
+
+    await api.list(0, 20, "", "MISSING");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/contents?page=0&size=20&watchLink=MISSING",
+      expect.objectContaining({ headers: expect.any(Headers) })
+    );
+  });
+
   it("hard deletes content through the protected admin endpoint", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);

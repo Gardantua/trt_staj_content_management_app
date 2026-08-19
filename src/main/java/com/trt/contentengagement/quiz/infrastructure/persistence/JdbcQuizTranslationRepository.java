@@ -5,45 +5,73 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import com.trt.contentengagement.quiz.application.QuizTranslation;
 import com.trt.contentengagement.quiz.application.QuizTranslationRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class JdbcQuizTranslationRepository implements QuizTranslationRepository {
     private final JdbcTemplate jdbcTemplate;
-    public JdbcQuizTranslationRepository(JdbcTemplate jdbcTemplate) { this.jdbcTemplate = jdbcTemplate; }
+    private final NamedParameterJdbcTemplate namedJdbcTemplate;
+    public JdbcQuizTranslationRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.namedJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+    }
 
     @Override
     public Optional<QuizTranslation> find(UUID versionId, String languageCode) {
-        List<Map<String, Object>> roots = jdbcTemplate.queryForList("""
-                SELECT title, description, fallback_alternative_text FROM quiz_version_translations
-                WHERE quiz_version_id = ? AND language_code = ?
-                """, versionId, languageCode);
-        if (roots.isEmpty()) return Optional.empty();
-        Map<UUID, MutableQuestion> questions = new LinkedHashMap<>();
-        jdbcTemplate.queryForList("""
-                SELECT q.id question_id, qt.prompt, qt.visual_alternative_text, qt.accessible_prompt
-                FROM quiz_questions q JOIN quiz_question_translations qt
-                  ON qt.question_id = q.id AND qt.language_code = ?
-                WHERE q.quiz_version_id = ? ORDER BY q.question_order
-                """, languageCode, versionId).forEach(row -> questions.put((UUID) row.get("question_id"),
-                new MutableQuestion((UUID) row.get("question_id"), (String) row.get("prompt"),
-                        (String) row.get("visual_alternative_text"), (String) row.get("accessible_prompt"))));
-        jdbcTemplate.queryForList("""
-                SELECT q.id question_id, o.id option_id, ot.option_text
-                FROM quiz_questions q JOIN quiz_answer_options o ON o.question_id = q.id
-                JOIN quiz_answer_option_translations ot ON ot.answer_option_id = o.id AND ot.language_code = ?
-                WHERE q.quiz_version_id = ? ORDER BY q.question_order, o.option_order
-                """, languageCode, versionId).forEach(row -> questions.computeIfAbsent((UUID) row.get("question_id"),
-                id -> new MutableQuestion(id, "", null, null)).options.add(
-                new QuizTranslation.OptionTranslation((UUID) row.get("option_id"), (String) row.get("option_text"))));
-        Map<String, Object> root = roots.getFirst();
-        return Optional.of(new QuizTranslation((String) root.get("title"), (String) root.get("description"),
-                (String) root.get("fallback_alternative_text"), questions.values().stream().map(MutableQuestion::freeze).toList()));
+        return Optional.ofNullable(findAll(Set.of(versionId), languageCode).get(versionId));
+    }
+
+    @Override
+    public Map<UUID, QuizTranslation> findAll(Set<UUID> versionIds, String languageCode) {
+        if (versionIds.isEmpty()) return Map.of();
+        MapSqlParameterSource parameters = new MapSqlParameterSource()
+                .addValue("versionIds", versionIds)
+                .addValue("languageCode", languageCode);
+        Map<UUID, MutableQuizTranslation> translations = new LinkedHashMap<>();
+        namedJdbcTemplate.queryForList("""
+                SELECT quiz_version_id, title, description, fallback_alternative_text
+                FROM quiz_version_translations
+                WHERE language_code = :languageCode AND quiz_version_id IN (:versionIds)
+                """, parameters).forEach(row -> translations.put((UUID) row.get("quiz_version_id"),
+                new MutableQuizTranslation((String) row.get("title"), (String) row.get("description"),
+                        (String) row.get("fallback_alternative_text"))));
+        if (translations.isEmpty()) return Map.of();
+
+        parameters.addValue("translatedVersionIds", translations.keySet());
+        namedJdbcTemplate.queryForList("""
+                SELECT q.quiz_version_id, q.id question_id, qt.prompt,
+                       qt.visual_alternative_text, qt.accessible_prompt
+                FROM quiz_questions q
+                JOIN quiz_question_translations qt ON qt.question_id = q.id
+                  AND qt.language_code = :languageCode
+                WHERE q.quiz_version_id IN (:translatedVersionIds)
+                ORDER BY q.quiz_version_id, q.question_order
+                """, parameters).forEach(row -> translations.get((UUID) row.get("quiz_version_id")).questions.put(
+                (UUID) row.get("question_id"), new MutableQuestion((UUID) row.get("question_id"),
+                        (String) row.get("prompt"), (String) row.get("visual_alternative_text"),
+                        (String) row.get("accessible_prompt"))));
+        namedJdbcTemplate.queryForList("""
+                SELECT q.quiz_version_id, q.id question_id, o.id option_id, ot.option_text
+                FROM quiz_questions q
+                JOIN quiz_answer_options o ON o.question_id = q.id
+                JOIN quiz_answer_option_translations ot ON ot.answer_option_id = o.id
+                  AND ot.language_code = :languageCode
+                WHERE q.quiz_version_id IN (:translatedVersionIds)
+                ORDER BY q.quiz_version_id, q.question_order, o.option_order
+                """, parameters).forEach(row -> translations.get((UUID) row.get("quiz_version_id")).questions
+                .computeIfAbsent((UUID) row.get("question_id"), id -> new MutableQuestion(id, "", null, null))
+                .options.add(new QuizTranslation.OptionTranslation(
+                        (UUID) row.get("option_id"), (String) row.get("option_text"))));
+        return translations.entrySet().stream().collect(java.util.stream.Collectors.toUnmodifiableMap(
+                Map.Entry::getKey, entry -> entry.getValue().freeze()));
     }
 
     @Override
@@ -77,5 +105,23 @@ public class JdbcQuizTranslationRepository implements QuizTranslationRepository 
         }
         private QuizTranslation.QuestionTranslation freeze() { return new QuizTranslation.QuestionTranslation(
                 id, prompt, visualAlternativeText, accessiblePrompt, List.copyOf(options)); }
+    }
+
+    private static final class MutableQuizTranslation {
+        private final String title;
+        private final String description;
+        private final String fallbackAlternativeText;
+        private final Map<UUID, MutableQuestion> questions = new LinkedHashMap<>();
+
+        private MutableQuizTranslation(String title, String description, String fallbackAlternativeText) {
+            this.title = title;
+            this.description = description;
+            this.fallbackAlternativeText = fallbackAlternativeText;
+        }
+
+        private QuizTranslation freeze() {
+            return new QuizTranslation(title, description, fallbackAlternativeText,
+                    questions.values().stream().map(MutableQuestion::freeze).toList());
+        }
     }
 }

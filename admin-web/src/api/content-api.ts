@@ -1,12 +1,13 @@
 import { ApiClient } from "./client";
-import type { Content, ContentInput, ContentPage, ContentTranslation, CoverBindingInput, EpisodeInput, SeasonInput, SeasonPlanInput } from "../domain/content";
+import type { Content, ContentInput, ContentPage, ContentTranslation, CoverBindingInput, EpisodeInput, SeasonInput, SeasonPlanInput, WatchLinkFilter } from "../domain/content";
 
 export class ContentApi {
   constructor(private readonly client: ApiClient) {}
 
-  list(page: number, size: number, query = ""): Promise<ContentPage> {
+  list(page: number, size: number, query = "", watchLink: WatchLinkFilter = "ALL"): Promise<ContentPage> {
     const parameters = new URLSearchParams({ page: String(page), size: String(size) });
     if (query.trim()) parameters.set("query", query.trim());
+    if (watchLink !== "ALL") parameters.set("watchLink", watchLink);
     return this.client.request(`/api/v1/admin/contents?${parameters.toString()}`);
   }
 

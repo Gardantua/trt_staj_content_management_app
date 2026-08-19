@@ -58,7 +58,7 @@ export class AuthApi {
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({ Accept: "application/json", "Accept-Language": readStoredLanguage() });
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
     await this.csrfTokenClient.protect(headers, init.method);
     let response: Response;

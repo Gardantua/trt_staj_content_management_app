@@ -9,11 +9,16 @@ interface ApiErrorNoticeProps {
 export function ApiErrorNotice({ error, onRetry }: ApiErrorNoticeProps) {
   const { t } = useI18n();
   if (!error) return null;
+  const message = error.code === "CONTENT_WATCH_URL_INVALID"
+    ? t("error.invalidWatchUrl")
+    : error.code === "RESOURCE_NOT_FOUND"
+      ? t("error.resourceNotFound")
+      : error.message;
 
   return (
     <section className="api-error" aria-live="assertive" aria-atomic="true" role="alert">
       <h2>{t("error.title")}</h2>
-      <p>{error.message}</p>
+      <p>{message}</p>
       <dl>
         <div><dt>{t("error.code")}</dt><dd>{error.code}</dd></div>
         <div><dt>{t("error.traceId")}</dt><dd>{error.traceId}</dd></div>

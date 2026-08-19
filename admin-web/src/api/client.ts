@@ -62,6 +62,7 @@ export class ApiClient {
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
+    headers.set("Accept-Language", readStoredLanguage());
     if (init.body !== undefined) {
       headers.set("Content-Type", "application/json");
     }
@@ -95,7 +96,7 @@ export class ApiClient {
   }
 
   async requestForm<T>(path: string, formData: FormData, init: Omit<RequestInit, "body" | "headers"> = {}): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({ Accept: "application/json", "Accept-Language": readStoredLanguage() });
     if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
@@ -126,7 +127,7 @@ export class ApiClient {
   }
 
   async requestBlob(path: string): Promise<Blob> {
-    const headers = new Headers();
+    const headers = new Headers({ "Accept-Language": readStoredLanguage() });
     if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));

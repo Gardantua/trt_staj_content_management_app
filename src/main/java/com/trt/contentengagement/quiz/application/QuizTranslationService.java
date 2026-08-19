@@ -1,6 +1,7 @@
 package com.trt.contentengagement.quiz.application;
 
 import java.time.Clock;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -54,10 +55,24 @@ public class QuizTranslationService {
 
     public PublishedQuizDetails localize(PublishedQuizDetails source, String languageCode) {
         if (!"en".equals(languageCode)) return source;
-        return translationRepository.find(source.versionId(), languageCode).map(text -> {
-            Map<UUID, QuizTranslation.QuestionTranslation> questions = text.questions().stream()
+        return translationRepository.find(source.versionId(), languageCode)
+                .map(text -> apply(source, text)).orElse(source);
+    }
+
+    public List<PublishedQuizDetails> localize(List<PublishedQuizDetails> sources, String languageCode) {
+        if (!"en".equals(languageCode) || sources.isEmpty()) return sources;
+        Set<UUID> versionIds = sources.stream().map(PublishedQuizDetails::versionId).collect(Collectors.toSet());
+        Map<UUID, QuizTranslation> translations = translationRepository.findAll(versionIds, languageCode);
+        return sources.stream().map(source -> {
+            QuizTranslation translation = translations.get(source.versionId());
+            return translation == null ? source : apply(source, translation);
+        }).toList();
+    }
+
+    private PublishedQuizDetails apply(PublishedQuizDetails source, QuizTranslation text) {
+        Map<UUID, QuizTranslation.QuestionTranslation> questions = text.questions().stream()
                     .collect(Collectors.toMap(QuizTranslation.QuestionTranslation::questionId, item -> item));
-            return new PublishedQuizDetails(source.quizId(), source.contentId(), source.scopeType(), source.seasonId(),
+        return new PublishedQuizDetails(source.quizId(), source.contentId(), source.scopeType(), source.seasonId(),
                     source.episodeId(), source.versionId(), source.versionNumber(), text.title(), text.description(),
                     source.scoringPolicyVersion(), source.questions().stream().map(question -> {
                         QuizTranslation.QuestionTranslation translated = questions.get(question.id());
@@ -72,7 +87,6 @@ public class QuizTranslationService {
                                 new PublishedQuizDetails.PublishedOptionDetails(option.id(), option.optionOrder(),
                                         options.getOrDefault(option.id(), option.text()))).toList());
                     }).toList());
-        }).orElse(source);
     }
 
     public GameplayQuizSnapshot localize(GameplayQuizSnapshot source, String languageCode) {

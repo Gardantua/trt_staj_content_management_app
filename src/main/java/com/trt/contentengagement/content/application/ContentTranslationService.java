@@ -61,8 +61,10 @@ public class ContentTranslationService {
 
     public PageResult<ContentSummary> localize(PageResult<ContentSummary> page, String languageCode) {
         if (!"en".equals(languageCode)) return page;
-        return new PageResult<>(page.items().stream().map(source -> translationRepository
-                .find(source.id(), languageCode)
+        Set<UUID> contentIds = page.items().stream().map(ContentSummary::id).collect(Collectors.toSet());
+        Map<UUID, ContentTranslation> translations = translationRepository.findAll(contentIds, languageCode);
+        return new PageResult<>(page.items().stream().map(source -> java.util.Optional
+                .ofNullable(translations.get(source.id()))
                 .map(text -> new ContentSummary(source.id(), text.title(), text.description(),
                         source.contentType(), source.coverMediaId(),
                         text.coverAlternativeText() == null ? source.coverAlternativeText() : text.coverAlternativeText()))

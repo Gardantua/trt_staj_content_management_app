@@ -82,10 +82,31 @@ class ContentCatalogIntegrationTest {
                 """, EDITOR_ACTOR_ID, "EDITOR");
         assertThat(saved.statusCode()).isEqualTo(200);
 
+        HttpResponse<String> secondCreated = createFilm("İKİNCİ FİLM");
+        String secondContentId = json(secondCreated).get("id").stringValue();
+        attachCover(secondContentId);
+        sendJson("POST", "/api/v1/admin/contents/" + secondContentId + "/publish", null, EDITOR_ACTOR_ID, "EDITOR");
+        HttpResponse<String> secondSaved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + secondContentId + "/translations/en",
+                """
+                {"title":"SECOND FILM","description":"The second translated film.",
+                 "coverAlternativeText":"Second film cover","seasons":[]}
+                """,
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        assertThat(secondSaved.statusCode()).isEqualTo(200);
+
         HttpResponse<String> english = sendGetWithLanguage(
                 "/api/v1/contents/" + contentId, USER_ACTOR_ID, "USER", "en");
+        HttpResponse<String> englishPage = sendGetWithLanguage(
+                "/api/v1/contents?page=0&size=20", USER_ACTOR_ID, "USER", "en");
         assertThat(english.body()).contains("An amateur boxer gets a championship opportunity.")
                 .contains("Rocky film cover");
+        assertThat(englishPage.body())
+                .contains("An amateur boxer gets a championship opportunity.")
+                .contains("The second translated film.");
         assertThat(jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM admin_audit_entries
                 WHERE action = 'CONTENT_TRANSLATION_UPDATED' AND resource_id = ?::uuid
@@ -418,6 +439,47 @@ class ContentCatalogIntegrationTest {
                 .contains("Alpha Dizisi");
         assertThat(trimmedSearch.statusCode()).isEqualTo(200);
         assertThat(trimmedSearch.body()).contains("\"totalItems\":2");
+    }
+
+    @Test
+    void editorCanFilterContentByOfficialWatchLinkAvailability() throws Exception {
+        HttpResponse<String> linkedContent = createFilm("İzleme Bağlantılı Film");
+        String linkedContentId = json(linkedContent).get("id").stringValue();
+        HttpResponse<String> missingContent = createFilm("Bağlantısız Film");
+        String missingContentId = json(missingContent).get("id").stringValue();
+
+        HttpResponse<String> watchUrlSaved = sendJson(
+                "PUT",
+                "/api/v1/admin/contents/" + linkedContentId + "/watch-url",
+                "{\"watchUrl\":\"https://www.tabii.com/detail/588337\"}",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        assertThat(watchUrlSaved.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> linkedOnly = sendGet(
+                "/api/v1/admin/contents?watchLink=PRESENT&page=0&size=20",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+        HttpResponse<String> missingOnly = sendGet(
+                "/api/v1/admin/contents?watchLink=MISSING&page=0&size=20",
+                EDITOR_ACTOR_ID,
+                "EDITOR"
+        );
+
+        assertThat(linkedOnly.statusCode()).isEqualTo(200);
+        assertThat(linkedOnly.body())
+                .contains("\"totalItems\":1")
+                .contains(linkedContentId)
+                .contains("\"hasWatchUrl\":true")
+                .doesNotContain(missingContentId);
+        assertThat(missingOnly.statusCode()).isEqualTo(200);
+        assertThat(missingOnly.body())
+                .contains("\"totalItems\":1")
+                .contains(missingContentId)
+                .contains("\"hasWatchUrl\":false")
+                .doesNotContain(linkedContentId);
     }
 
     @Test

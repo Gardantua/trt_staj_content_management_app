@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { isSafeOfficialWatchUrl, OfficialWatchLink } from "./OfficialWatchLink";
+import { isSafeOfficialWatchUrl } from "../security/official-watch-url";
+import { OfficialWatchLink } from "./OfficialWatchLink";
 
 describe("OfficialWatchLink", () => {
   it("opens an official tabii detail page in an isolated new tab", () => {

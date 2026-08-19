@@ -29,18 +29,18 @@ public class PublishedQuizQueryService {
 
     @Transactional(readOnly = true)
     public List<PublishedQuizDetails> listForContent(UUID contentId) {
-        return quizCatalogRepository.findWithPublishedVersionByContentId(contentId).stream()
+        List<PublishedQuizDetails> sources = quizCatalogRepository.findWithPublishedVersionByContentId(contentId).stream()
                 .map(PublishedQuizDetails::from)
-                .map(details -> quizTranslationService.localize(details, language()))
                 .toList();
+        return quizTranslationService.localize(sources, language());
     }
 
     @Transactional(readOnly = true)
     public List<PublishedQuizDetails> listAll() {
-        return quizCatalogRepository.findAllWithPublishedVersion().stream()
+        List<PublishedQuizDetails> sources = quizCatalogRepository.findAllWithPublishedVersion().stream()
                 .map(PublishedQuizDetails::from)
-                .map(details -> quizTranslationService.localize(details, language()))
                 .toList();
+        return quizTranslationService.localize(sources, language());
     }
 
     private String language() { return LocaleContextHolder.getLocale().getLanguage(); }

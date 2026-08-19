@@ -52,12 +52,14 @@ public class ContentManagementService {
     @Transactional(readOnly = true)
     public PageResult<AdminContentSummary> listForAdministration(
             String titleQuery,
+            WatchLinkFilter watchLinkFilter,
             int page,
             int size
     ) {
         String normalizedTitleQuery = titleQuery == null ? "" : titleQuery.strip();
         return contentCatalogRepository.findAllForAdministration(
                 normalizedTitleQuery,
+                watchLinkFilter,
                 page,
                 size
         );

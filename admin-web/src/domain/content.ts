@@ -1,5 +1,6 @@
 export type ContentType = "SERIES" | "FILM";
 export type PublicationStatus = "DRAFT" | "PUBLISHED";
+export type WatchLinkFilter = "ALL" | "PRESENT" | "MISSING";
 
 export interface Episode {
   id: string;
@@ -39,6 +40,7 @@ export interface ContentSummary {
   coverAlternativeText: string | null;
   contentType: ContentType;
   publicationStatus: PublicationStatus;
+  hasWatchUrl: boolean;
   createdAt: string;
   updatedAt: string;
 }

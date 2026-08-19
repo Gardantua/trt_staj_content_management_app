@@ -59,7 +59,7 @@ public class TemporaryHeaderAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (requestedActorId == null || requestedRoles == null) {
-            rejectAuthentication(response, MISSING_HEADER_MESSAGE);
+            rejectAuthentication(request, response, MISSING_HEADER_MESSAGE);
             return;
         }
 
@@ -67,7 +67,7 @@ public class TemporaryHeaderAuthenticationFilter extends OncePerRequestFilter {
         try {
             actorId = UUID.fromString(requestedActorId);
         } catch (IllegalArgumentException invalidActorIdException) {
-            rejectAuthentication(response, INVALID_ACTOR_ID_MESSAGE);
+            rejectAuthentication(request, response, INVALID_ACTOR_ID_MESSAGE);
             return;
         }
 
@@ -75,7 +75,7 @@ public class TemporaryHeaderAuthenticationFilter extends OncePerRequestFilter {
         try {
             roles = parseRoles(requestedRoles);
         } catch (IllegalArgumentException invalidRolesException) {
-            rejectAuthentication(response, INVALID_ROLES_MESSAGE);
+            rejectAuthentication(request, response, INVALID_ROLES_MESSAGE);
             return;
         }
 
@@ -115,11 +115,16 @@ public class TemporaryHeaderAuthenticationFilter extends OncePerRequestFilter {
         return Set.copyOf(parsedRoles);
     }
 
-    private void rejectAuthentication(HttpServletResponse response, String safeFailureReason)
+    private void rejectAuthentication(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            String safeFailureReason
+    )
             throws IOException {
         SecurityContextHolder.clearContext();
         LOGGER.warn("Rejected temporary authentication headers: {}", safeFailureReason);
         errorResponseWriter.write(
+                request,
                 response,
                 HttpServletResponse.SC_UNAUTHORIZED,
                 "AUTHENTICATION_INVALID",

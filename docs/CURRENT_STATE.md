@@ -1,5 +1,78 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 19.08.2026 Aşama 13B backend hata mesajı yerelleştirmesi
+
+- Backend hata zarfının `code`, HTTP durumu, `traceId` ve `timestamp` alanları
+  değiştirilmeden yalnız güvenli `message` alanı `Accept-Language` üzerinden Türkçe
+  veya İngilizce seçilir. Desteklenmeyen, eksik ya da bozuk dil başlığı Türkçeye düşer.
+- `ApiErrorMessageResolver`, hata kodunu `messages.properties` ve
+  `messages_en.properties` sözlüklerine bağlar. Controller/advice yolu mevcut locale
+  context'ini; security, CSRF, geçici kimlik ve rate-limit filtreleri doğrudan HTTP
+  isteğinin dil başlığını kullanır. Böylece domain exception sınıfları Spring'e veya
+  kullanıcı diline bağımlı hale gelmez.
+- Bilinen kullanıcı hataları için açık metinler bulunur. Yeni bir hata kodunun Türkçe
+  sözlük kaydı unutulursa güvenli genel Türkçe iş kuralı mesajı; İngilizce istekte ise
+  exception handler'ın mevcut güvenli İngilizce metni kullanılır. Exception ayrıntısı,
+  token veya kişisel veri istemciye eklenmez.
+- Kullanıcı, yönetim, authentication, form yükleme, medya ve CSRF istemcileri artık
+  saklanan `tr/en` tercihini bütün API isteklerinde `Accept-Language` olarak gönderir.
+  İlk entegrasyon testi, sistem locale fallback'inin Türkçe isteği İngilizceye
+  çevirebildiğini yakaladı; açık Türkçe varsayılan locale resolver ve sistem-locale
+  fallback'inin kapatılmasıyla düzeltildi.
+- Alternatif olarak domain exception metinlerini doğrudan çevirmek daha az dosya
+  üretirdi; fakat domain'i web isteğine/dile bağlar ve aynı hata kodunun farklı
+  katmanlarda tutarsız metin üretmesine yol açardı. Seçilen merkezi sözlük kararı
+  ADR-0037'de kayıtlıdır.
+- İş kuralı/test eşleşmesi: sözlük dil seçimi, desteklenmeyen dil ve güvenli fallback
+  `ApiErrorMessageResolverTest`; API 404, authentication ve code/trace korunumu
+  `ApplicationFoundationIntegrationTest`; CSRF reddinin Türkçe zarfı
+  `CsrfProtectionIntegrationTest`; frontend dil başlığı `auth-api.test.ts` ve mevcut
+  public API testleriyle korunur.
+- Testler: hedeflenen backend paketi `14/14`, tam Java 21 backend paketi `140/140`,
+  frontend Vitest `62/62` geçti. Strict TypeScript ve Vite production build başarılı;
+  mevcut büyük PDF/font chunk uyarısı devam eder.
+- Sıradaki tek iş: Kullanıcı yeni bir roadmap dilimini açıkça seçene kadar özellik
+  eklememek; ayrı operasyon işi olarak Oracle smoke ve dış backup/restore provasını
+  planlamak.
+
+## 19.08.2026 Aşama 13E liste performansı ve sade kullanılabilirlik
+
+- Son yavaşlamanın nedeni İngilizce katalog ve quiz listelerinde her kayıt için ayrı
+  çeviri sorguları çalıştırılmasıydı (`N+1`: ilk liste sorgusuna ek olarak kayıt sayısı
+  kadar tekrar sorgu). İçerik ve quiz çevirileri artık listedeki kimlikleri tek seferde
+  toplar; kök, alt öğe ve seçenek/bölüm verileri kayıt sayısından bağımsız en fazla üç
+  toplu sorguyla okunur. Redis veya yeni bir önbellek eklenmedi; veri güncelliği ve
+  PostgreSQL'in doğru kaynak olması korunur.
+- Yönetim kataloğuna `Tümü / Bağlantı var / Bağlantı eksik` filtresi ve her kartta sade
+  bağlantı durumu eklendi. Filtre sunucuda sayfalama ile birlikte uygulanır; arama
+  metnindeki `%`, `_` ve ters eğik çizgi joker olarak yorumlanmaz.
+- İzleme bağlantısı alanı yalnız istemci güvenlik kontrolünden geçen resmî tabii URL'si
+  için `Yeni sekmede kontrol et` eylemi gösterir. Kayıt başarılı olduğunda açık bildirim
+  verilir; değişiklik yoksa kayıt düğmesi pasiftir. Yeni sekme `noopener noreferrer`
+  korumasını sürdürür.
+- İçerik bilgisi veya izleme bağlantısı değiştirilip kaydedilmeden sayfadan/çalışma
+  alanından çıkılmak istenirse kullanıcıdan onay alınır. Yeni sekmede bağlantı kontrolü
+  mevcut sayfayı terk etmediği için gereksiz uyarı üretmez.
+- Ham `RESOURCE_NOT_FOUND` ve geçersiz izleme URL'si cevapları Türkçe/İngilizce daha
+  anlaşılır metne çevrildi; kararlı hata kodu ve trace ID görünür kalır.
+- Küçük ekranlarda kullanıcı ve yönetim gezinmesi yatay taşmaya dayanıklı hale getirildi;
+  çok dar ekranda marka/dil etiketi sadeleşir ve içerik kartları tek sütuna iner.
+  Quizde `Soru 3/10` ve ilerleme çubuğu zaten bulunduğu için ikinci bir gösterge
+  eklenmedi. Kullanıcının istemediği tabii kart ikonu da eklenmedi.
+- Kalıcı tercih ADR-0036'da kayıtlıdır. Alternatif bir çeviri önbelleği daha sonraki
+  okumaları hızlandırabilirdi; ancak invalidation, eski veri ve ek operasyon maliyeti
+  getirirdi. Mevcut problem sorgu şekliyle çözülebildiği için toplu PostgreSQL okuması
+  seçildi.
+- Testler: Java 21 ile tam backend paketi `136/136`, son değişiklikten sonra içerik
+  entegrasyon paketi `15/15`; frontend Vitest `62/62` geçti. Strict TypeScript ve Vite
+  production build başarılıdır. Mevcut büyük PDF/font chunk uyarısı devam eder.
+- Görsel tarayıcı kontrolü bu turda browser eklentisinin yerel güvenilir modül yolu
+  hatası nedeniyle açılamadı. Çalışan kullanıcı sunucuları kapatılmadı veya yeniden
+  başlatılmadı; kullanıcı güncel kodu kendisi başlattığında mobil ve masaüstü görünüm
+  son kez elle kontrol edilmelidir.
+- Sıradaki tek iş: Kullanıcı isterse Aşama 13B ile kalan backend hata metinlerine
+  `Accept-Language` desteği eklemek; aksi halde yeni özellik eklememek.
+
 ## 19.08.2026 Aşama 13D güvenli resmî tabii izleme bağlantısı
 
 - Film ve dizi detayına, yalnız içerikte doğrulanmış bir bağlantı bulunduğunda görünen

@@ -13,6 +13,7 @@ import com.trt.contentengagement.content.application.PageResult;
 import com.trt.contentengagement.content.application.EpisodeManagementService;
 import com.trt.contentengagement.content.application.SeasonManagementService;
 import com.trt.contentengagement.content.application.SeasonPlanItem;
+import com.trt.contentengagement.content.application.WatchLinkFilter;
 import com.trt.contentengagement.content.domain.ContentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -82,11 +83,12 @@ public class AdminContentController {
     @GetMapping
     public AdminContentPageResponse listContents(
             @RequestParam(defaultValue = "") @Size(max = 200) String query,
+            @RequestParam(defaultValue = "ALL") WatchLinkFilter watchLink,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
         return AdminContentPageResponse.from(
-                contentManagementService.listForAdministration(query, page, size)
+                contentManagementService.listForAdministration(query, watchLink, page, size)
         );
     }
 
@@ -332,6 +334,7 @@ public class AdminContentController {
             String description,
             String contentType,
             String publicationStatus,
+            boolean hasWatchUrl,
             String coverMediaId,
             String coverImageUrl,
             String coverAlternativeText,
@@ -348,6 +351,7 @@ public class AdminContentController {
                     contentSummary.description(),
                     contentSummary.contentType().name(),
                     contentSummary.publicationStatus().name(),
+                    contentSummary.hasWatchUrl(),
                     coverMediaId,
                     coverMediaId == null ? null : "/api/v1/media/" + coverMediaId + "/content",
                     contentSummary.coverAlternativeText(),

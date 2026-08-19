@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { ContentInput, ContentType } from "../domain/content";
+import { useUnsavedChanges } from "../hooks/useUnsavedChanges";
 import { useI18n } from "../i18n/I18nContext";
 
 interface ContentFormProps {
@@ -7,20 +8,33 @@ interface ContentFormProps {
   includeContentType: boolean;
   submitLabel: string;
   onSubmit: (input: ContentInput) => Promise<void>;
+  onDirtyChange?: (isDirty: boolean) => void;
+  manageNavigationWarning?: boolean;
 }
 
-export function ContentForm({ initialValue, includeContentType, submitLabel, onSubmit }: ContentFormProps) {
+export function ContentForm({ initialValue, includeContentType, submitLabel, onSubmit, onDirtyChange, manageNavigationWarning = true }: ContentFormProps) {
   const { t } = useI18n();
   const [title, setTitle] = useState(initialValue?.title ?? "");
   const [description, setDescription] = useState(initialValue?.description ?? "");
   const [contentType, setContentType] = useState<ContentType>(initialValue?.contentType ?? "SERIES");
+  const [savedValue, setSavedValue] = useState<ContentInput>(() => normalizedInput(
+    initialValue?.title ?? "", initialValue?.description ?? "", initialValue?.contentType ?? "SERIES"));
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const currentValue = normalizedInput(title, description, contentType);
+  const isDirty = currentValue.title !== savedValue.title
+    || currentValue.description !== savedValue.description
+    || currentValue.contentType !== savedValue.contentType;
+
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  useUnsavedChanges(manageNavigationWarning && isDirty, t("admin.unsavedChangesConfirm"));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      await onSubmit({ title: title.trim(), description: description.trim(), contentType });
+      await onSubmit(currentValue);
+      setSavedValue(currentValue);
     } finally {
       setIsSubmitting(false);
     }
@@ -59,4 +73,8 @@ export function ContentForm({ initialValue, includeContentType, submitLabel, onS
       <div className="form-actions"><button className="button-primary" type="submit" disabled={isSubmitting}>{isSubmitting ? t("common.saving") : submitLabel}</button></div>
     </form>
   );
+}
+
+function normalizedInput(title: string, description: string, contentType: ContentType): ContentInput {
+  return { title: title.trim(), description: description.trim(), contentType };
 }
