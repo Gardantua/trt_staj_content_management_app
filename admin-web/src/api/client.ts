@@ -1,5 +1,6 @@
 import type { LocalActor } from "../auth/actor";
 import { CsrfTokenClient } from "./csrf";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 
 export interface ApiError {
   code: string;
@@ -42,7 +43,7 @@ export async function readApiError(response: Response): Promise<ApiRequestError>
 
   return new ApiRequestError({
     code: typeof body.code === "string" ? body.code : "UNEXPECTED_API_ERROR",
-    message: typeof body.message === "string" ? body.message : "İstek tamamlanamadı.",
+    message: typeof body.message === "string" ? body.message : translate(readStoredLanguage(), "error.requestFailed"),
     traceId: typeof body.traceId === "string" ? body.traceId : "unavailable",
     status: response.status
   });
@@ -61,6 +62,7 @@ export class ApiClient {
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("Accept", "application/json");
+    headers.set("Accept-Language", readStoredLanguage());
     if (init.body !== undefined) {
       headers.set("Content-Type", "application/json");
     }
@@ -78,7 +80,7 @@ export class ApiClient {
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
-        message: "Yönetim API'sine ulaşılamadı.",
+        message: translate(readStoredLanguage(), "error.adminUnavailable"),
         traceId: "unavailable",
         status: 0
       });
@@ -94,7 +96,7 @@ export class ApiClient {
   }
 
   async requestForm<T>(path: string, formData: FormData, init: Omit<RequestInit, "body" | "headers"> = {}): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({ Accept: "application/json", "Accept-Language": readStoredLanguage() });
     if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
@@ -109,7 +111,7 @@ export class ApiClient {
     } catch {
       throw new ApiRequestError({
         code: "NETWORK_UNAVAILABLE",
-        message: "Yönetim API'sine ulaşılamadı.",
+        message: translate(readStoredLanguage(), "error.adminUnavailable"),
         traceId: "unavailable",
         status: 0
       });
@@ -125,7 +127,7 @@ export class ApiClient {
   }
 
   async requestBlob(path: string): Promise<Blob> {
-    const headers = new Headers();
+    const headers = new Headers({ "Accept-Language": readStoredLanguage() });
     if (this.actor?.id) {
       headers.set("X-Test-Actor-Id", this.actor.id);
       headers.set("X-Test-Actor-Roles", this.actor.roles.join(","));
@@ -136,7 +138,7 @@ export class ApiClient {
         headers, credentials: "same-origin"
       });
     } catch {
-      throw new ApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel alınamadı.", traceId: "unavailable", status: 0 });
+      throw new ApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.imageUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await readApiError(response);
     return response.blob();

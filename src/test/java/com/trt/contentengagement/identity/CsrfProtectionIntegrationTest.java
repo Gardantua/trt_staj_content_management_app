@@ -41,9 +41,13 @@ class CsrfProtectionIntegrationTest {
     void rejectsUnsafeRequestWithoutTokenAndAcceptsTheIssuedToken() throws Exception {
         HttpClient unprotectedClient = HttpClient.newHttpClient();
         HttpResponse<String> rejected = unprotectedClient.send(
-                registrationRequest(null, null), HttpResponse.BodyHandlers.ofString()
+                registrationRequest(null, null, "tr"), HttpResponse.BodyHandlers.ofString()
         );
         assertThat(rejected.statusCode()).isEqualTo(403);
+        assertThat(rejected.body())
+                .contains("\"code\":\"ACCESS_DENIED\"")
+                .contains("\"message\":\"Bu işlemi yapmaya yetkiniz bulunmuyor.\"")
+                .contains("\"traceId\":");
 
         CookieManager cookieManager = new CookieManager();
         HttpClient protectedClient = HttpClient.newBuilder()
@@ -62,7 +66,8 @@ class CsrfProtectionIntegrationTest {
         HttpResponse<String> accepted = protectedClient.send(
                 registrationRequest(
                         csrfToken.get("headerName").asText(),
-                        cookieToken
+                        cookieToken,
+                        "en"
                 ),
                 HttpResponse.BodyHandlers.ofString()
         );
@@ -72,9 +77,14 @@ class CsrfProtectionIntegrationTest {
         assertThat(accepted.body()).contains("\"roles\":[\"USER\"]");
     }
 
-    private HttpRequest registrationRequest(String csrfHeaderName, String csrfToken) {
+    private HttpRequest registrationRequest(
+            String csrfHeaderName,
+            String csrfToken,
+            String language
+    ) {
         HttpRequest.Builder request = HttpRequest.newBuilder(uri("/api/v1/auth/register"))
                 .header("Content-Type", "application/json")
+                .header("Accept-Language", language)
                 .POST(HttpRequest.BodyPublishers.ofString("""
                         {"email":"csrf@example.com","displayName":"CSRF User","password":"secret123"}
                         """));

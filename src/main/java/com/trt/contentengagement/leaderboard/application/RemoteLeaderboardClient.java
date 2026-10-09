@@ -20,7 +20,6 @@ public class RemoteLeaderboardClient {
     private final RestClient restClient;
 
     public RemoteLeaderboardClient(
-            RestClient.Builder restClientBuilder,
             @Value("${app.leaderboard.service-base-url:http://localhost:8082}") String baseUrl
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
@@ -29,7 +28,7 @@ public class RemoteLeaderboardClient {
         JdkClientHttpRequestFactory requestFactory =
                 new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(2));
-        this.restClient = restClientBuilder
+        this.restClient = RestClient.builder()
                 .requestFactory(requestFactory)
                 .baseUrl(baseUrl)
                 .build();

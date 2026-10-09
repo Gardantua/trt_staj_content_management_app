@@ -13,6 +13,9 @@ describe("AuthApi", () => {
 
     await new AuthApi().register("yunus@example.com", "Yunus", "secret123");
 
+    const requestHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Headers;
+    expect(requestHeaders.get("Accept-Language")).toBe("tr");
+
     expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/v1/auth/register", expect.objectContaining({
       method: "POST",
       credentials: "same-origin",

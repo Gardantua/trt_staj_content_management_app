@@ -1,5 +1,6 @@
 import type { LocalActor } from "../auth/actor";
 import { CsrfTokenClient } from "../api/csrf";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 import type { AnswerSubmissionResult, CurrentActor, Leaderboard, PublicApiError, PublicContent, PublicContentPage, PublishedQuiz, PublishedQuizSummary, QuizAttempt, QuizResultSummary, XpSummary } from "./types";
 
 export class PublicApiRequestError extends Error implements PublicApiError {
@@ -23,7 +24,7 @@ export async function toApiError(response: Response): Promise<PublicApiRequestEr
   try { body = await response.json() as ErrorBody; } catch { /* A proxy error can be plain text. */ }
   return new PublicApiRequestError({
     code: typeof body.code === "string" ? body.code : "UNEXPECTED_API_ERROR",
-    message: typeof body.message === "string" ? body.message : "İstek tamamlanamadı.",
+    message: typeof body.message === "string" ? body.message : translate(readStoredLanguage(), "error.requestFailed"),
     traceId: typeof body.traceId === "string" ? body.traceId : "unavailable",
     status: response.status
   });
@@ -41,7 +42,7 @@ export class PublicApi {
   }
 
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const headers = new Headers({ Accept: "application/json" });
+    const headers = new Headers({ Accept: "application/json", "Accept-Language": readStoredLanguage() });
     new Headers(init.headers).forEach((value, name) => headers.set(name, value));
     if (init.body !== undefined) headers.set("Content-Type", "application/json");
     if (this.actor?.id) {
@@ -52,7 +53,7 @@ export class PublicApi {
     let response: Response;
     try { response = await fetch(`${this.baseUrl}${path}`, { ...init, headers, credentials: "same-origin" }); }
     catch {
-      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "İçerik servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
+      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.contentUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await toApiError(response);
     if (response.status === 204) return undefined as T;
@@ -106,6 +107,9 @@ export class PublicApi {
   startNextQuestion(attemptId: string): Promise<QuizAttempt> {
     return this.request(`/api/v1/attempts/${attemptId}/next-question`, { method: "POST" });
   }
+  abandonAttempt(attemptId: string): Promise<QuizAttempt> {
+    return this.request(`/api/v1/attempts/${attemptId}/abandon`, { method: "POST" });
+  }
   getXp(): Promise<XpSummary> { return this.get("/api/v1/me/xp"); }
   getIdentity(): Promise<CurrentActor> { return this.get("/api/v1/identity/me"); }
   getGlobalLeaderboard(): Promise<Leaderboard> { return this.get("/api/v1/leaderboards/global?limit=10"); }
@@ -127,7 +131,7 @@ export class PublicApi {
     let response: Response;
     try { response = await fetch(`${this.baseUrl}${path}`, { headers, credentials: "same-origin" }); }
     catch {
-      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: "Görsel servisine ulaşılamadı.", traceId: "unavailable", status: 0 });
+      throw new PublicApiRequestError({ code: "NETWORK_UNAVAILABLE", message: translate(readStoredLanguage(), "error.mediaUnavailable"), traceId: "unavailable", status: 0 });
     }
     if (!response.ok) throw await toApiError(response);
     return response.blob();

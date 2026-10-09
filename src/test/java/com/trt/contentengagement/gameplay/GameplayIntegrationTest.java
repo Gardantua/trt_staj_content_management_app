@@ -251,8 +251,39 @@ class GameplayIntegrationTest {
         JsonNode results = json(response);
         assertThat(results).hasSize(1);
         assertThat(results.get(0).get("quizId").stringValue()).isEqualTo(quiz.quizId());
-        assertThat(results.get(0).get("earnedXp").intValue()).isZero();
+        assertThat(results.get(0).get("earnedXp").intValue()).isEqualTo(20);
         assertThat(results.get(0).has("score")).isFalse();
+    }
+
+    @Test void userCanAbandonAttemptEarlyAndKeepFirstCompletionXpAndStartFreshNextTime() throws Exception {
+        QuizFixture quiz = publishedQuiz();
+        String firstAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        answer(firstAttemptId, quiz.q1(), quiz.q1Correct(), "abandon-1", USER_ID);
+
+        HttpResponse<String> abandonResponse = send(
+                "POST", "/api/v1/attempts/" + firstAttemptId + "/abandon",
+                null, USER_ID, "USER", null
+        );
+        assertThat(abandonResponse.statusCode()).isEqualTo(200);
+        JsonNode abandoned = json(abandonResponse);
+        assertThat(abandoned.get("status").stringValue()).isEqualTo("COMPLETED");
+        assertThat(abandoned.get("score").intValue()).isEqualTo(10);
+        assertThat(abandoned.get("earnedXp").intValue()).isEqualTo(10);
+
+        consumeCompletionEvent(firstAttemptId);
+        assertThat(send("GET", "/api/v1/me/xp", null, USER_ID, "USER", null).body())
+                .contains("\"totalXp\":10", "\"transactionCount\":1");
+
+        String freshAttemptId = json(send(
+                "POST", "/api/v1/quizzes/" + quiz.quizId() + "/attempts",
+                null, USER_ID, "USER", null
+        )).get("attemptId").stringValue();
+        assertThat(freshAttemptId).isNotEqualTo(firstAttemptId);
+        JsonNode freshAttempt = json(send("GET", "/api/v1/attempts/" + freshAttemptId, null, USER_ID, "USER", null));
+        assertThat(freshAttempt.get("answeredQuestionCount").intValue()).isZero();
     }
 
     @Test void parallelAnswersToSameQuestionProduceOnePersistentAnswer() throws Exception {

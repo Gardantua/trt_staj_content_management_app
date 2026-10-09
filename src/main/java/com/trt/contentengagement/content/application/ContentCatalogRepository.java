@@ -15,6 +15,7 @@ public interface ContentCatalogRepository {
 
     PageResult<AdminContentSummary> findAllForAdministration(
             String normalizedTitleQuery,
+            WatchLinkFilter watchLinkFilter,
             int page,
             int size
     );

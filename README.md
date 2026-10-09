@@ -22,6 +22,7 @@ React · TypeScript · Docker Compose · Testcontainers
 - Sonuçlarını, toplam XP'sini ve global/içerik bazlı sıralamasını görür.
 - Editör içerik, sezon, bölüm, medya ve quiz taslaklarını yönetir; quiz sürümünü
   yayınlar. Yayınlanmış sürümde değişiklik için yeni bir taslak oluşturulur.
+- Kullanıcı ve yönetim arayüzleri Türkçe ve İngilizce sunumu destekler.
 
 ## Projede yaptığım çalışmalar
 
@@ -31,7 +32,8 @@ React · TypeScript · Docker Compose · Testcontainers
   transaction ve PostgreSQL tekillik kurallarıyla engelledim.
 - Quiz sonucundan XP üreten akışı RabbitMQ ve Outbox/Inbox ile asenkron hale getirdim.
 - Leaderboard'u kendi PostgreSQL ve Redis verisine sahip ayrı bir servise çıkardım.
-- Kullanıcı ve yönetim arayüzlerini React ve TypeScript ile geliştirdim.
+- Kullanıcı ve yönetim arayüzlerini React ve TypeScript ile geliştirdim;
+  Türkçe ve İngilizce dil desteği ekledim.
 - İş kuralları ve entegrasyonlar için testler yazdım. Altyapı testlerinde
   Testcontainers kullandım.
 - Uygulamayı Docker Compose ve Caddy ile Oracle Cloud üzerinde HTTPS üzerinden yayımladım.

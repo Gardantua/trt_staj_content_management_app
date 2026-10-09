@@ -30,6 +30,9 @@ class JpaContentEntity {
     @Column(length = 2000)
     private String description;
 
+    @Column(name = "watch_url", length = 500)
+    private String watchUrl;
+
     @Column(name = "cover_media_id")
     private UUID coverMediaId;
 
@@ -61,6 +64,7 @@ class JpaContentEntity {
             UUID id,
             String title,
             String description,
+            String watchUrl,
             UUID coverMediaId,
             String coverAlternativeText,
             ContentType contentType,
@@ -71,6 +75,7 @@ class JpaContentEntity {
         this.id = id;
         this.title = title;
         this.description = description;
+        this.watchUrl = watchUrl;
         this.coverMediaId = coverMediaId;
         this.coverAlternativeText = coverAlternativeText;
         this.contentType = contentType;
@@ -95,6 +100,8 @@ class JpaContentEntity {
     String description() {
         return description;
     }
+
+    String watchUrl() { return watchUrl; }
 
     UUID coverMediaId() { return coverMediaId; }
 

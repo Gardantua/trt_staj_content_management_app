@@ -60,6 +60,7 @@ public class ApiRateLimitFilter extends OncePerRequestFilter {
             rejectedCounter.increment();
             response.setHeader("Retry-After", Long.toString(decision.retryAfterSeconds()));
             errorResponseWriter.write(
+                    request,
                     response,
                     HttpStatus.TOO_MANY_REQUESTS.value(),
                     "RATE_LIMIT_EXCEEDED",

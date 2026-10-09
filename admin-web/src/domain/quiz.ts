@@ -65,3 +65,10 @@ export interface QuestionInput {
   accessiblePrompt: string | null;
   answerOptions: Array<{ optionOrder: number; text: string; correct: boolean }>;
 }
+
+export interface QuizTranslation {
+  title: string;
+  description: string | null;
+  fallbackAlternativeText: string | null;
+  questions: Array<{ questionId: string; prompt: string; visualAlternativeText: string | null; accessiblePrompt: string | null; answerOptions: Array<{ optionId: string; text: string }> }>;
+}

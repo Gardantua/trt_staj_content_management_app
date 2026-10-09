@@ -12,6 +12,7 @@ public class Content {
     private final UUID id;
     private String title;
     private String description;
+    private String watchUrl;
     private UUID coverMediaId;
     private String coverAlternativeText;
     private final ContentType contentType;
@@ -24,6 +25,7 @@ public class Content {
             UUID id,
             String title,
             String description,
+            String watchUrl,
             UUID coverMediaId,
             String coverAlternativeText,
             ContentType contentType,
@@ -43,6 +45,7 @@ public class Content {
         this.seasons = new ArrayList<>(Objects.requireNonNull(seasons, "seasons must not be null"));
         this.title = ContentText.requireTitle(title);
         this.description = ContentText.normalizeDescription(description);
+        this.watchUrl = OfficialWatchUrl.normalizeNullable(watchUrl);
         this.coverMediaId = coverMediaId;
         this.coverAlternativeText = normalizeCoverAlternativeText(
                 coverMediaId, coverAlternativeText
@@ -62,6 +65,7 @@ public class Content {
                 description,
                 null,
                 null,
+                null,
                 contentType,
                 PublicationStatus.DRAFT,
                 createdAt,
@@ -74,6 +78,7 @@ public class Content {
             UUID id,
             String title,
             String description,
+            String watchUrl,
             UUID coverMediaId,
             String coverAlternativeText,
             ContentType contentType,
@@ -86,6 +91,7 @@ public class Content {
                 id,
                 title,
                 description,
+                watchUrl,
                 coverMediaId,
                 coverAlternativeText,
                 contentType,
@@ -99,6 +105,11 @@ public class Content {
     public void updateDetails(String title, String description, Instant changedAt) {
         this.title = ContentText.requireTitle(title);
         this.description = ContentText.normalizeDescription(description);
+        this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
+    }
+
+    public void setWatchUrl(String watchUrl, Instant changedAt) {
+        this.watchUrl = OfficialWatchUrl.normalizeNullable(watchUrl);
         this.updatedAt = Objects.requireNonNull(changedAt, "changedAt must not be null");
     }
 
@@ -232,6 +243,10 @@ public class Content {
 
     public String description() {
         return description;
+    }
+
+    public String watchUrl() {
+        return watchUrl;
     }
 
     public UUID coverMediaId() { return coverMediaId; }

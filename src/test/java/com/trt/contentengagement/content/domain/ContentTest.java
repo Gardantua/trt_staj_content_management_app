@@ -78,6 +78,40 @@ class ContentTest {
     }
 
     @Test
+    void watchUrlAcceptsOnlyOfficialQuerylessHttpsTabiiDetailPages() {
+        Content film = Content.create("Kesişme", null, ContentType.FILM, INITIAL_TIME);
+
+        film.setWatchUrl(
+                "  HTTPS://WWW.TABII.COM/tr/detail/115660/ibi  ",
+                INITIAL_TIME.plusSeconds(1)
+        );
+
+        assertThat(film.watchUrl()).isEqualTo("https://www.tabii.com/tr/detail/115660/ibi");
+        film.setWatchUrl(
+                "https://www.tabii.com/detail/588337",
+                INITIAL_TIME.plusSeconds(2)
+        );
+        assertThat(film.watchUrl()).isEqualTo("https://www.tabii.com/detail/588337");
+        assertThatThrownBy(() -> film.setWatchUrl(
+                "javascript:alert(1)", INITIAL_TIME.plusSeconds(3)
+        )).isInstanceOfSatisfying(ContentRuleViolationException.class,
+                exception -> assertThat(exception.errorCode())
+                        .isEqualTo("CONTENT_WATCH_URL_INVALID"));
+        assertThatThrownBy(() -> film.setWatchUrl(
+                "https://tabii.com.example.org/tr/detail/115660/ibi",
+                INITIAL_TIME.plusSeconds(4)
+        )).isInstanceOf(ContentRuleViolationException.class);
+        assertThatThrownBy(() -> film.setWatchUrl(
+                "https://www.tabii.com/tr/detail/115660?next=https://evil.example",
+                INITIAL_TIME.plusSeconds(5)
+        )).isInstanceOf(ContentRuleViolationException.class);
+        assertThatThrownBy(() -> film.setWatchUrl(
+                "https://www.tabii.com/tr/detail/115660/ibi%2Fevil",
+                INITIAL_TIME.plusSeconds(6)
+        )).isInstanceOf(ContentRuleViolationException.class);
+    }
+
+    @Test
     void publishedSeriesAllowsOnlyAppendingToItsHierarchy() {
         Content series = Content.create("Teşkilat", null, ContentType.SERIES, INITIAL_TIME);
         Season firstSeason = series.addSeason(1, "Birinci Sezon", INITIAL_TIME);

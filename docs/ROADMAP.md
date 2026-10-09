@@ -22,6 +22,19 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
   `xp.changed.v1`, bağımsız PostgreSQL/Redis ve özellik bayraklı geçiş.
 - Aşama 12: Oracle Always Free hedefli tek sunucu production paketi, aynı-origin
   HTTPS, CSRF koruması, gerçek admin oturumu ve tek kullanımlık ilk admin oluşturma.
+- Aşama 13A: Kullanıcı ve yönetici web arayüzlerinin tip kontrollü Türkçe–İngilizce
+  sözlük, kalıcı dil tercihi, erişilebilir dil seçici ve yerelleştirilmiş PDF şablonuyla
+  iki dilli hale getirilmesi.
+- Aşama 13B: Backend API, authentication, authorization, CSRF ve rate-limit hata
+  mesajlarının `Accept-Language` ile Türkçe–İngilizce seçilmesi; kararlı hata kodu,
+  HTTP durumu ve trace ID sözleşmesinin korunması.
+- Aşama 13C: Film/dizi, sezon/bölüm ve quiz metinlerinin aynı domain kimliklerine bağlı
+  İngilizce sunum projeksiyonları, admin çeviri alanları ve `Accept-Language` seçimi.
+- Aşama 13D: Film ve dizi detaylarında editörün yönettiği, yalnız HTTPS resmî tabii
+  içerik sayfalarını kabul eden ve güvenli yeni sekmede açılan izleme bağlantısı.
+- Aşama 13E: İngilizce katalog/quiz listelerinde toplu çeviri okuması ile performans
+  düzeltmesi; izleme bağlantısı yönetim filtresi, güvenli bağlantı kontrolü, kayıt ve
+  kaydedilmemiş değişiklik geri bildirimi, anlaşılır hata metinleri ve mobil başlık rötuşları.
 
 ## Güncel ürün durumu
 
@@ -56,11 +69,9 @@ sonraki aşamaya, yeni teknolojiye veya MVP dışı özelliğe geçilmez.
 
 ## Sıradaki iş
 
-Aşama 12 repository hazırlığı tamamlandı. Sıradaki tek iş Oracle VM, domain ve
-firewall'u hazırlayıp production Compose'u hedef sunucuda çalıştırmak; ardından
-health, kullanıcı girişi, `/admin` girişi, şifre sıfırlama ve leaderboard için smoke
-test ile ilk şifreli dış yedek/restore provasını yapmaktır. Eski monolith leaderboard
-modülü, XP replay ve sonuç eşitliği ayrıca doğrulanmadan kaldırılmaz.
+Aşama 13A–13E tamamlandı. Kullanıcı yeni bir roadmap dilimini açıkça seçmeden yeni
+özellik eklenmeyecektir. Oracle VM smoke testi ve ilk dış backup/restore provası ayrı
+operasyon işi olarak açık kalır.
 
 ## Arşiv
 

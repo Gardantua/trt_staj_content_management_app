@@ -1,4 +1,5 @@
 import { ApiClient } from "./client";
+import { readStoredLanguage, translate } from "../i18n/I18nContext";
 
 export interface MediaAsset {
   id: string;
@@ -32,8 +33,8 @@ export class MediaApi {
       const reader = new FileReader();
       reader.onload = () => typeof reader.result === "string"
         ? resolve(reader.result)
-        : reject(new Error("Görsel PDF için okunamadı."));
-      reader.onerror = () => reject(reader.error ?? new Error("Görsel PDF için okunamadı."));
+        : reject(new Error(translate(readStoredLanguage(), "error.pdfImageUnavailable")));
+      reader.onerror = () => reject(reader.error ?? new Error(translate(readStoredLanguage(), "error.pdfImageUnavailable")));
       reader.readAsDataURL(imageBlob);
     });
   }

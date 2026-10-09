@@ -1,17 +1,26 @@
 import { ApiClient } from "./client";
-import type { Content, ContentInput, ContentPage, CoverBindingInput, EpisodeInput, SeasonInput, SeasonPlanInput } from "../domain/content";
+import type { Content, ContentInput, ContentPage, ContentTranslation, CoverBindingInput, EpisodeInput, SeasonInput, SeasonPlanInput, WatchLinkFilter } from "../domain/content";
 
 export class ContentApi {
   constructor(private readonly client: ApiClient) {}
 
-  list(page: number, size: number, query = ""): Promise<ContentPage> {
+  list(page: number, size: number, query = "", watchLink: WatchLinkFilter = "ALL"): Promise<ContentPage> {
     const parameters = new URLSearchParams({ page: String(page), size: String(size) });
     if (query.trim()) parameters.set("query", query.trim());
+    if (watchLink !== "ALL") parameters.set("watchLink", watchLink);
     return this.client.request(`/api/v1/admin/contents?${parameters.toString()}`);
   }
 
   get(contentId: string): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}`);
+  }
+
+  getTranslation(contentId: string): Promise<ContentTranslation> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/translations/en`);
+  }
+
+  saveTranslation(contentId: string, input: ContentTranslation): Promise<ContentTranslation> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/translations/en`, { method: "PUT", body: JSON.stringify(input) });
   }
 
   create(input: ContentInput): Promise<Content> {
@@ -20,6 +29,10 @@ export class ContentApi {
 
   update(contentId: string, input: Pick<ContentInput, "title" | "description">): Promise<Content> {
     return this.client.request(`/api/v1/admin/contents/${contentId}`, { method: "PUT", body: JSON.stringify(input) });
+  }
+
+  setWatchUrl(contentId: string, watchUrl: string): Promise<Content> {
+    return this.client.request(`/api/v1/admin/contents/${contentId}/watch-url`, { method: "PUT", body: JSON.stringify({ watchUrl }) });
   }
 
   publish(contentId: string): Promise<Content> {

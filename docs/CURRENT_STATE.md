@@ -1,5 +1,23 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 09.10.2026 güncel uygulama kaynaklarının eşlenmesi
+
+- Canlı sunucuda bulunan Türkçe/İngilizce arayüzler, API hata çevirileri, içerik/quiz
+  çeviri projeksiyonları ve resmî izleme bağlantıları GitHub kaynaklarıyla eşlendi.
+  Yeni bir ürün aşaması uygulanmadı; mevcut çalışmaların kaynakları güncellendi.
+- README ve ADR dizini bu mevcut özellikleri yansıtıyor. Yerel rapor çıktıları,
+  CV, staj defteri ve portföy taslakları yayımlanmadı.
+- Güncel yerel sürümün Maven Wrapper verify sonucu: ana backend 140/140,
+  leaderboard 4/4. Frontend 62/62 test ve strict TypeScript/build başarılı.
+- Frontend Vitest 4.1.11'e yükseltildi; nanoid ve source-map-js kilit dosyasında
+  düzeltildi. npm audit ve OSV taramasında frontend güvenlik bulgusu kalmadı.
+- CI artık frontend test/build işini ve npm kilit dosyası güvenlik taramasını da
+  içeriyor. MessagingIntegrationTest'in mevcut yarış düzeltmesi kaynaklara dahil.
+- Canlı dağıtım yalnız gerekli güvenlik sürümlerini güncelliyor; veri ve mevcut
+  özellikler korunuyor. Sunucudaki rollback imajları ve PostgreSQL/medya yedekleri
+  dağıtım öncesinde hazırlandı. Bu, ayrı konumda felaket kurtarma yedeği değildir.
+- Sıradaki iş: Bu commit'in CI sonuçlarını ve canlı dağıtım kontrollerini doğrulamak.
+
 ## 09.10.2026 bağımlılık güvenlik güncellemesi
 
 - İki backend uygulaması Spring Boot 4.1.1'e güncellendi. Jackson 3.1.7,

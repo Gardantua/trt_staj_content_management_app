@@ -33,6 +33,7 @@ export interface PublicSeason {
 
 export interface PublicContent extends PublicContentSummary {
   publicationStatus: "PUBLISHED";
+  watchUrl: string | null;
   seasons: PublicSeason[];
 }
 

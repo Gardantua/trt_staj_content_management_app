@@ -12,6 +12,7 @@ public record AdminContentSummary(
         String description,
         ContentType contentType,
         PublicationStatus publicationStatus,
+        boolean hasWatchUrl,
         UUID coverMediaId,
         String coverAlternativeText,
         Instant createdAt,

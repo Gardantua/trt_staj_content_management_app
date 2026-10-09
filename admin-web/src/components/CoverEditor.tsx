@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { MediaAsset } from "../api/media-api";
 import type { Content, CoverBindingInput } from "../domain/content";
+import { useI18n } from "../i18n/I18nContext";
 
 interface CoverEditorProps {
   content: Content;
@@ -11,6 +12,7 @@ interface CoverEditorProps {
 }
 
 export function CoverEditor({ content, onUploadImage, onBindCover, onContentChanged, onError }: CoverEditorProps) {
+  const { t } = useI18n();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedAsset, setUploadedAsset] = useState<MediaAsset | null>(null);
   const [alternativeText, setAlternativeText] = useState(content.coverAlternativeText ?? "");
@@ -31,7 +33,7 @@ export function CoverEditor({ content, onUploadImage, onBindCover, onContentChan
     try {
       const asset = await onUploadImage(selectedFile);
       setUploadedAsset(asset);
-      setMessage("Görsel yüklendi. Şimdi alternatif metni kontrol edip kapağa bağlayın.");
+      setMessage(t("admin.imageUploaded"));
     } catch (reason) {
       onError(reason);
     } finally {
@@ -48,7 +50,7 @@ export function CoverEditor({ content, onUploadImage, onBindCover, onContentChan
       onContentChanged(await onBindCover({ mediaAssetId, alternativeText: alternativeText.trim() }));
       setUploadedAsset(null);
       setSelectedFile(null);
-      setMessage("Kapak içeriğe bağlandı. Yayın önkoşulu güncellendi.");
+      setMessage(t("admin.coverBoundMessage"));
     } catch (reason) {
       onError(reason);
     } finally {
@@ -58,28 +60,28 @@ export function CoverEditor({ content, onUploadImage, onBindCover, onContentChan
 
   return <section className="cover-editor" aria-labelledby="cover-heading">
     <div className="cover-editor__heading">
-      <div><p className="eyebrow">Yayın hazırlığı</p><h2 id="cover-heading">Kapak görseli</h2></div>
-      {content.coverMediaId && <p className="cover-status">Mevcut kapak bağlı</p>}
+      <div><p className="eyebrow">{t("admin.publishPreparation")}</p><h2 id="cover-heading">{t("admin.coverImage")}</h2></div>
+      {content.coverMediaId && <p className="cover-status">{t("admin.coverBound")}</p>}
     </div>
-    <p>Kapak, katalogda görünen görseldir. Yayın için zorunludur; önce dosyayı yükleyin, sonra içeriğe bağlayın.</p>
-    {content.coverMediaId && <p className="cover-reference">Bağlı medya: <code>{content.coverMediaId}</code></p>}
+    <p>{t("admin.coverHelp")}</p>
+    {content.coverMediaId && <p className="cover-reference">{t("admin.boundMedia")}: <code>{content.coverMediaId}</code></p>}
 
     <form className="cover-editor__form" onSubmit={upload}>
-      <label>Görsel dosyası
+      <label>{t("admin.imageFile")}
         <input type="file" accept="image/jpeg,image/png" onChange={(event) => { setSelectedFile(event.target.files?.[0] ?? null); setUploadedAsset(null); setMessage(null); }} />
       </label>
-      <p className="field-help">JPEG veya PNG seçin. En fazla 5 MB ve 4096 × 4096 piksel olabilir; dosya imzası ve görsel çözümü sunucuda tekrar doğrulanır.</p>
-      {selectedFile && <p className="selected-file">Seçilen dosya: <strong>{selectedFile.name}</strong> · {Math.ceil(selectedFile.size / 1024)} KB</p>}
-      <button className="button-secondary" disabled={!selectedFile || isUploading} type="submit">{isUploading ? "Yükleniyor…" : "Görseli yükle"}</button>
+      <p className="field-help">{t("admin.imageRequirements")}</p>
+      {selectedFile && <p className="selected-file">{t("admin.selectedFile")}: <strong>{selectedFile.name}</strong> · {Math.ceil(selectedFile.size / 1024)} KB</p>}
+      <button className="button-secondary" disabled={!selectedFile || isUploading} type="submit">{isUploading ? t("admin.uploading") : t("admin.uploadImage")}</button>
     </form>
 
-    {uploadedAsset && <p className="upload-result">Yüklenen dosya: {uploadedAsset.mimeType} · {uploadedAsset.width} × {uploadedAsset.height} px</p>}
+    {uploadedAsset && <p className="upload-result">{t("admin.uploadedFile")}: {uploadedAsset.mimeType} · {uploadedAsset.width} × {uploadedAsset.height} px</p>}
     <form className="cover-editor__form cover-editor__form--binding" onSubmit={bindCover}>
-      <label>Alternatif metin
-        <input value={alternativeText} maxLength={500} required onChange={(event) => setAlternativeText(event.target.value)} placeholder="Örn. Boğaz kıyısında gün batımını izleyen iki karakter" />
+      <label>{t("admin.alternativeText")}
+        <input value={alternativeText} maxLength={500} required onChange={(event) => setAlternativeText(event.target.value)} placeholder={t("admin.alternativeTextPlaceholder")} />
       </label>
-      <p className="field-help">Dosya adını değil, görseldeki anlamlı sahneyi kısa ve net biçimde yazın. Bu metin görseli göremeyen kullanıcılar içindir.</p>
-      <button className="button-primary" disabled={!mediaAssetId || !alternativeText.trim() || isBinding} type="submit">{isBinding ? "Bağlanıyor…" : content.coverMediaId ? "Kapağı güncelle" : "Kapağı bağla"}</button>
+      <p className="field-help">{t("admin.alternativeTextHelp")}</p>
+      <button className="button-primary" disabled={!mediaAssetId || !alternativeText.trim() || isBinding} type="submit">{isBinding ? t("admin.binding") : content.coverMediaId ? t("admin.updateCover") : t("admin.bindCover")}</button>
     </form>
     {message && <p className="cover-message" role="status">{message}</p>}
   </section>;

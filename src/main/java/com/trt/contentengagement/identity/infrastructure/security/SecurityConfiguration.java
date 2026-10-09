@@ -92,6 +92,7 @@ public class SecurityConfiguration {
                 .exceptionHandling(exceptions -> exceptions
                         .authenticationEntryPoint((request, response, exception) ->
                                 errorResponseWriter.write(
+                                        request,
                                         response,
                                         HttpServletResponse.SC_UNAUTHORIZED,
                                         "AUTHENTICATION_REQUIRED",
@@ -99,6 +100,7 @@ public class SecurityConfiguration {
                                 ))
                         .accessDeniedHandler((request, response, exception) ->
                                 errorResponseWriter.write(
+                                        request,
                                         response,
                                         HttpServletResponse.SC_FORBIDDEN,
                                         "ACCESS_DENIED",

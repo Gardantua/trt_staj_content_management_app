@@ -78,6 +78,13 @@ public class GameplayController {
         return gameplayService.complete(attemptId);
     }
 
+    @PostMapping("/attempts/{attemptId}/abandon")
+    public AttemptDetails abandon(
+            @PathVariable UUID attemptId
+    ) {
+        return gameplayService.abandon(attemptId);
+    }
+
     public record SubmitAnswerRequest(
             @NotNull UUID questionId,
             @NotNull UUID selectedOptionId

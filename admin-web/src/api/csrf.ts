@@ -1,3 +1,5 @@
+import { readStoredLanguage } from "../i18n/I18nContext";
+
 export interface CsrfTokenResponse {
   headerName: string;
   token: string;
@@ -25,7 +27,7 @@ export class CsrfTokenClient {
   private getToken(): Promise<CsrfTokenResponse> {
     if (!this.tokenRequest) {
       this.tokenRequest = fetch(`${this.baseUrl}/api/v1/auth/csrf`, {
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", "Accept-Language": readStoredLanguage() },
         credentials: "same-origin"
       }).then(async (response) => {
         if (!response.ok) throw new Error("CSRF token could not be obtained.");

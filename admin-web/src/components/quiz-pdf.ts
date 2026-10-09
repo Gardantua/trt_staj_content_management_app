@@ -2,6 +2,8 @@ import type { Content } from "../domain/content";
 import type { Quiz, QuizVersion } from "../domain/quiz";
 import type { MediaApi } from "../api/media-api";
 import type { Content as PdfContent, TDocumentDefinitions } from "pdfmake/interfaces";
+import { translate } from "../i18n/I18nContext";
+import type { Language } from "../i18n/types";
 
 export interface QuizPdfModel {
   fileName: string;
@@ -19,19 +21,19 @@ export interface QuizPdfModel {
   }>;
 }
 
-export function buildQuizPdfModel(content: Content, quiz: Quiz, version: QuizVersion, quizNumber: number): QuizPdfModel {
-  const scope = quiz.scopeType === "CONTENT" ? "İçerik geneli" : quiz.scopeType === "SEASON" ? "Sezon" : "Bölüm";
+export function buildQuizPdfModel(content: Content, quiz: Quiz, version: QuizVersion, quizNumber: number, language: Language = "tr"): QuizPdfModel {
+  const scope = translate(language, quiz.scopeType === "CONTENT" ? "viewer.generalContent" : quiz.scopeType === "SEASON" ? "pdf.scopeSeason" : "pdf.scopeEpisode");
   return {
     fileName: safeFileName(`${content.title}-quiz-${quizNumber}-v${version.versionNumber}.pdf`),
     title: version.title,
     metadataLines: [
-      `${content.contentType === "SERIES" ? "Dizi" : "Film"}: ${content.title}`,
-      `Quiz no: ${quizNumber} · Sürüm: ${version.versionNumber} · Durum: ${version.status}`,
-      `Kapsam: ${scope} · Soru süresi: 30 saniye · Soru sayısı: ${version.questions.length}`
+      `${translate(language, content.contentType === "SERIES" ? "common.series" : "common.film")}: ${content.title}`,
+      translate(language, "pdf.quizMetadata", { quiz: quizNumber, version: version.versionNumber, status: version.status }),
+      translate(language, "pdf.scopeMetadata", { scope, count: version.questions.length })
     ],
-    description: version.description?.trim() || "Açıklama eklenmemiş.",
+    description: version.description?.trim() || translate(language, "pdf.noDescription"),
     questions: version.questions.map((question, index) => ({
-      heading: `Soru ${question.questionOrder}`,
+      heading: translate(language, "admin.questionNumber", { number: question.questionOrder }),
       progress: `${index + 1} / ${version.questions.length}`,
       prompt: question.prompt,
       options: question.answerOptions.map((option) => ({ label: `${option.optionOrder}. ${option.text}`, correct: option.correct })),
@@ -46,8 +48,8 @@ export function buildQuizPdfModel(content: Content, quiz: Quiz, version: QuizVer
   };
 }
 
-export async function downloadQuizPdf(content: Content, quiz: Quiz, version: QuizVersion, quizNumber: number, mediaApi: MediaApi) {
-  const model = buildQuizPdfModel(content, quiz, version, quizNumber);
+export async function downloadQuizPdf(content: Content, quiz: Quiz, version: QuizVersion, quizNumber: number, mediaApi: MediaApi, language: Language = "tr") {
+  const model = buildQuizPdfModel(content, quiz, version, quizNumber, language);
   const imageDataByUrl = await loadPdfImages(model, mediaApi);
   const [{ default: pdfMake }, { default: vfs }] = await Promise.all([
     import("pdfmake/build/pdfmake"),
@@ -55,7 +57,7 @@ export async function downloadQuizPdf(content: Content, quiz: Quiz, version: Qui
   ]);
   pdfMake.addVirtualFileSystem(vfs);
   const documentContent: PdfContent[] = [
-    { text: "İÇERİK STÜDYOSU", color: "#177a60", bold: true, fontSize: 10, characterSpacing: 1.5 },
+    { text: translate(language, "pdf.studio"), color: "#177a60", bold: true, fontSize: 10, characterSpacing: 1.5 },
     { text: model.title, fontSize: 26, bold: true, color: "#17201d", margin: [0, 10, 0, 10] }
   ];
   model.metadataLines.forEach((line) => documentContent.push({ text: line, fontSize: 10, color: "#50615b", margin: [0, 2, 0, 0] }));
@@ -84,11 +86,11 @@ export async function downloadQuizPdf(content: Content, quiz: Quiz, version: Qui
         margin: [0, 0, 0, 8]
       })) as PdfContent[]
     );
-    if (question.imageAlternativeText) documentContent.push({ text: `Görsel açıklaması: ${question.imageAlternativeText}`, italics: true, fontSize: 9, color: "#687771", margin: [0, 6, 0, 2] });
-    if (question.accessiblePrompt) documentContent.push({ text: `Eşdeğer erişilebilir soru: ${question.accessiblePrompt}`, italics: true, fontSize: 9, color: "#687771" });
+    if (question.imageAlternativeText) documentContent.push({ text: translate(language, "pdf.imageDescription", { text: question.imageAlternativeText }), italics: true, fontSize: 9, color: "#687771", margin: [0, 6, 0, 2] });
+    if (question.accessiblePrompt) documentContent.push({ text: translate(language, "pdf.accessibleQuestion", { text: question.accessiblePrompt }), italics: true, fontSize: 9, color: "#687771" });
   });
   const definition: TDocumentDefinitions = {
-    info: { title: model.title, subject: `${content.title} cevap anahtarlı quiz`, creator: "İçerik Stüdyosu" },
+    info: { title: model.title, subject: translate(language, "pdf.subject", { title: content.title }), creator: translate(language, "admin.brand") },
     pageMargins: [44, 46, 44, 46],
     content: documentContent,
     footer: (currentPage, pageCount) => ({ text: `${currentPage} / ${pageCount}`, alignment: "center", fontSize: 8, color: "#7b8984" }),

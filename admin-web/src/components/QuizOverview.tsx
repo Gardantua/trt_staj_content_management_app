@@ -7,6 +7,7 @@ import type { Content } from "../domain/content";
 import type { Quiz, QuizSummary, QuizVersion } from "../domain/quiz";
 import { ApiErrorNotice } from "./ApiErrorNotice";
 import { downloadQuizPdf } from "./quiz-pdf";
+import { readStoredLanguage, translate, useI18n } from "../i18n/I18nContext";
 
 interface LoadedQuiz {
   content: Content;
@@ -23,6 +24,7 @@ interface QuizOverviewProps {
 }
 
 export function QuizOverview({ mode, contentApi, quizApi, mediaApi, navigate }: QuizOverviewProps) {
+  const { language, t } = useI18n();
   const [loadedQuizzes, setLoadedQuizzes] = useState<LoadedQuiz[]>([]);
   const [error, setError] = useState<ApiRequestError | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,44 +67,44 @@ export function QuizOverview({ mode, contentApi, quizApi, mediaApi, navigate }: 
 
   return <section className="quiz-overview">
     <div className="editor-heading">
-      <p className="eyebrow">{mode === "active" ? "Quiz işlemleri" : "Yayın geçmişi"}</p>
-      <h1>{mode === "active" ? "Quizler" : "Quiz geçmişi"}</h1>
-      <p>{mode === "active"
-        ? "Hazırlanan ve kullanıma açık quizleri tek yerden görüntüleyin. Yeni quiz için ilgili dizi veya filmi açın."
-        : "Kaldırılan quizleri ve sorular değiştiğinde korunan önceki sürümleri görüntüleyin."}</p>
+      <p className="eyebrow">{t(mode === "active" ? "admin.quizOperations" : "admin.publicationHistory")}</p>
+      <h1>{t(mode === "active" ? "admin.quizzes" : "admin.quizHistory")}</h1>
+      <p>{t(mode === "active" ? "admin.activeQuizIntro" : "admin.historyIntro")}</p>
     </div>
     <ApiErrorNotice error={error} />
-    {isLoading ? <p aria-live="polite">Quizler yükleniyor…</p> : mode === "active"
+    {isLoading ? <p aria-live="polite">{t("viewer.quizzesLoading")}</p> : mode === "active"
       ? <ActiveQuizList quizzes={activeQuizzes} navigate={navigate} />
-      : <QuizHistoryList entries={historyEntries} onDownload={async (entry, index) => {
-        try { await downloadQuizPdf(entry.content, entry.quiz, entry.version, index + 1, mediaApi); }
+      : <QuizHistoryList entries={historyEntries} language={language} onDownload={async (entry, index) => {
+        try { await downloadQuizPdf(entry.content, entry.quiz, entry.version, index + 1, mediaApi, language); }
         catch (reason) { setError(toApiError(reason)); }
       }} />}
   </section>;
 }
 
 function ActiveQuizList({ quizzes, navigate }: { quizzes: LoadedQuiz[]; navigate: (path: string) => void }) {
-  if (quizzes.length === 0) return <p className="notice">Henüz aktif veya hazırlanmakta olan quiz yok. İçerik yönetiminden bir dizi ya da film açarak quiz oluşturabilirsiniz.</p>;
+  const { t } = useI18n();
+  if (quizzes.length === 0) return <p className="notice">{t("admin.noActiveQuiz")}</p>;
   return <ul className="overview-list">{quizzes.map(({ content, summary }) => <li key={summary.id}><article>
-    <div><span>{content.contentType === "SERIES" ? "Dizi" : "Film"} · {content.title}</span><h2>{summary.title}</h2><p>{summary.questionCount} soru · {summary.status === "PUBLISHED" ? "Kullanıma açık" : "Hazırlanıyor"}</p></div>
-    <button className="button-primary" onClick={() => navigate(`/admin/contents/${content.id}?tab=quiz&quiz=${summary.id}`)}>Quizi aç</button>
+    <div><span>{t(content.contentType === "SERIES" ? "common.series" : "common.film")} · {content.title}</span><h2>{summary.title}</h2><p>{t("common.questions", { count: summary.questionCount })} · {t(summary.status === "PUBLISHED" ? "admin.available" : "admin.preparing")}</p></div>
+    <button className="button-primary" onClick={() => navigate(`/admin/contents/${content.id}?tab=quiz&quiz=${summary.id}`)}>{t("admin.openQuiz")}</button>
   </article></li>)}</ul>;
 }
 
 interface HistoryEntry extends LoadedQuiz { version: QuizVersion; }
 
-function QuizHistoryList({ entries, onDownload }: { entries: HistoryEntry[]; onDownload: (entry: HistoryEntry, index: number) => Promise<void> }) {
-  if (entries.length === 0) return <p className="notice">Henüz geçmişe taşınmış bir quiz veya eski sürüm yok.</p>;
+function QuizHistoryList({ entries, language, onDownload }: { entries: HistoryEntry[]; language: "tr" | "en"; onDownload: (entry: HistoryEntry, index: number) => Promise<void> }) {
+  const { t } = useI18n();
+  if (entries.length === 0) return <p className="notice">{t("admin.noQuizHistory")}</p>;
   return <ul className="overview-list">{entries.map((entry, index) => <li key={entry.version.id}><article>
-    <div><span>{entry.content.title} · Sürüm {entry.version.versionNumber}</span><h2>{entry.version.title}</h2><p>{entry.version.questions.length} soru · {formatDate(entry.version.archivedAt)}</p></div>
-    <button className="button-secondary" onClick={() => void onDownload(entry, index)}>Cevap anahtarını indir</button>
+    <div><span>{entry.content.title} · {t("admin.version", { number: entry.version.versionNumber })}</span><h2>{entry.version.title}</h2><p>{t("common.questions", { count: entry.version.questions.length })} · {formatDate(entry.version.archivedAt, language, t("admin.pastRecord"))}</p></div>
+    <button className="button-secondary" onClick={() => void onDownload(entry, index)}>{t("admin.downloadAnswerKey")}</button>
   </article></li>)}</ul>;
 }
 
-function formatDate(value: string | null) {
-  return value ? new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : "Geçmiş kayıt";
+function formatDate(value: string | null, language: "tr" | "en", fallback: string) {
+  return value ? new Intl.DateTimeFormat(language === "tr" ? "tr-TR" : "en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) : fallback;
 }
 
 function toApiError(reason: unknown) {
-  return reason instanceof ApiRequestError ? reason : new ApiRequestError({ code: "UNEXPECTED_CLIENT_ERROR", message: "Quizler yüklenirken beklenmeyen bir hata oluştu.", traceId: "unavailable", status: 0 });
+  return reason instanceof ApiRequestError ? reason : new ApiRequestError({ code: "UNEXPECTED_CLIENT_ERROR", message: translate(readStoredLanguage(), "admin.quizLoadUnexpected"), traceId: "unavailable", status: 0 });
 }

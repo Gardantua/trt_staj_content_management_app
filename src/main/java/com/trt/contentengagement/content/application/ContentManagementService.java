@@ -52,12 +52,14 @@ public class ContentManagementService {
     @Transactional(readOnly = true)
     public PageResult<AdminContentSummary> listForAdministration(
             String titleQuery,
+            WatchLinkFilter watchLinkFilter,
             int page,
             int size
     ) {
         String normalizedTitleQuery = titleQuery == null ? "" : titleQuery.strip();
         return contentCatalogRepository.findAllForAdministration(
                 normalizedTitleQuery,
+                watchLinkFilter,
                 page,
                 size
         );
@@ -70,6 +72,16 @@ public class ContentManagementService {
         content.updateDetails(title, description, occurredAt);
         Content savedContent = contentCatalogRepository.save(content);
         audit("CONTENT_UPDATED", "CONTENT", contentId, occurredAt);
+        return ContentDetails.from(savedContent);
+    }
+
+    @Transactional
+    public ContentDetails setWatchUrl(UUID contentId, String watchUrl) {
+        Instant occurredAt = clock.instant();
+        Content content = requireContent(contentId);
+        content.setWatchUrl(watchUrl, occurredAt);
+        Content savedContent = contentCatalogRepository.save(content);
+        audit("CONTENT_WATCH_URL_UPDATED", "CONTENT", contentId, occurredAt);
         return ContentDetails.from(savedContent);
     }
 
