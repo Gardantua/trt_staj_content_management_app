@@ -27,6 +27,9 @@ jobs:
       - name: Run build and integration tests
         run: bash ./mvnw --batch-mode verify
 
+      - name: Run leaderboard service build and integration tests
+        run: bash ./mvnw --batch-mode -f leaderboard-service/pom.xml verify
+
   dependency-sbom:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -43,16 +46,17 @@ jobs:
           cache: maven
 
       - name: Generate transitive CycloneDX SBOM
-        run: >-
-          bash ./mvnw --batch-mode
-          org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom
-          -DskipTests
+        run: |
+          bash ./mvnw --batch-mode org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom -DskipTests
+          bash ./mvnw --batch-mode -f leaderboard-service/pom.xml org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeBom -DskipTests
 
       - name: Upload dependency inventory
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: dependency-sbom
-          path: target/bom.json
+          path: |
+            target/bom.json
+            leaderboard-service/target/bom.json
           retention-days: 2
 
   dependency-scan:
@@ -61,7 +65,8 @@ jobs:
     with:
       download-artifact: dependency-sbom
       scan-args: |-
-        bom.json
+        target/bom.json
+        leaderboard-service/target/bom.json
     permissions:
       actions: read
       contents: read

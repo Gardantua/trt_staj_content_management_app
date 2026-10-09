@@ -1,5 +1,19 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 09.10.2026 bağımlılık güvenlik güncellemesi
+
+- İki backend uygulaması Spring Boot 4.1.1'e güncellendi. Jackson 3.1.7,
+  Netty 4.2.17.Final, RabbitMQ Java istemcisi 5.37.0, Tomcat 11.0.25 ve
+  Log4j 2.25.5 güvenlik düzeltmeleri kullanılıyor; Spring Framework 7.0.9 BOM'dan geliyor.
+- CI, leaderboard verify testlerini ve iki servisin SBOM taramasını kapsıyor.
+- Maven Wrapper ile iki uygulama ve test kaynakları derlendi. Ana backend'in
+  53 domain/mimari testi geçti. OSV ile 168 ana backend ve 106 leaderboard
+  bağımlılığı tarandı; bulgu çıkmadı.
+- Yerel Docker motoru açılamadığı için tam PostgreSQL/RabbitMQ/Redis entegrasyon
+  testlerinin doğrulama ortamı GitHub CI'dır; yerel derleme bu testlerin yerine geçmez.
+- Sürüm değişkenleri iki uygulamada eşlendi. İş kuralları ve veritabanı şeması değişmedi.
+- Canlı sunucu yeniden dağıtılmadı. Sıradaki iş bu commit'in CI sonuçlarını doğrulamak.
+
 ## 09.10.2026 README ve doküman düzenlemesi
 
 - README, staj bağlamı, geliştirilen bileşenler, veri akışı ve test kapsamıyla güncellendi.
