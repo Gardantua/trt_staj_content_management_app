@@ -1,4 +1,27 @@
-# TRT İçerik Etkileşim Backend Platformu
+# Hikaye İzi — İçerik Etkileşim ve Quiz Platformu
+
+TRT Yeni Medya Kanal Koordinatörlüğü Yazılım Geliştirme Departmanındaki
+27 Temmuz–21 Ağustos 2026 stajım kapsamında geliştirdiğim içerik etkileşim
+platformudur. TRT ve tabii içerikleri üzerinde quiz çözme, XP kazanma ve
+sıralama akışlarını uygular.
+
+**[Canlı demo](https://hikayeizi.duckdns.org/) · [Mimari](docs/ARCHITECTURE.md) · [Teknik kararlar](docs/DECISIONS/README.md)**
+
+## Projede yaptığım çalışmalar
+
+- Java 21 ve Spring Boot ile içerik yönetimi, quiz sürümleme ve REST API akışları.
+- Süre, cevap kabulü ve skorun sunucu tarafından belirlendiği quiz çözme modeli.
+- PostgreSQL constraint'leri ve tekrarlı işlemlerde mükerrer XP üretimini önleyen kurallar.
+- RabbitMQ ve Transactional Outbox/Inbox ile güvenilir asenkron mesajlaşma.
+- Kendi PostgreSQL ve Redis verisine sahip ayrı leaderboard servisi.
+- React ve TypeScript ile kullanıcı ve yönetim arayüzleri; Türkçe–İngilizce sunum.
+- Domain, API ve gerçek altyapıyla Testcontainers entegrasyon testleri.
+- Docker Compose, Caddy ve Oracle Cloud üzerinde HTTPS demo dağıtımı.
+
+Bu depo bir staj projesini belgeler; TRT/tabii'nin resmî üretim sistemi veya
+kurumsal kimlik entegrasyonu olduğu anlamına gelmez.
+
+## Backend'e genel bakış
 
 TRT ve tabii içeriklerini quiz ve oyunlaştırma yoluyla etkileşimli hale getiren,
 API-first bir backend projesidir. Ana kullanıcı akışı:
