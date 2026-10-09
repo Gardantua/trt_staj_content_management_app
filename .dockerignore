@@ -2,6 +2,15 @@
 .github
 .idea
 .vscode
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+output
+admin-web/node_modules
+admin-web/dist
 build
 docs
 leaderboard-service

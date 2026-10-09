@@ -23,9 +23,6 @@ mimari kararlarını ve sistem diyagramlarını içerir.
 SVG dosyaları GitHub üzerinde ölçeklenebilir biçimde görüntülenebilir. PlantUML
 kaynağı, diyagramların ileride kod üzerinden güncellenmesini sağlar.
 
-## PDF
-
-- [Proje tanımı PDF](PROJECT_SPECIFICATION.pdf)
-
-Bu görevde PDF yeniden üretilmemiş ve görsel kalite incelemesi yapılmamıştır.
-Markdown belge güncellemeleri PDF'e otomatik olarak yansımamıştır.
+Proje tanımı ve teknik açıklamalar Markdown dosyalarında tutuluyor. Eski PDF ve
+Word çıktıları, aynı bilginin farklı ve zamanla eskiyen kopyalarını repoda tutmamak
+için yayımlanan dosyalardan çıkarıldı.

@@ -102,7 +102,6 @@ Bu akışı kanıtlamayan teknoloji veya özellik MVP'ye eklenmez.
 - [Proje özeti](docs/PROJECT_BRIEF.md)
 - [Dokümantasyon ve diyagram dizini](docs/README.md)
 - [Resmî proje tanımı ve teknik isterler](docs/PROJECT_SPECIFICATION.md)
-- [PDF proje dokümanı](output/pdf/TRT_Icerik_Etkilesim_Backend_Proje_Dokumani.pdf)
 - [Mimari](docs/ARCHITECTURE.md)
 - [PlantUML sistem diyagramı](docs/diagrams/system-architecture.puml)
 - [Yol haritası](docs/ROADMAP.md)
@@ -110,8 +109,7 @@ Bu akışı kanıtlamayan teknoloji veya özellik MVP'ye eklenmez.
 - [Geliştirme zorlukları ve çözüm günlüğü](docs/DEVELOPMENT_CHALLENGES.md)
 - [Mimari kararlar](docs/DECISIONS/README.md)
 
-Uzun teknik referans:
-`TRT_Etkilesimli_Quiz_Platformu_Backend_Mimari_Raporu.docx`
+Eski PDF/Word çıktıları kaldırıldı; güncel teknik açıklamalar `docs/` altında tutuluyor.
 
 ## Çalışma yöntemi
 

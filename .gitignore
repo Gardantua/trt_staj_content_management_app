@@ -30,6 +30,15 @@ Thumbs.db
 ### Local environment ###
 .env
 .env.production
+.env.*
+!.env.example
+!.env.*.example
+!.env.template
+!.env.*.template
+*.pem
+*.key
+*.p12
+*.pfx
 *.local
 tmp/
 g*.txt
@@ -44,4 +53,18 @@ v2.puml
 admin-web/node_modules/
 admin-web/dist/
 
-
+### Report build artifacts and scratch ###
+output/github/
+output/docx/
+output/pdf/*_CV_*.pdf
+output/pdf/*.pdf
+gorseller/*.pdf
+TRT_Etkilesimli_Quiz_Platformu_Backend_Mimari_Raporu.docx
+docs/PROJECT_SPECIFICATION.pdf
+docs/RAPOR_TRT_TABII.pdf
+docs/RAPOR_TRT_TABII.html
+docs/STAJ_DEFTERI_2026_README.md
+docs/staj-defteri-2026-gorseller/
+docs/report-work/
+Untitled-*.svg
+quiz_attempt_process.png

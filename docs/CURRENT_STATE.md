@@ -1,5 +1,18 @@
 # Güncel Proje Durumu - Kısa Referans
 
+## 09.10.2026 README ve doküman düzenlemesi
+
+- README, staj bağlamı, geliştirilen bileşenler, veri akışı ve test kapsamıyla güncellendi.
+- İki quiz PDF'i, eski Word raporu ve iki tekrarlanan PDF çıktısı kaldırıldı.
+  Markdown kaynakları, mimari kararlar, testler ve kullanılan görseller korundu.
+- Ortam dosyaları, özel anahtarlar, yerel CV/taslaklar ve belge çıktıları Git ve
+  Docker dışlama kurallarına eklendi. Yerel dosyalar silinmedi.
+- README bağlantıları, dışlama kuralları ve diff kontrol edildi; yayımlanan Git
+  geçmişi ve yeni dosyalar Gitleaks ile tarandı, gizli bilgi bulgusu çıkmadı.
+- Kod değişmediği için uygulama testleri yeniden çalıştırılmadı. Görsel/OCR
+  incelemesi yapılmadı; görsellere gömülü bilgiler tarama kapsamı dışında.
+- Sıradaki iş: README ve kaldırılan dosyaların GitHub üzerinde doğrulanması.
+
 ## 13.08.2026 cevaptan sonra doğru cevap metni gösterimi
 
 - Kullanıcı soruyu yanlış cevapladığında veya süre dolduğunda çıkan `AnswerReveal` (puan/sonuç) kartına **doğru şıkkın metni** (`correctOptionText`) eklendi.
